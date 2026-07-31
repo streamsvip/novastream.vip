@@ -1,2 +1,13 @@
-# novastream.vip
-pryecto test garantia 3 meses
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="0; url=login.html">
+    <title>Redireccionando...</title>
+</head>
+<body>
+    <script>
+        window.location.replace("login.html");
+    </script>
+</body>
+</html>
