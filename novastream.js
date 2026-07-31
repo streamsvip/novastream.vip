@@ -1,0 +1,1224 @@
+/* =========================
+   CONFIG
+========================= */
+
+const NS_FB_CONFIG = {
+  apiKey: "AIzaSyAZW6nWtyDrhvyvLw0JwP_Mhgoa-Vk3Tl4",
+  authDomain: "nova-stream-13070.firebaseapp.com",
+  databaseURL: "https://nova-stream-13070-default-rtdb.firebaseio.com",
+  projectId: "nova-stream-13070",
+  storageBucket: "nova-stream-13070.firebasestorage.app",
+  messagingSenderId: "248510774791",
+  appId: "1:248510774791:web:354748958103298e1234a2",
+  measurementId: "G-C6DCXQKKHV"
+};
+
+const NS_LOGIN_URL = "login.html";
+const NS_REGISTRO_URL = "registro.html";
+const TIPO_CAMBIO = 3.40;
+const NS_WHATSAPP_FALLBACK = "51900000000";
+const NS_WHATSAPP_IMPULSO = "51916252754";
+
+/* =========================
+   ESTADO
+========================= */
+
+let productosCache = {};
+let proveedoresCache = {};
+
+let filtroCategoria = "todos";
+let filtroBusqueda = "";
+let filtroFavoritosActivo = false;
+
+let nsAuth = null, nsDb = null;
+let nsUid = null;
+let nsUsuario = { nombre: "Invitado", correo: "", rol: "cliente", saldoUsd: 0 };
+
+let nsFbActivo = false;
+let nsProductosListos = false;
+let nsSesionListo = false;
+let nsProcesandoPago = false;
+let nsRefUsuario = null;      // referencia activa al perfil (para desuscribir)
+
+/* =========================
+   HELPERS
+========================= */
+
+function fmt(v){ return "$" + Number(v || 0).toFixed(2); }
+function fmtPEN(v){ return "S/ " + (Number(v || 0) * TIPO_CAMBIO).toFixed(2); }
+
+function escaparHTML(s){
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
+}
+
+function esInvitado(){ return !nsUid; }
+
+function toast(msg){
+  const el = document.getElementById("toastAviso");
+  if (!el) return;
+  el.classList.remove("nsToastClicable");
+  el.onclick = null;
+  el.textContent = msg;
+  el.classList.add("visible");
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove("visible"), 2800);
+}
+
+function toastCarritoAgregado(nombre){
+  const el = document.getElementById("toastAviso");
+  if (!el) return;
+
+  el.innerHTML =
+    '<span class="nsToastMain">Añadido: ' + escaparHTML(nombre) + '</span>' +
+    '<span class="nsToastCTA">Ver carrito →</span>';
+
+  el.classList.add("visible", "nsToastClicable");
+
+  el.onclick = function(){
+    abrirCarrito();
+    el.classList.remove("visible", "nsToastClicable");
+    el.onclick = null;
+  };
+
+  clearTimeout(el._t);
+  el._t = setTimeout(() => {
+    el.classList.remove("visible", "nsToastClicable");
+    el.onclick = null;
+  }, 3200);
+}
+
+/* =========================
+   MODO DE SESIÓN (visitante / cliente)
+========================= */
+
+function nsAplicarModoSesion(){
+  const body = document.body;
+
+  body.classList.remove("nsSesionCargando");
+  body.classList.toggle("nsInvitado", esInvitado());
+  body.classList.toggle("nsAutenticado", !esInvitado());
+
+  nsSesionListo = true;
+
+  pintarSaldo();
+  pintarDrawerUsuario();
+  actualizarBadgeCarrito();
+
+  /* Los botones de las tarjetas cambian según el estado */
+  if (nsProductosListos) renderizarProductos();
+
+  /* Al cerrar sesión no dejamos un carrito colgando */
+  if (esInvitado()) {
+    cerrarCarrito();
+    setCarrito([]);
+  }
+
+  /* Recalcula la altura del navbar: el botón "Ingresar" cambia el alto */
+  ajustarAlturaNav();
+}
+
+function pintarSaldo(){
+  const el = document.getElementById("saldoUsuario");
+  const elPen = document.getElementById("saldoUsuarioPen");
+  if (el) el.textContent = fmt(nsUsuario.saldoUsd);
+  if (elPen) elPen.textContent = fmtPEN(nsUsuario.saldoUsd);
+}
+
+function pintarDrawerUsuario(){
+  const nombre = document.getElementById("drawerNombre");
+  const saldo = document.getElementById("drawerSaldo");
+  const avatar = document.getElementById("drawerAvatar");
+
+  if (esInvitado()) return;
+
+  if (nombre) nombre.textContent = nsUsuario.nombre;
+  if (saldo) saldo.textContent = fmt(nsUsuario.saldoUsd) + " · " + fmtPEN(nsUsuario.saldoUsd);
+  if (avatar) avatar.textContent = String(nsUsuario.nombre || "N").trim().charAt(0).toUpperCase();
+}
+
+/* =========================
+   MODAL "NECESITAS CUENTA"
+========================= */
+
+function abrirModalAuth(productoId){
+  const modal = document.getElementById("nsAuthModal");
+  if (!modal) { window.location.href = NS_REGISTRO_URL; return; }
+
+  const box = document.getElementById("nsAuthProducto");
+  const texto = document.getElementById("nsAuthModalText");
+  const item = productoId ? productosCache[productoId] : null;
+
+  if (item && box) {
+    document.getElementById("nsAuthProdImg").src = item.imagen || "";
+    document.getElementById("nsAuthProdNombre").textContent = item.nombre;
+    document.getElementById("nsAuthProdPrecio").textContent = fmt(item.precio) + " · " + fmtPEN(item.precio);
+    box.style.display = "flex";
+
+    if (texto) {
+      texto.textContent = "Para adquirir este producto necesitas una cuenta con saldo. " +
+                          "El registro es gratuito y tu acceso se entrega al instante.";
+    }
+  } else if (box) {
+    box.style.display = "none";
+    if (texto) {
+      texto.textContent = "Estás explorando como invitado. Para adquirir productos " +
+                          "necesitas una cuenta con saldo.";
+    }
+  }
+
+  modal.classList.add("activo");
+}
+
+function cerrarModalAuth(){
+  const modal = document.getElementById("nsAuthModal");
+  if (modal) modal.classList.remove("activo");
+}
+
+/* =========================
+   FAVORITOS (localStorage · funcionan sin cuenta)
+========================= */
+
+function getFavoritos(){ try{ return JSON.parse(localStorage.getItem("ns_favoritos")||"[]"); }catch(e){ return []; } }
+function setFavoritos(a){ try{ localStorage.setItem("ns_favoritos", JSON.stringify(a||[])); }catch(e){} }
+function esFavorito(id){ return getFavoritos().includes(id); }
+
+function toggleFavorito(id){
+  const favs = getFavoritos();
+  const i = favs.indexOf(id);
+  if (i >= 0) favs.splice(i,1); else favs.push(id);
+  setFavoritos(favs);
+  renderizarProductos();
+}
+
+/* =========================
+   FIREBASE — INIT
+========================= */
+
+function nsFbInit(){
+  if (typeof firebase === "undefined") {
+    console.warn("Firebase SDK no encontrado.");
+    mostrarErrorCarga("No se pudo conectar con el servidor. Revisa tu conexión.");
+    nsAplicarModoSesion();
+    return;
+  }
+
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(NS_FB_CONFIG);
+    nsAuth = firebase.auth();
+    nsDb = firebase.database();
+    nsFbActivo = true;
+  } catch (err) {
+    console.error("Error iniciando Firebase:", err);
+    mostrarErrorCarga("Error de conexión con el servidor.");
+    nsAplicarModoSesion();
+    return;
+  }
+
+  /* El catálogo se carga siempre, con o sin sesión */
+  nsEscucharCatalogo();
+  nsEscucharProveedores();
+
+  nsAuth.onAuthStateChanged((user) => {
+
+    /* Se limpia la escucha anterior del perfil */
+    if (nsRefUsuario) { try { nsRefUsuario.off(); } catch (e) {} nsRefUsuario = null; }
+
+    if (!user) {
+      nsUid = null;
+      nsUsuario = { nombre: "Invitado", correo: "", rol: "cliente", saldoUsd: 0 };
+      nsAplicarModoSesion();
+      return;
+    }
+
+    nsUid = user.uid;
+    nsRefUsuario = nsDb.ref("usuarios/" + nsUid);
+
+    nsRefUsuario.on("value", (snap) => {
+      const d = snap.val() || {};
+
+      /* Cuenta bloqueada: se cierra la sesión y vuelve a modo invitado */
+      if (String(d.estado || "activo").toLowerCase() === "bloqueado") {
+        toast("Tu cuenta está bloqueada. Contacta con soporte.");
+        setTimeout(() => { try { nsAuth.signOut(); } catch (e) {} }, 1800);
+        return;
+      }
+
+      nsUsuario = {
+        nombre: d.nombre || user.email || "Cliente",
+        correo: d.correo || user.email || "",
+        rol: d.rol || "cliente",
+        saldoUsd: Number(d.saldoUsd || 0)
+      };
+
+      nsAplicarModoSesion();
+    }, (err) => {
+      console.error("Error leyendo perfil:", err);
+      nsAplicarModoSesion();
+    });
+  });
+}
+
+function mostrarErrorCarga(msg){
+  const cont = document.getElementById("contenedorProductos");
+  const cats = document.getElementById("categoriasBox");
+  const info = document.getElementById("resultadoFiltroInfo");
+  if (cont) cont.innerHTML = '<div class="nsCargando">' + escaparHTML(msg) + '</div>';
+  if (cats) cats.innerHTML = "";
+  if (info) info.textContent = "";
+}
+
+/* =========================
+   FIREBASE — CATÁLOGO EN VIVO
+========================= */
+
+function nsEscucharCatalogo(){
+  nsDb.ref("productos").on("value", (snap) => {
+    const nuevo = {};
+
+    snap.forEach(ch => {
+      const p = ch.val() || {};
+      if (p.activo === false) return;
+      if (!p.nombre) return;
+
+      const ilimitado = p.stockIlimitado === true || p.tipoEntrega === "descarga";
+      const stockNum = Number(p.stock || 0);
+
+      nuevo[ch.key] = {
+        id: ch.key,
+        nombre: p.nombre,
+        plataforma: p.plataforma || p.categoria || "Otros",
+        categoria: p.categoria || "streaming",
+        precio: Number(p.precioUsd || 0),
+        duracionDias: Number(p.duracionDias || 30),
+        stock: ilimitado ? "Ilimitado" : stockNum,
+        stockIlimitado: ilimitado,
+        descripcion: p.descripcion || "Sin descripción disponible.",
+        reglas: p.reglas || "",
+        imagen: p.imagen || "img/productos/log.jpg",
+        proveedor: p.proveedorNombre || "NovaStream",
+        proveedorId: p.proveedorId || "",
+        tipoEntrega: p.tipoEntrega || "cuenta",
+        modoEntrega: p.modoEntrega || "automatico",
+        aplicaReembolso: p.aplicaReembolso || "si"
+      };
+    });
+
+    productosCache = nuevo;
+    nsProductosListos = true;
+
+    limpiarCarritoDeProductosInexistentes();
+    renderizarCategorias();
+    renderizarProductos();
+    renderizarCarrito();
+    actualizarBadgeCarrito();
+  }, (err) => {
+    console.error(err);
+    mostrarErrorCarga("No se pudo cargar el catálogo.");
+  });
+}
+
+function nsEscucharProveedores(){
+  nsDb.ref("proveedoresPublicos").on("value", (snap) => {
+    proveedoresCache = snap.val() || {};
+    actualizarEnlaceSoporte();
+  });
+}
+
+function limpiarCarritoDeProductosInexistentes(){
+  const carrito = getCarrito();
+  const limpio = carrito.filter(l => productosCache[l.id]);
+  if (limpio.length !== carrito.length) setCarrito(limpio);
+}
+
+/* =========================
+   CATEGORÍAS DINÁMICAS
+========================= */
+
+function renderizarCategorias(){
+  const cont = document.getElementById("categoriasBox");
+  if (!cont) return;
+
+  if (!nsProductosListos) {
+    cont.innerHTML = '<div class="nsCargando">Cargando categorías...</div>';
+    return;
+  }
+
+  const vistas = new Map();
+
+  Object.keys(productosCache).forEach(id => {
+    const item = productosCache[id];
+    if (!vistas.has(item.plataforma)) vistas.set(item.plataforma, item.imagen);
+  });
+
+  if (!vistas.size) { cont.innerHTML = ""; return; }
+
+  let html = `<button type="button" class="nsCatBtn${filtroCategoria === "todos" ? " activo" : ""}" data-categoria="todos">Todos</button>`;
+
+  Array.from(vistas.keys()).sort((a,b) => a.localeCompare(b)).forEach(plat => {
+    const activo = filtroCategoria === plat ? " activo" : "";
+    const img = vistas.get(plat) || "";
+    html += `
+      <button type="button" class="nsCatBtn nsCatBtnFoto${activo}" data-categoria="${escaparHTML(plat)}">
+        <span class="nsCatAvatar"><img src="${escaparHTML(img)}" alt="${escaparHTML(plat)}" onerror="this.style.opacity=0"></span>
+        <span>${escaparHTML(plat)}</span>
+      </button>`;
+  });
+
+  cont.innerHTML = html;
+
+  cont.querySelectorAll(".nsCatBtn").forEach(btn => {
+    btn.addEventListener("click", function(){
+      filtroCategoria = this.dataset.categoria;
+      cont.querySelectorAll(".nsCatBtn").forEach(b => b.classList.remove("activo"));
+      this.classList.add("activo");
+      renderizarProductos();
+    });
+  });
+}
+
+/* =========================
+   RENDER PRODUCTOS
+========================= */
+
+function productoCoincide(id, item){
+  const cat = filtroCategoria === "todos" || item.plataforma === filtroCategoria;
+
+  const q = (filtroBusqueda || "").toLowerCase().trim();
+  const busq = !q
+    || (item.nombre || "").toLowerCase().includes(q)
+    || (item.plataforma || "").toLowerCase().includes(q)
+    || (item.proveedor || "").toLowerCase().includes(q);
+
+  const fav = !filtroFavoritosActivo || esFavorito(id);
+  return cat && busq && fav;
+}
+
+function renderizarProductos(){
+  const cont = document.getElementById("contenedorProductos");
+  const info = document.getElementById("resultadoFiltroInfo");
+  if (!cont) return;
+
+  if (!nsProductosListos) {
+    cont.innerHTML = '<div class="nsCargando">Cargando productos...</div>';
+    if (info) info.textContent = "Conectando con el catálogo...";
+    return;
+  }
+
+  const todosIds = Object.keys(productosCache);
+  const ids = todosIds.filter(id => productoCoincide(id, productosCache[id]));
+
+  if (info) {
+    info.textContent = (ids.length === todosIds.length && !filtroFavoritosActivo)
+      ? "Mostrando todos los productos (" + todosIds.length + ")"
+      : "Mostrando " + ids.length + " de " + todosIds.length + " productos";
+  }
+
+  if (!todosIds.length) {
+    cont.innerHTML = '<div class="nsCargando">Todavía no hay productos publicados. Vuelve pronto.</div>';
+    return;
+  }
+
+  if (!ids.length) {
+    cont.innerHTML = '<div class="nsCargando">' + (filtroFavoritosActivo ? "Aún no tienes favoritos." : "No se encontraron productos.") + '</div>';
+    return;
+  }
+
+  /* Los productos con stock van primero */
+  ids.sort((a, b) => {
+    const A = productosCache[a], B = productosCache[b];
+    const agotA = !A.stockIlimitado && Number(A.stock||0) <= 0 ? 1 : 0;
+    const agotB = !B.stockIlimitado && Number(B.stock||0) <= 0 ? 1 : 0;
+    if (agotA !== agotB) return agotA - agotB;
+    return (A.nombre||"").localeCompare(B.nombre||"");
+  });
+
+  const invitado = esInvitado();
+
+  const iconoCandado =
+    '<svg viewBox="0 0 24 24"><rect x="4" y="10.5" width="16" height="10" rx="2.5"></rect>' +
+    '<path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path></svg>';
+
+  let html = "";
+
+  ids.forEach(id => {
+    const item = productosCache[id];
+    const ilimitado = item.stockIlimitado;
+    const agotado = !ilimitado && Number(item.stock||0) <= 0;
+    const stockTxt = ilimitado ? "Ilimitado" : String(item.stock);
+    const fav = esFavorito(id);
+    const metaIzq = ilimitado ? "Entrega digital" : (item.duracionDias + " días");
+    const modoTxt = item.modoEntrega === "manual" ? "Entrega manual" : "Entrega automática";
+
+    /* El botón de acción cambia según el estado de sesión */
+    let botonAccion;
+
+    if (agotado) {
+      botonAccion = `<button type="button" class="nsBtnAgregar" disabled>Agotado</button>`;
+    } else if (invitado) {
+      botonAccion =
+        `<button type="button" class="nsBtnAgregar nsBloqueado" data-accion="auth" data-id="${escaparHTML(id)}" title="Necesitas una cuenta para comprar">
+          ${iconoCandado}<span>Ingresar</span>
+        </button>`;
+    } else {
+      botonAccion = `<button type="button" class="nsBtnAgregar" data-accion="agregar" data-id="${escaparHTML(id)}">Agregar</button>`;
+    }
+
+    html += `
+      <div class="nsCard" data-id="${escaparHTML(id)}">
+        <div class="nsCardImgWrap">
+          <img class="nsCardImg" src="${escaparHTML(item.imagen)}" alt="${escaparHTML(item.nombre)}" onerror="this.style.opacity=0">
+          <button type="button" class="nsFavBtn${fav?" activo":""}" data-id="${escaparHTML(id)}" aria-label="Favorito">
+            <svg viewBox="0 0 24 24"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9 12 2"></polygon></svg>
+          </button>
+        </div>
+        <div class="nsCardBody">
+          <div class="nsCardProveedor" title="Proveedor verificado">
+            <span class="nsProveedorCheck">
+              <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </span>
+            <span class="nsProveedorTexto">Proveedor: <strong>${escaparHTML(item.proveedor)}</strong></span>
+          </div>
+          <div class="nsCardTitulo">${escaparHTML(item.nombre)}</div>
+          <div class="nsCardMeta">
+            <span>${escaparHTML(metaIzq)}</span>
+            <span class="nsCardStock">Stock: ${escaparHTML(stockTxt)}</span>
+          </div>
+          <div class="nsCardMeta" style="opacity:.7; font-size:10.5px;">
+            <span>${escaparHTML(modoTxt)}</span>
+            <span>${item.aplicaReembolso === "no" ? "Sin reembolso" : "Con reembolso"}</span>
+          </div>
+          <div class="nsCardPrecio">
+            <span class="nsCardPrecioUsd">${fmt(item.precio)}</span>
+            <span class="nsCardPrecioPen">${fmtPEN(item.precio)}</span>
+          </div>
+          <div class="nsCardBtns">
+            <button type="button" class="nsBtnVer" data-id="${escaparHTML(id)}" title="Ver descripción" aria-label="Ver descripción">
+              <svg viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+            ${botonAccion}
+          </div>
+        </div>
+      </div>`;
+  });
+
+  cont.innerHTML = html;
+
+  cont.querySelectorAll(".nsFavBtn").forEach(b => {
+    b.addEventListener("click", e => { e.stopPropagation(); toggleFavorito(b.dataset.id); });
+  });
+
+  cont.querySelectorAll(".nsBtnVer").forEach(b => {
+    b.addEventListener("click", e => { e.stopPropagation(); abrirModal(b.dataset.id); });
+  });
+
+  cont.querySelectorAll(".nsBtnAgregar[data-accion]").forEach(b => {
+    b.addEventListener("click", e => {
+      e.stopPropagation();
+      if (b.disabled) return;
+
+      if (b.dataset.accion === "auth") abrirModalAuth(b.dataset.id);
+      else agregarAlCarrito(b.dataset.id, 1);
+    });
+  });
+
+  cont.querySelectorAll(".nsCard").forEach(card => {
+    card.addEventListener("click", e => {
+      if (e.target.closest("button")) return;
+      abrirModal(card.dataset.id);
+    });
+  });
+}
+
+/* =========================
+   MODAL PRODUCTO
+========================= */
+
+function abrirModal(id){
+  const item = productosCache[id];
+  if (!item) return;
+
+  document.getElementById("modalNombre").innerText = item.nombre;
+  document.getElementById("modalImagen").src = item.imagen || "";
+  document.getElementById("modalImagen").alt = item.nombre;
+
+  const dur = item.stockIlimitado ? "Entrega digital" : (item.duracionDias + " días de vigencia");
+  document.getElementById("modalDescripcion").innerText =
+    (item.descripcion || "") +
+    "\n\nProveedor: " + item.proveedor +
+    "\nPrecio: " + fmt(item.precio) + " (" + fmtPEN(item.precio) + ")" +
+    "\nDuración: " + dur;
+
+  const lista = document.getElementById("listaReglas");
+  let reglasHtml = "";
+
+  if (item.reglas) {
+    item.reglas.split(/\r?\n|\.\s+/g)
+      .map(r => r.trim())
+      .filter(r => r.length > 2)
+      .forEach(r => { reglasHtml += "<li>" + escaparHTML(r) + "</li>"; });
+  }
+
+  reglasHtml +=
+    "<li>Uso exclusivo para el comprador salvo que se indique lo contrario.</li>" +
+    "<li>No compartir credenciales fuera de lo permitido.</li>" +
+    (item.aplicaReembolso === "no"
+      ? "<li>Este producto <strong>no aplica reembolso</strong>.</li>"
+      : "<li>Puedes solicitar reembolso dentro del plazo permitido.</li>") +
+    "<li>Reporta cualquier problema por soporte para atención inmediata.</li>";
+
+  lista.innerHTML = reglasHtml;
+
+  document.getElementById("modalCompra").style.display = "flex";
+}
+
+function cerrarModal(){
+  const m = document.getElementById("modalCompra");
+  if (m) m.style.display = "none";
+}
+
+/* =========================
+   CARRITO
+========================= */
+
+function getCarrito(){ try{ return JSON.parse(localStorage.getItem("ns_carrito")||"[]"); }catch(e){ return []; } }
+function setCarrito(a){ try{ localStorage.setItem("ns_carrito", JSON.stringify(a||[])); }catch(e){} }
+
+function actualizarBadgeCarrito(){
+  const badge = document.getElementById("badgeCarrito");
+  if (!badge) return;
+
+  const total = esInvitado() ? 0 : getCarrito().reduce((a,c) => a + Number(c.cantidad||0), 0);
+  badge.textContent = total > 99 ? "99+" : String(total);
+  badge.classList.toggle("visible", total > 0);
+}
+
+function stockDisponibleProducto(id){
+  const item = productosCache[id];
+  if (!item) return 0;
+  if (item.stockIlimitado) return 9999;
+  return Math.max(0, Number(item.stock || 0));
+}
+
+function agregarAlCarrito(id, cantidad){
+  if (esInvitado()) { abrirModalAuth(id); return; }
+
+  const item = productosCache[id];
+  if (!item) return;
+
+  const carrito = getCarrito();
+  const idx = carrito.findIndex(c => c.id === id);
+  const enCarrito = idx >= 0 ? Number(carrito[idx].cantidad||0) : 0;
+  const disponible = stockDisponibleProducto(id);
+
+  if (enCarrito + cantidad > disponible) {
+    toast("Solo quedan " + disponible + " unidad(es) de este producto.");
+    return;
+  }
+
+  if (idx >= 0) carrito[idx].cantidad = enCarrito + cantidad;
+  else carrito.push({ id, cantidad });
+
+  setCarrito(carrito);
+  actualizarBadgeCarrito();
+  toastCarritoAgregado(item.nombre);
+  renderizarCarrito();
+}
+
+function cambiarCantidadCarrito(id, delta){
+  const carrito = getCarrito();
+  const idx = carrito.findIndex(c => c.id === id);
+  if (idx < 0) return;
+
+  const nueva = Number(carrito[idx].cantidad||1) + delta;
+  if (nueva < 1) { quitarDelCarrito(id); return; }
+
+  if (nueva > stockDisponibleProducto(id)) {
+    toast("No hay más stock disponible.");
+    return;
+  }
+
+  carrito[idx].cantidad = nueva;
+  setCarrito(carrito);
+  actualizarBadgeCarrito();
+  renderizarCarrito();
+}
+
+function quitarDelCarrito(id){
+  setCarrito(getCarrito().filter(c => c.id !== id));
+  actualizarBadgeCarrito();
+  renderizarCarrito();
+}
+
+function calcularTotalCarrito(){
+  let total = 0;
+  getCarrito().forEach(l => {
+    const item = productosCache[l.id];
+    if (item) total += item.precio * Number(l.cantidad||0);
+  });
+  return Number(total.toFixed(2));
+}
+
+function renderizarCarrito(){
+  const body = document.getElementById("carritoBody");
+  const totalTxt = document.getElementById("carritoTotalTexto");
+  const totalPenEl = document.getElementById("carritoTotalPen");
+  if (!body) return;
+
+  const carrito = esInvitado() ? [] : getCarrito();
+
+  if (!carrito.length) {
+    body.innerHTML = '<div class="nsCartVacio">Tu carrito está vacío.</div>';
+    if (totalTxt) totalTxt.textContent = fmt(0);
+    if (totalPenEl) totalPenEl.textContent = fmtPEN(0);
+    return;
+  }
+
+  let total = 0;
+  let html = "";
+
+  carrito.forEach(linea => {
+    const item = productosCache[linea.id];
+    if (!item) return;
+    const sub = item.precio * linea.cantidad;
+    total += sub;
+
+    html += `
+      <div class="nsCartItem" data-id="${escaparHTML(linea.id)}">
+        <img class="nsCartItemImg" src="${escaparHTML(item.imagen)}" alt="" onerror="this.style.opacity=0">
+        <div class="nsCartItemInfo">
+          <div class="nsCartItemNombre">${escaparHTML(item.nombre)}</div>
+          <div class="nsCartItemPrecio">${fmt(sub)}<span class="nsCartItemPen">(${fmtPEN(sub)})</span></div>
+          <div class="nsCartQty">
+            <button type="button" class="btnMenos">-</button>
+            <span>${linea.cantidad}</span>
+            <button type="button" class="btnMas">+</button>
+            <button type="button" class="nsCartRemove">Quitar</button>
+          </div>
+        </div>
+      </div>`;
+  });
+
+  body.innerHTML = html;
+  if (totalTxt) totalTxt.textContent = fmt(total);
+  if (totalPenEl) totalPenEl.textContent = fmtPEN(total);
+
+  body.querySelectorAll(".nsCartItem").forEach(el => {
+    const id = el.dataset.id;
+    el.querySelector(".btnMas").addEventListener("click", () => cambiarCantidadCarrito(id, 1));
+    el.querySelector(".btnMenos").addEventListener("click", () => cambiarCantidadCarrito(id, -1));
+    el.querySelector(".nsCartRemove").addEventListener("click", () => quitarDelCarrito(id));
+  });
+}
+
+function abrirCarrito(){
+  if (esInvitado()) { abrirModalAuth(null); return; }
+  renderizarCarrito();
+  document.getElementById("nsCartOverlay").classList.add("activo");
+}
+
+function cerrarCarrito(){
+  const o = document.getElementById("nsCartOverlay");
+  if (o) o.classList.remove("activo");
+}
+
+/* =========================================================
+   PAGO / ENTREGA AUTOMÁTICA   (v5.1 · atómico)
+
+   El cobro del saldo va DENTRO del mismo update() que entrega
+   las cuentas. Si algo falla, no se aplica nada: el cliente
+   nunca se queda con un producto sin pagar.
+========================================================= */
+
+async function procesarPago(){
+  if (nsProcesandoPago) return;
+  if (esInvitado()) { abrirModalAuth(null); return; }
+
+  const carrito = getCarrito();
+  if (!carrito.length) { toast("Tu carrito está vacío."); return; }
+  if (!nsFbActivo)     { toast("Sin conexión con el servidor."); return; }
+
+  const total = calcularTotalCarrito();
+  if (total <= 0) { toast("Total inválido."); return; }
+
+  nsProcesandoPago = true;
+  const btn = document.getElementById("btnPagarCarrito");
+  const textoOriginal = btn ? btn.textContent : "";
+  if (btn) { btn.disabled = true; btn.textContent = "Procesando..."; }
+
+  try {
+
+    /* ---- 0. Saldo REAL del servidor (no confiamos en la caché) ---- */
+    const snapSaldo = await nsDb.ref("usuarios/" + nsUid + "/saldoUsd").get();
+    const saldoReal = Number(snapSaldo.val() || 0);
+
+    if (saldoReal < total) {
+      toast("Saldo insuficiente. Te faltan " + fmt(total - saldoReal) + ".");
+      setTimeout(() => { window.location.href = "recargas.html"; }, 1600);
+      throw new Error("__SALDO__");
+    }
+
+    /* ---- 1. Reservar accesos leyendo SOLO los disponibles ---- */
+    const entregas = [];
+
+    for (const linea of carrito) {
+      const item = productosCache[linea.id];
+      if (!item) continue;
+
+      const cantidad = Number(linea.cantidad || 0);
+      if (cantidad <= 0) continue;
+
+      if (item.stockIlimitado) {
+        entregas.push({ producto: item, cantidad, cuentas: [], stockServidor: null });
+        continue;
+      }
+
+      /* Query .equalTo('disponible'): nunca leemos credenciales de otros clientes */
+      const [snapCuentas, snapStock] = await Promise.all([
+        nsDb.ref("cuentas/" + item.id).orderByChild("estado").equalTo("disponible").get(),
+        nsDb.ref("productos/" + item.id + "/stock").get()
+      ]);
+
+      const todas = snapCuentas.val() || {};
+      const claves = Object.keys(todas);
+
+      if (claves.length < cantidad) {
+        throw new Error('Se agotó el stock de "' + item.nombre + '". Ajusta tu carrito.');
+      }
+
+      const libres = claves.slice(0, cantidad);
+
+      entregas.push({
+        producto: item,
+        cantidad,
+        cuentas: libres.map(k => Object.assign({ id: k }, todas[k])),
+        /* Base real: el nuevo stock siempre será MENOR a este valor */
+        stockServidor: Math.min(Number(snapStock.val() || 0), claves.length)
+      });
+    }
+
+    if (!entregas.length) throw new Error("No hay productos válidos en el carrito.");
+
+    /* ---- 2. Un solo update atómico ---- */
+    const ahora = Date.now();
+    const updates = {};
+    const compraId = "cmp_" + ahora + "_" + Math.random().toString(36).slice(2, 6);
+    const detalleCompra = [];
+    const acreditar = {};
+
+    entregas.forEach(en => {
+      const p = en.producto;
+      const montoLinea = Number((p.precio * en.cantidad).toFixed(2));
+
+      /* 2a. Marcar cuentas como usadas */
+      en.cuentas.forEach(c => {
+        const base = "cuentas/" + p.id + "/" + c.id + "/";
+        updates[base + "estado"]          = "usada";
+        updates[base + "compradorId"]     = nsUid;
+        updates[base + "compradorNombre"] = nsUsuario.nombre;
+        updates[base + "fechaVenta"]      = ahora;
+        updates[base + "renovado"]        = false;
+        updates[base + "avisoAtendido"]   = false;
+      });
+
+      /* 2b. Descontar stock desde el valor real del servidor */
+      if (!p.stockIlimitado) {
+        const restante = Math.max(0, en.stockServidor - en.cantidad);
+        updates["productos/" + p.id + "/stock"] = restante;
+        updates["stock/" + p.id] = restante;
+      }
+
+      /* 2c. Una venta por unidad · 100% al proveedor, comisión 0 en venta */
+      for (let i = 0; i < en.cantidad; i++) {
+        const ventaKey = nsDb.ref("ventas").push().key;
+        updates["ventas/" + ventaKey] = {
+          proveedorId: p.proveedorId,
+          proveedorNombre: p.proveedor,
+          productoId: p.id,
+          productoNombre: p.nombre,
+          plataforma: p.plataforma,
+          clienteId: nsUid,
+          clienteNombre: nsUsuario.nombre,
+          clienteCorreo: nsUsuario.correo || "",
+          compraId,
+          precioUsd: p.precio,
+          montoProveedorUsd: p.precio,
+          comisionPlataformaUsd: 0,
+          estado: "entregada",
+          fecha: ahora
+        };
+      }
+
+      /* 2d. Movimiento visible en el panel del proveedor */
+      if (p.proveedorId) {
+        const movKey = nsDb.ref("movimientosSaldo/" + p.proveedorId).push().key;
+        updates["movimientosSaldo/" + p.proveedorId + "/" + movKey] = {
+          tipo: "venta",
+          detalle: p.nombre + " · " + nsUsuario.nombre + (en.cantidad > 1 ? " (x" + en.cantidad + ")" : ""),
+          montoUsd: montoLinea,
+          signo: "+",
+          fecha: ahora
+        };
+        acreditar[p.proveedorId] = Number(((acreditar[p.proveedorId] || 0) + montoLinea).toFixed(2));
+      }
+
+      detalleCompra.push({
+        productoId: p.id,
+        productoNombre: p.nombre,
+        plataforma: p.plataforma,
+        proveedor: p.proveedor,
+        proveedorId: p.proveedorId,
+        imagen: p.imagen,
+        cantidad: en.cantidad,
+        precioUnitarioUsd: p.precio,
+        subtotalUsd: montoLinea,
+        duracionDias: p.duracionDias,
+        tipoEntrega: p.tipoEntrega,
+        modoEntrega: p.modoEntrega,
+        aplicaReembolso: p.aplicaReembolso,
+        reglas: p.reglas || "",
+        accesos: en.cuentas.map(c => ({
+          cuentaId: c.id,
+          correo: c.correo || "",
+          clave:  c.clave  || "",
+          perfil: c.perfil || "",
+          pin:    c.pin    || ""
+        }))
+      });
+    });
+
+    /* 2e. Compra del cliente (historial de Mis compras) */
+    updates["compras/" + nsUid + "/" + compraId] = {
+      id: compraId,
+      clienteId: nsUid,
+      clienteNombre: nsUsuario.nombre,
+      totalUsd: total,
+      totalPen: Number((total * TIPO_CAMBIO).toFixed(2)),
+      estado: "completada",
+      fecha: ahora,
+      items: detalleCompra
+    };
+
+    /* 2f. ⭐ EL COBRO VA AQUÍ MISMO. Todo o nada. */
+    updates["usuarios/" + nsUid + "/saldoUsd"] = Number((saldoReal - total).toFixed(2));
+
+    const movCli = nsDb.ref("movimientosSaldo/" + nsUid).push().key;
+    updates["movimientosSaldo/" + nsUid + "/" + movCli] = {
+      tipo: "compra",
+      detalle: "Compra " + compraId + " · " + detalleCompra.length + " producto(s)",
+      montoUsd: total,
+      signo: "-",
+      fecha: ahora
+    };
+
+    await nsDb.ref().update(updates);
+
+    /* ---- 3. Acreditar a proveedores (transacción: no pisa saldos) ---- */
+    for (const provId of Object.keys(acreditar)) {
+      try {
+        await nsDb.ref("usuarios/" + provId + "/saldoUsd").transaction(
+          actual => Number(((Number(actual) || 0) + acreditar[provId]).toFixed(2))
+        );
+      } catch (e) {
+        /* Si falla, el movimiento ya quedó registrado y el admin
+           puede ajustar el saldo manualmente desde su panel. */
+        console.error("No se pudo acreditar al proveedor " + provId, e);
+      }
+    }
+
+    /* ---- 4. Limpieza + feedback ---- */
+    setCarrito([]);
+    actualizarBadgeCarrito();
+    renderizarCarrito();
+    cerrarCarrito();
+
+    mostrarResumenEntrega(detalleCompra, total);
+
+  } catch (err) {
+    if (err.message !== "__SALDO__") {
+      console.error(err);
+      toast(err.message || "No se pudo completar la compra.");
+    }
+  } finally {
+    nsProcesandoPago = false;
+    if (btn) { btn.disabled = false; btn.textContent = textoOriginal || "Proceder al pago"; }
+  }
+}
+
+function mostrarResumenEntrega(items, total){
+  const modal = document.getElementById("modalCompra");
+  if (!modal) { toast("Compra realizada · " + fmt(total)); return; }
+
+  document.getElementById("modalNombre").innerText = "✅ Compra completada";
+  document.getElementById("modalImagen").src = items[0] ? items[0].imagen : "";
+
+  document.getElementById("modalDescripcion").innerText =
+    "Pagaste " + fmt(total) + " (" + fmtPEN(total) + ").\n" +
+    "Tus accesos también quedaron guardados en 'Mis compras'.";
+
+  const lista = document.getElementById("listaReglas");
+  let html = "";
+
+  items.forEach(it => {
+    html += "<li><strong>" + escaparHTML(it.productoNombre) + "</strong> · x" + it.cantidad;
+
+    if (it.accesos && it.accesos.length) {
+      it.accesos.forEach(a => {
+        html += "<br><span style='font-size:12px; opacity:.85;'>" +
+          "Correo: " + escaparHTML(a.correo || "-") +
+          " · Clave: " + escaparHTML(a.clave || "-") +
+          (a.perfil ? " · Perfil: " + escaparHTML(a.perfil) : "") +
+          (a.pin ? " · PIN: " + escaparHTML(a.pin) : "") +
+          "</span>";
+      });
+    } else {
+      html += "<br><span style='font-size:12px; opacity:.85;'>Entrega digital: revisa 'Mis compras' para el enlace.</span>";
+    }
+
+    html += "</li>";
+  });
+
+  html += "<li style='opacity:.8;'>Guarda estos datos. No cambies el correo ni la contraseña de la cuenta.</li>";
+  lista.innerHTML = html;
+
+  modal.style.display = "flex";
+  toast("Compra realizada · " + fmt(total));
+}
+
+/* =========================
+   SOPORTE WHATSAPP
+========================= */
+
+function obtenerNumeroSoporte(){
+  const claves = Object.keys(proveedoresCache);
+  for (const k of claves) {
+    const p = proveedoresCache[k] || {};
+    if (p.soporteActivo !== false && p.whatsappSoporte) {
+      return String(p.whatsappSoporte).replace(/\D/g, "");
+    }
+  }
+  return NS_WHATSAPP_FALLBACK;
+}
+
+function actualizarEnlaceSoporte(){
+  const numero = obtenerNumeroSoporte();
+  const msg = encodeURIComponent("Hola, necesito ayuda con NovaStream");
+  const url = "https://wa.me/" + numero + "?text=" + msg;
+
+  const flotante = document.querySelector(".nsWhatsapp");
+  if (flotante) flotante.href = url;
+
+  const enFooter = document.getElementById("linkFooterSoporte");
+  if (enFooter) enFooter.href = url;
+}
+
+/* =========================
+   BANNER
+========================= */
+
+let slideIndex = 0;
+
+function mostrarSlide(){
+  const slides = document.querySelectorAll(".nsSlide");
+  const dotsBox = document.getElementById("nsDots");
+  if (!slides.length) return;
+
+  if (dotsBox && !dotsBox.dataset.armado) {
+    slides.forEach((_,i) => {
+      const d = document.createElement("span");
+      d.className = "nsDot" + (i===0 ? " activo":"");
+      d.addEventListener("click", () => { slideIndex = i; mostrarSlide(); });
+      dotsBox.appendChild(d);
+    });
+    dotsBox.dataset.armado = "1";
+  }
+
+  slides.forEach((s,i) => s.classList.toggle("activo", i === slideIndex));
+  document.querySelectorAll(".nsDot").forEach((d,i) => d.classList.toggle("activo", i === slideIndex));
+}
+
+setInterval(() => {
+  const n = document.querySelectorAll(".nsSlide").length;
+  if (!n) return;
+  slideIndex = (slideIndex + 1) % n;
+  mostrarSlide();
+}, 6000);
+
+/* =========================
+   ALTURA DEL NAVBAR FIJO
+========================= */
+
+function ajustarAlturaNav(){
+  const nav = document.getElementById("nsNav");
+  if (!nav) return;
+  document.documentElement.style.setProperty("--nav-height", nav.offsetHeight + "px");
+}
+
+window.addEventListener("load", ajustarAlturaNav);
+window.addEventListener("resize", ajustarAlturaNav);
+
+/* =========================
+   FOOTER
+========================= */
+
+function prepararFooter(){
+  const anio = document.getElementById("nsAnioActual");
+  if (anio) anio.textContent = new Date().getFullYear();
+
+  const credito = document.getElementById("nsFooterCredito");
+  if (credito) {
+    const msg = encodeURIComponent(
+      "Hola Impulso Project, vi su trabajo en NovaStream y quiero información " +
+      "sobre la creación de páginas web y sistemas a medida."
+    );
+    credito.href = "https://wa.me/" + NS_WHATSAPP_IMPULSO + "?text=" + msg;
+  }
+
+  const favFooter = document.getElementById("linkFooterFavoritos");
+  if (favFooter) {
+    favFooter.addEventListener("click", e => {
+      e.preventDefault();
+      filtroFavoritosActivo = true;
+      renderizarProductos();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      toast("Mostrando tus favoritos.");
+    });
+  }
+
+  const informativos = {
+    linkFooterReembolso: "Puedes pedir reembolso si el producto lo permite. Escríbenos por soporte.",
+    linkFooterGarantia: "Todas las cuentas tienen garantía durante su periodo de vigencia.",
+    linkFooterFaq: "Sección de preguntas frecuentes en preparación.",
+    linkFooterTerminos: "Términos y condiciones en preparación.",
+    linkFooterPrivacidad: "Política de privacidad en preparación.",
+    linkFooterProveedor: "¿Quieres vender en NovaStream? Escríbenos por soporte para registrarte como proveedor."
+  };
+
+  Object.keys(informativos).forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("click", e => { e.preventDefault(); toast(informativos[id]); });
+  });
+}
+
+/* =========================
+   INIT
+========================= */
+
+document.addEventListener("DOMContentLoaded", () => {
+
+  mostrarSlide();
+  ajustarAlturaNav();
+  prepararFooter();
+  renderizarCarrito();
+
+  /* Buscador */
+  const buscador = document.getElementById("buscadorProductos");
+  if (buscador) {
+    buscador.addEventListener("input", function(){
+      filtroBusqueda = this.value;
+      renderizarProductos();
+    });
+  }
+
+  const btnLimpiar = document.getElementById("btnLimpiarBusqueda");
+  if (btnLimpiar) {
+    btnLimpiar.addEventListener("click", () => {
+      filtroBusqueda = "";
+      if (buscador) buscador.value = "";
+      renderizarProductos();
+    });
+  }
+
+  const btnAbrirBusqueda = document.getElementById("btnAbrirBusqueda");
+  if (btnAbrirBusqueda) {
+    btnAbrirBusqueda.addEventListener("click", () => {
+      if (buscador) { buscador.focus(); buscador.select(); }
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
+
+  /* Favoritos */
+  const toggleFav = () => { filtroFavoritosActivo = !filtroFavoritosActivo; renderizarProductos(); };
+
+  const btnFavTop = document.getElementById("btnFavoritosTop");
+  if (btnFavTop) btnFavTop.addEventListener("click", toggleFav);
+
+  const linkFavDrawer = document.getElementById("linkFavoritosDrawer");
+  if (linkFavDrawer) linkFavDrawer.addEventListener("click", e => { e.preventDefault(); toggleFav(); cerrarDrawer(); });
+
+  /* Modal producto */
+  const btnCerrarModal = document.getElementById("btnCerrarModal");
+  if (btnCerrarModal) btnCerrarModal.addEventListener("click", cerrarModal);
+
+  const modal = document.getElementById("modalCompra");
+  if (modal) modal.addEventListener("click", e => { if (e.target.id === "modalCompra") cerrarModal(); });
+
+  /* Modal "necesitas cuenta" */
+  const btnCerrarAuth = document.getElementById("btnCerrarAuthModal");
+  if (btnCerrarAuth) btnCerrarAuth.addEventListener("click", cerrarModalAuth);
+
+  const authModal = document.getElementById("nsAuthModal");
+  if (authModal) authModal.addEventListener("click", e => { if (e.target.id === "nsAuthModal") cerrarModalAuth(); });
+
+  /* Carrito */
+  const btnCarrito = document.getElementById("btnCarrito");
+  if (btnCarrito) btnCarrito.addEventListener("click", abrirCarrito);
+
+  const btnCerrarCarrito = document.getElementById("btnCerrarCarrito");
+  if (btnCerrarCarrito) btnCerrarCarrito.addEventListener("click", cerrarCarrito);
+
+  const cartOverlay = document.getElementById("nsCartOverlay");
+  if (cartOverlay) cartOverlay.addEventListener("click", e => { if (e.target.id === "nsCartOverlay") cerrarCarrito(); });
+
+  const btnPagar = document.getElementById("btnPagarCarrito");
+  if (btnPagar) btnPagar.addEventListener("click", procesarPago);
+
+  /* Drawer móvil */
+  function abrirDrawer(){
+    const d = document.getElementById("nsDrawerOverlay");
+    if (d) d.classList.add("activo");
+  }
+  window.cerrarDrawer = function(){
+    const d = document.getElementById("nsDrawerOverlay");
+    if (d) d.classList.remove("activo");
+  };
+
+  const btnMenu = document.getElementById("btnMenuMovil");
+  if (btnMenu) btnMenu.addEventListener("click", abrirDrawer);
+
+  const btnCerrarDrawer = document.getElementById("btnCerrarDrawer");
+  if (btnCerrarDrawer) btnCerrarDrawer.addEventListener("click", cerrarDrawer);
+
+  const drawerOverlay = document.getElementById("nsDrawerOverlay");
+  if (drawerOverlay) drawerOverlay.addEventListener("click", e => { if (e.target.id === "nsDrawerOverlay") cerrarDrawer(); });
+
+  /* Cerrar sesión */
+  const linkSalir = document.getElementById("linkSalirDrawer");
+  if (linkSalir) {
+    linkSalir.addEventListener("click", async e => {
+      e.preventDefault();
+      cerrarDrawer();
+
+      if (nsFbActivo && nsAuth && nsUid) {
+        try { await nsAuth.signOut(); } catch (err) {}
+        setCarrito([]);
+        toast("Sesión cerrada. Sigues viendo el catálogo como invitado.");
+      } else {
+        window.location.href = NS_LOGIN_URL;
+      }
+    });
+  }
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") { cerrarModal(); cerrarModalAuth(); cerrarCarrito(); cerrarDrawer(); }
+  });
+
+  /* Conectar Firebase */
+  nsFbInit();
+
+  /* Red de seguridad: si Firebase tarda, se muestra el modo invitado
+     para que el visitante nunca vea la interfaz "a medias". */
+  setTimeout(() => { if (!nsSesionListo) nsAplicarModoSesion(); }, 3500);
+});

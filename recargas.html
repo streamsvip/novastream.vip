@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <!--
+    NOVASTREAM.VIP — recargas.html (v5)
+    ✅ CONECTADO A FIREBASE (Auth + Database + Storage)
+
+    · Página protegida: sin sesión → login.html
+    · El saldo se lee de usuarios/{uid}/saldoUsd
+    · Los datos de pago se leen de configuracion/metodosPago
+      (si el admin no los configuró, usa los valores por defecto)
+    · El comprobante sube a Storage: comprobantes/{uid}/archivo
+      Si Storage falla, se guarda una miniatura comprimida en la BD
+    · El historial se lee con query obligatoria por clienteId
+  -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NovaStream · Recargas</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <link rel="stylesheet" href="novastream.css?v=5">
+  <link rel="stylesheet" href="recargas.css?v=5">
+</head>
+
+<body class="nsBody">
+
+  <!-- Pantalla de verificación de sesión -->
+  <div class="rgBooting" id="rgBooting">
+    <div class="rgBootingRing"></div>
+    <span>Verificando tu sesión...</span>
+  </div>
+
+  <!-- ================= NAVBAR SUPERIOR ================= -->
+  <header class="nsNav" id="nsNav">
+    <div class="nsNavInner">
+
+      <a href="catalogo.html" class="nsBrand">
+        <img src="img/logo.png" alt="NovaStream" class="nsBrandLogo">
+        <span class="nsBrandText">NOVA<em>STREAM</em></span>
+      </a>
+
+      <nav class="nsNavLinks" id="nsNavLinks">
+        <a href="catalogo.html">Catálogo</a>
+        <a href="recargas.html" class="activo">Recargas</a>
+        <a href="mis-compras.html">Mis compras</a>
+      </nav>
+
+      <div class="nsNavActions">
+        <div class="nsSaldoChip">
+          <span class="nsSaldoLabel">Saldo</span>
+          <span id="saldoUsuario" class="nsSaldoValor">$0.00</span>
+          <span id="saldoUsuarioPen" class="nsSaldoValorPen">S/ 0.00</span>
+        </div>
+
+        <button type="button" class="nsIconBtn nsOnlyMobile" id="btnMenuMovil" aria-label="Menú">
+          <svg viewBox="0 0 24 24"><line x1="4" y1="7" x2="20" y2="7"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="17" x2="20" y2="17"></line></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= DRAWER MÓVIL ================= -->
+  <div class="nsDrawerOverlay" id="nsDrawerOverlay">
+    <aside class="nsDrawer" id="nsDrawer">
+      <div class="nsDrawerHead">
+        <span>Menú</span>
+        <button type="button" id="btnCerrarDrawer" class="nsIconBtn" aria-label="Cerrar">
+          <svg viewBox="0 0 24 24"><line x1="5" y1="5" x2="19" y2="19"></line><line x1="19" y1="5" x2="5" y2="19"></line></svg>
+        </button>
+      </div>
+
+      <div class="nsDrawerUser">
+        <div class="nsDrawerAvatar" id="drawerAvatar">N</div>
+        <div class="nsDrawerUserInfo">
+          <strong id="drawerNombre">Cliente</strong>
+          <span id="drawerSaldo">$0.00</span>
+        </div>
+      </div>
+
+      <a href="catalogo.html">Catálogo</a>
+      <a href="recargas.html">Recargas</a>
+      <a href="mis-compras.html">Mis compras</a>
+      <a href="#" id="linkSalirDrawer" class="nsDrawerSalir">Cerrar sesión</a>
+    </aside>
+  </div>
+
+  <main class="rgMain">
+
+    <section class="rgHero">
+      <span class="rgHeroBadge">RECARGA DE SALDO</span>
+      <h1>Recarga tu saldo</h1>
+      <p>Registra tu recarga en soles o dólares. Tu saldo en NovaStream siempre se refleja en dólares (USD).</p>
+    </section>
+
+    <div class="rgGrid">
+
+      <!-- ================= FORMULARIO ================= -->
+      <article class="rgCard">
+        <div class="rgCardHead">
+          <h2>Registrar recarga</h2>
+          <p>Elige tu método de pago, completa el monto y adjunta tu comprobante.</p>
+        </div>
+
+        <div class="rgGroup">
+          <label>Método de pago</label>
+          <div class="rgMetodoSelector" id="rgMetodoSelector"></div>
+          <small class="rgTipoCambioInfo">Tipo de cambio: <strong id="tipoCambioTexto">S/ 3.40</strong> por USD</small>
+        </div>
+
+        <form id="formRecarga" class="rgForm">
+
+          <div class="rgGroup">
+            <label for="monto">Monto a recargar</label>
+            <div class="rgMontoWrap">
+              <span class="rgMontoPrefijo" id="montoPrefijo">S/</span>
+              <input type="text" inputmode="decimal" id="monto" placeholder="Mínimo: 3.40" autocomplete="off" required>
+            </div>
+            <small class="rgMontoMinimoInfo" id="montoMinimoInfo">Monto mínimo: <strong>S/ 3.40</strong></small>
+
+            <div id="conversionBox" class="rgConversionBox" style="display:none;">
+              <span class="rgConversionIcono">≈</span>
+              <span class="rgConversionTexto" id="conversionTexto">Se acreditará $0.00 a tu saldo</span>
+            </div>
+          </div>
+
+          <div class="rgGroup">
+            <div class="rgDatosPagoBox" id="datosPagoBox">
+              <div class="rgDatosPagoHead">
+                <span class="rgDatosPagoDot"></span>
+                <strong id="datosPagoTitulo">Datos de pago</strong>
+              </div>
+
+              <div class="rgDatosPagoBody">
+                <div class="rgDatoPagoRow">
+                  <span>Titular</span>
+                  <strong id="datoPagoTitular">-</strong>
+                </div>
+                <div class="rgDatoPagoRow">
+                  <span id="datoPagoLabel">Número</span>
+                  <div class="rgDatoPagoValorWrap">
+                    <strong id="datoPagoValor">-</strong>
+                    <button type="button" class="rgBtnCopyMini" id="btnCopiarDato">Copiar</button>
+                  </div>
+                </div>
+
+                <div class="rgDatosPagoQR">
+                  <span class="rgInfoLabel">Código QR</span>
+                  <div class="rgQRPlaceholder" id="qrPlaceholder">
+                    <span>QR pendiente de configurar</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rgGroup">
+            <label for="operacion">Número de operación</label>
+            <input type="text" id="operacion" maxlength="60" placeholder="Ingresa tu número de operación" autocomplete="off" required>
+          </div>
+
+          <div class="rgGroup">
+            <label for="comprobante">Comprobante de pago</label>
+            <input type="file" id="comprobante" accept=".jpg,.jpeg,.png,.webp" required>
+            <small>Formatos permitidos: JPG, PNG, WEBP. Máximo 3 MB.</small>
+
+            <div id="previewWrap" class="rgPreviewWrap" style="display:none;">
+              <span class="rgPreviewLabel">Vista previa</span>
+              <img id="previewComprobante" alt="Vista previa del comprobante">
+            </div>
+          </div>
+
+          <div class="rgInfoBox">
+            <p><strong>Importante:</strong> tu solicitud quedará <span class="rgBadge pending">Pendiente</span> hasta su validación. Una vez aprobada, el monto se acreditará a tu saldo en dólares.</p>
+          </div>
+
+          <button type="submit" id="btnEnviar" class="rgBtnPrimary">Enviar solicitud</button>
+          <div id="mensajeRecarga" class="rgMensaje"></div>
+        </form>
+      </article>
+
+      <!-- ================= HISTORIAL ================= -->
+      <article class="rgCard">
+        <div class="rgCardHead">
+          <h2>Historial de recargas</h2>
+          <p>Consulta el estado de tus solicitudes.</p>
+        </div>
+
+        <div class="rgStatsMini">
+          <div class="rgStatMini">
+            <span>Aprobado histórico</span>
+            <strong id="rgTotalAprobado">$0.00</strong>
+          </div>
+          <div class="rgStatMini">
+            <span>Pendientes</span>
+            <strong id="rgTotalPendientes">0</strong>
+          </div>
+        </div>
+
+        <div class="rgTableWrap">
+          <table class="rgTabla">
+            <thead>
+              <tr>
+                <th>Monto</th>
+                <th>Equivalente USD</th>
+                <th>Método</th>
+                <th>Estado</th>
+                <th>Fecha</th>
+              </tr>
+            </thead>
+            <tbody id="historialBody">
+              <tr><td colspan="5" class="rgEmptyState">Cargando historial...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+    </div>
+  </main>
+
+  <div id="toastAviso" class="nsToast"></div>
+
+  <a href="https://wa.me/51900000000?text=Hola%2C%20necesito%20ayuda%20con%20una%20recarga" target="_blank" rel="noopener" class="nsWhatsapp" aria-label="Soporte por WhatsApp">
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M17.5 14.4c-.3-.2-1.7-.9-2-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-.3-.2-1.3-.5-2.5-1.6-.9-.8-1.5-1.9-1.7-2.2-.2-.3 0-.5.1-.6.1-.1.3-.4.5-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5C9.6 9 9.1 7.8 8.9 7.3c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.3.3-1 1-1 2.4s1 2.8 1.2 3c.1.2 2 3.2 5 4.4.7.3 1.2.5 1.7.6.7.2 1.3.2 1.8.1.6-.1 1.7-.7 1.9-1.3.2-.6.2-1.2.2-1.3-.1-.1-.3-.2-.6-.4z"></path>
+      <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2zm0 18.1a8.1 8.1 0 0 1-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8.1 8.1 0 1 1 12 20.1z"></path>
+    </svg>
+  </a>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+
+  <script src="recargas.js?v=5"></script>
+</body>
+</html>

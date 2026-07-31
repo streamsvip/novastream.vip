@@ -1,0 +1,561 @@
+/* =========================================================
+   NOVASTREAM.VIP — recargas.css (v4)
+   Se carga DESPUÉS de novastream.css. Reutiliza las mismas
+   variables de color (--teal, --violet, --ribbon, etc).
+
+   Sin cambios de estilos respecto a v2: el bug de "el menú y
+   Binance no responden" era 100% de JavaScript (ver recargas.js),
+   no de CSS — se corrigió ahí.
+   ========================================================= */
+
+.rgMain{
+  max-width:1200px;
+  margin:0 auto;
+  padding:24px 20px 50px;
+}
+
+/* =========================================================
+   HERO
+   ========================================================= */
+
+.rgHero{
+  position:relative;
+  overflow:hidden;
+  border-radius:var(--radius-l);
+  padding:34px 30px;
+  margin-bottom:22px;
+  background:var(--panel);
+  border:1px solid var(--line);
+}
+
+.rgHero::before{
+  content:"";
+  position:absolute; top:0; left:0; right:0; height:3px;
+  background:var(--ribbon);
+}
+
+.rgHeroBadge{
+  display:inline-flex;
+  padding:7px 14px;
+  border-radius:999px;
+  font-size:11px; font-weight:800; letter-spacing:.6px;
+  color:#04060a;
+  background:var(--ribbon);
+  margin-bottom:14px;
+}
+
+.rgHero h1{
+  margin:0 0 8px;
+  font-family:var(--font-display);
+  font-size:32px;
+  font-weight:700;
+  color:var(--text);
+  letter-spacing:-.5px;
+}
+
+.rgHero p{
+  margin:0;
+  max-width:640px;
+  color:var(--text-dim);
+  font-size:14px;
+  line-height:1.6;
+}
+
+/* =========================================================
+   GRID / CARDS
+   ========================================================= */
+
+.rgGrid{
+  display:grid;
+  grid-template-columns:1.1fr .9fr;
+  gap:18px;
+  align-items:start;
+}
+
+.rgCard{
+  position:relative;
+  overflow:hidden;
+  border-radius:var(--radius-l);
+  padding:22px;
+  background:var(--panel);
+  border:1px solid var(--line);
+}
+
+.rgCard::before{
+  content:"";
+  position:absolute; top:0; left:0; right:0; height:3px;
+  background:var(--ribbon);
+  opacity:.85;
+}
+
+.rgCardHead{
+  padding-bottom:16px;
+  margin-bottom:18px;
+  border-bottom:1px solid var(--line);
+}
+
+.rgCardHead h2{
+  margin:0 0 5px;
+  font-family:var(--font-display);
+  font-size:19px;
+  font-weight:700;
+  color:var(--text);
+}
+
+.rgCardHead p{
+  margin:0;
+  font-size:13px;
+  color:var(--text-dim);
+}
+
+/* =========================================================
+   FORM BASE
+   ========================================================= */
+
+.rgForm{ width:100%; }
+
+.rgGroup{ margin-bottom:16px; }
+
+.rgGroup label{
+  display:block;
+  margin-bottom:8px;
+  font-size:12.5px;
+  font-weight:800;
+  color:var(--text);
+}
+
+.rgGroup input{
+  width:100%;
+  min-height:46px;
+  padding:0 14px;
+  border-radius:var(--radius-s);
+  background:var(--panel-2);
+  border:1px solid var(--line);
+  color:var(--text);
+  font-size:13.5px;
+  font-weight:600;
+  outline:none;
+  transition:.18s ease;
+}
+
+.rgGroup input::placeholder{ color:var(--text-faint); }
+.rgGroup input:focus{ border-color:var(--teal); }
+
+.rgGroup input[type="file"]{
+  padding:11px 14px;
+  min-height:auto;
+  cursor:pointer;
+}
+
+.rgGroup small{
+  display:block;
+  margin-top:7px;
+  font-size:11.5px;
+  color:var(--text-faint);
+}
+
+/* =========================================================
+   SELECTOR DE MÉTODO DE PAGO (tarjetas)
+   ========================================================= */
+
+.rgMetodoSelector{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+
+.rgMetodoCard{
+  position:relative;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:13px;
+  border-radius:var(--radius-m);
+  cursor:pointer;
+  text-align:left;
+  background:var(--panel-2);
+  border:1px solid var(--line);
+  transition:.18s ease;
+}
+
+.rgMetodoCard:hover{ border-color:var(--line-strong); transform:translateY(-1px); }
+
+.rgMetodoCard.activo{
+  border-color:transparent;
+  background:
+    linear-gradient(var(--panel-2),var(--panel-2)) padding-box,
+    var(--ribbon) border-box;
+  border:1px solid transparent;
+}
+
+.rgMetodoIcono{
+  width:36px; height:36px;
+  flex-shrink:0;
+  border-radius:10px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:14px; font-weight:800;
+  color:#fff;
+}
+
+.rgMetodoIconoYape{ background:linear-gradient(135deg,#7c15c9,#a239e8); }
+.rgMetodoIconoBinance{ background:linear-gradient(135deg,#f0b90b,#d9a500); color:#1a1a1a; }
+
+.rgMetodoInfo{ display:flex; flex-direction:column; gap:1px; min-width:0; }
+.rgMetodoInfo strong{ font-size:13px; font-weight:800; color:var(--text); }
+.rgMetodoInfo small{ font-size:10.5px; color:var(--text-faint); font-weight:700; }
+
+.rgMetodoCheck{
+  position:absolute;
+  top:8px; right:8px;
+  width:18px; height:18px;
+  border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:10px; font-weight:900;
+  color:#04060a;
+  background:var(--ribbon);
+  opacity:0;
+  transform:scale(.6);
+  transition:.18s ease;
+  pointer-events:none;
+}
+
+.rgMetodoCard.activo .rgMetodoCheck{ opacity:1; transform:scale(1); }
+
+.rgTipoCambioInfo{
+  display:block;
+  margin-top:10px;
+  font-size:11.5px;
+  color:var(--text-faint);
+}
+
+.rgTipoCambioInfo strong{ color:var(--teal); }
+
+/* =========================================================
+   MONTO + CONVERSIÓN
+   ========================================================= */
+
+.rgMontoWrap{ position:relative; display:flex; align-items:center; }
+
+.rgMontoPrefijo{
+  position:absolute;
+  left:14px;
+  font-size:13.5px;
+  font-weight:800;
+  color:var(--teal);
+  pointer-events:none;
+}
+
+.rgMontoWrap input{ padding-left:38px !important; }
+
+.rgMontoMinimoInfo strong{ color:var(--text-dim); }
+
+.rgConversionBox{
+  margin-top:12px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:12px 14px;
+  border-radius:var(--radius-s);
+  background:var(--panel-2);
+  border:1px solid var(--line);
+}
+
+.rgConversionIcono{
+  width:26px; height:26px;
+  flex-shrink:0;
+  border-radius:8px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px; font-weight:800;
+  color:#04060a;
+  background:var(--ribbon);
+}
+
+.rgConversionTexto{ font-size:13px; font-weight:700; color:var(--text); }
+
+/* =========================================================
+   BLOQUE DE DATOS DE PAGO (siempre visible, cambia con el método)
+   ========================================================= */
+
+.rgDatosPagoBox{
+  border-radius:var(--radius-m);
+  background:var(--panel-2);
+  border:1px solid var(--line);
+  overflow:hidden;
+}
+
+.rgDatosPagoHead{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:12px 14px;
+  border-bottom:1px solid var(--line);
+}
+
+.rgDatosPagoDot{
+  width:8px; height:8px; flex-shrink:0;
+  border-radius:50%;
+  background:var(--teal);
+  box-shadow:0 0 8px rgba(33,230,193,.6);
+}
+
+.rgDatosPagoHead strong{ font-size:12.5px; font-weight:800; color:var(--text); }
+
+.rgDatosPagoBody{ padding:14px; display:flex; flex-direction:column; gap:12px; }
+
+.rgDatoPagoRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  font-size:12px;
+  color:var(--text-faint);
+  font-weight:700;
+}
+
+.rgDatoPagoRow strong{ color:var(--text); font-size:13px; }
+
+.rgDatoPagoValorWrap{ display:flex; align-items:center; gap:8px; }
+
+.rgDatosPagoQR{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:8px;
+  padding-top:8px;
+  border-top:1px solid var(--line);
+}
+
+.rgQRPlaceholder{
+  width:100%;
+  max-width:180px;
+  aspect-ratio:1/1;
+  border-radius:var(--radius-s);
+  background:var(--panel);
+  border:1px dashed var(--line-strong);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  padding:10px;
+}
+
+.rgQRPlaceholder span{
+  font-size:11px;
+  font-weight:700;
+  color:var(--text-faint);
+  line-height:1.4;
+}
+
+.rgQRPlaceholder img{
+  width:100%; height:100%;
+  object-fit:contain;
+  border-radius:8px;
+}
+
+/* =========================================================
+   PREVIEW COMPROBANTE
+   ========================================================= */
+
+.rgPreviewWrap{ margin-top:12px; }
+
+.rgPreviewLabel{ display:block; margin-bottom:8px; font-size:11.5px; color:var(--text-faint); font-weight:700; }
+
+.rgPreviewWrap img{
+  width:100%;
+  max-height:220px;
+  object-fit:contain;
+  border-radius:var(--radius-s);
+  background:var(--panel-2);
+  border:1px solid var(--line);
+  padding:8px;
+}
+
+/* =========================================================
+   INFO BOX / BADGE
+   ========================================================= */
+
+.rgInfoBox{
+  margin-bottom:16px;
+  padding:12px 14px;
+  border-radius:var(--radius-s);
+  background:var(--panel-2);
+  border:1px solid var(--line);
+}
+
+.rgInfoBox p{ margin:0; font-size:12.5px; color:var(--text-dim); line-height:1.6; }
+.rgInfoBox strong{ color:var(--text); }
+
+.rgBadge{
+  display:inline-flex;
+  padding:3px 9px;
+  border-radius:999px;
+  font-size:10.5px;
+  font-weight:800;
+}
+
+.rgBadge.pending{ background:rgba(255,191,0,.14); color:#ffd86b; }
+.rgBadge.approved{ background:rgba(33,230,193,.14); color:var(--teal); }
+.rgBadge.rejected{ background:rgba(255,93,115,.14); color:#ff8082; }
+
+/* =========================================================
+   BOTÓN / MENSAJE
+   ========================================================= */
+
+.rgBtnPrimary{
+  width:100%;
+  min-height:48px;
+  border:none;
+  border-radius:var(--radius-s);
+  background:var(--ribbon);
+  color:#04060a;
+  font-size:13.5px; font-weight:800;
+  cursor:pointer;
+  transition:.18s ease;
+}
+
+.rgBtnPrimary:hover{ filter:brightness(1.06); }
+.rgBtnPrimary:disabled{ opacity:.5; cursor:not-allowed; }
+
+.rgMensaje{
+  display:none;
+  margin-top:14px;
+  padding:12px 14px;
+  border-radius:var(--radius-s);
+  font-size:12.5px;
+  line-height:1.55;
+  border:1px solid transparent;
+}
+
+.rgMensaje.show{ display:block; }
+.rgMensaje.info{ background:rgba(124,92,255,.12); color:#c8bcff; border-color:rgba(124,92,255,.28); }
+.rgMensaje.success{ background:rgba(33,230,193,.12); color:var(--teal); border-color:rgba(33,230,193,.28); }
+.rgMensaje.error{ background:rgba(255,93,115,.12); color:#ff8082; border-color:rgba(255,93,115,.28); }
+
+.rgBtnCopyMini{
+  flex-shrink:0;
+  height:28px; padding:0 10px;
+  border:none; border-radius:8px;
+  background:var(--panel); border:1px solid var(--line-strong);
+  color:var(--text); font-size:10.5px; font-weight:800; cursor:pointer;
+}
+
+.rgBtnCopyMini:hover{ background:var(--ribbon); color:#04060a; border-color:transparent; }
+
+/* =========================================================
+   HISTORIAL
+   ========================================================= */
+
+.rgTableWrap{
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  border-radius:var(--radius-s);
+  border:1px solid var(--line);
+}
+
+.rgTabla{ width:100%; border-collapse:collapse; min-width:520px; }
+
+.rgTabla thead th{
+  text-align:left;
+  padding:12px 14px;
+  font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.4px;
+  color:var(--text-faint);
+  background:var(--panel-2);
+  border-bottom:1px solid var(--line);
+  white-space:nowrap;
+}
+
+.rgTabla tbody td{
+  padding:13px 14px;
+  font-size:12.5px;
+  color:var(--text-dim);
+  border-bottom:1px solid var(--line);
+}
+
+.rgTabla tbody tr:last-child td{ border-bottom:none; }
+.rgTabla tbody tr:hover{ background:rgba(255,255,255,.02); }
+
+.rgEmptyState{ text-align:center; padding:26px 10px !important; color:var(--text-faint); }
+
+/* =========================================================
+   CORRECCIÓN BOTÓN WHATSAPP
+   (antes el svg sin display:block colapsaba el alto real del
+   botón en Safari/iOS y lo dejaba "flotando" mal alineado)
+   ========================================================= */
+
+.nsWhatsapp{
+  position:fixed;
+  right:18px; bottom:18px;
+  z-index:9990;
+  width:52px; height:52px;
+  box-sizing:border-box;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#25d366;
+  color:#fff;
+  box-shadow:0 10px 26px rgba(0,0,0,.4);
+  overflow:hidden;
+  line-height:0;
+}
+
+.nsWhatsapp svg{
+  width:26px;
+  height:26px;
+  display:block;
+  flex-shrink:0;
+  pointer-events:none;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width:880px){
+  .nsNavLinks{ display:none; }
+  .nsOnlyMobile{ display:flex; }
+}
+
+@media (max-width:900px){
+  .rgGrid{ grid-template-columns:1fr; }
+}
+
+@media (max-width:600px){
+  .rgMain{ padding:16px 14px 36px; }
+  .rgHero{ padding:24px 18px; }
+  .rgHero h1{ font-size:24px; }
+  .rgCard{ padding:16px; }
+  .rgMetodoSelector{ grid-template-columns:1fr; }
+  .nsWhatsapp{ width:48px; height:48px; right:14px; bottom:14px; }
+  .nsWhatsapp svg{ width:24px; height:24px; }
+}
+/* ===== v5 · Loader de sesión + stats del historial ===== */
+
+.rgBooting{
+  position:fixed; inset:0; z-index:99999;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+  background:#0a0b0f; color:var(--text-dim); font-size:13px; font-weight:700;
+  transition:opacity .3s ease;
+}
+.rgBooting.off{ opacity:0; pointer-events:none; }
+
+.rgBootingRing{
+  width:34px; height:34px; border-radius:50%;
+  border:3px solid rgba(255,255,255,.1);
+  border-top-color:var(--teal);
+  animation:rgSpin .8s linear infinite;
+}
+@keyframes rgSpin{ to{ transform:rotate(360deg); } }
+
+.rgStatsMini{
+  display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;
+}
+.rgStatMini{
+  padding:11px 13px; border-radius:var(--radius-s);
+  background:var(--panel-2); border:1px solid var(--line);
+  display:flex; flex-direction:column; gap:3px;
+}
+.rgStatMini span{ font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:var(--text-faint); }
+.rgStatMini strong{ font-size:16px; font-weight:800; color:var(--teal); }
+
+.nsSaldoValorPen{ display:block; font-size:10px; color:var(--text-faint); font-weight:700; }

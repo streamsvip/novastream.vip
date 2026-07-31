@@ -1,0 +1,999 @@
+/* =========================================================
+   NOVASTREAM.VIP — novastream.css (v5)
+
+   v5:
+   - MODO VISITANTE: el catálogo es público, pero comprar
+     requiere cuenta. Se controla con clases en el <body>:
+        .nsSesionCargando → estado inicial (todo neutro)
+        .nsInvitado       → sin sesión
+        .nsAutenticado    → con sesión
+   - Botón "Ingresar" en lugar del chip de saldo.
+   - Barra de invitación + modal "necesitas cuenta".
+   - Botones de producto en modo bloqueado (candado).
+   ========================================================= */
+
+:root{
+  --bg-0:#0b0c10;
+  --bg-1:#14151b;
+  --panel:#1a1c24;
+  --panel-2:#1f212b;
+
+  --line:rgba(255,255,255,.08);
+  --line-strong:rgba(255,255,255,.14);
+
+  --teal:#21e6c1;
+  --violet:#7c5cff;
+  --ribbon:linear-gradient(90deg,var(--teal),var(--violet));
+
+  --text:#f5f6fa;
+  --text-dim:#9a9db0;
+  --text-faint:#6b6e80;
+
+  --font-display:'Space Grotesk','Inter',sans-serif;
+  --font-body:'Inter',Arial,sans-serif;
+
+  --radius-s:10px;
+  --radius-m:14px;
+  --radius-l:20px;
+}
+
+*,*::before,*::after{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; max-width:100%; overflow-x:hidden; }
+
+body.nsBody{
+  min-height:100vh;
+  background:var(--bg-0);
+  color:var(--text);
+  font-family:var(--font-body);
+  -webkit-font-smoothing:antialiased;
+  display:flex;
+  flex-direction:column;
+  padding-top:var(--nav-height, 64px);
+}
+
+img{ max-width:100%; height:auto; display:block; }
+button{ font-family:inherit; }
+
+/* =========================================================
+   CONTROL DE VISIBILIDAD POR ESTADO DE SESIÓN
+   Por defecto todo lo condicional está oculto. Solo se muestra
+   cuando el <body> recibe su clase de estado desde el JS.
+   ========================================================= */
+
+.nsSoloAuth,
+.nsSoloInvitado{ display:none !important; }
+
+/* ---- Con sesión ---- */
+body.nsAutenticado .nsNavLinks a.nsSoloAuth{ display:inline-block !important; }
+body.nsAutenticado .nsDrawer > a.nsSoloAuth{ display:block !important; }
+body.nsAutenticado .nsFooterCol a.nsSoloAuth{ display:block !important; }
+body.nsAutenticado .nsIconBtn.nsSoloAuth{ display:flex !important; }
+body.nsAutenticado .nsSaldoChip.nsSoloAuth{ display:flex !important; }
+body.nsAutenticado .nsDrawerUser.nsSoloAuth{ display:flex !important; }
+
+/* ---- Sin sesión ---- */
+body.nsInvitado .nsBtnIngresar.nsSoloInvitado{ display:flex !important; }
+body.nsInvitado .nsGuestBar.nsSoloInvitado{ display:flex !important; }
+body.nsInvitado .nsDrawerGuest.nsSoloInvitado{ display:flex !important; }
+body.nsInvitado .nsFooterCol a.nsSoloInvitado{ display:block !important; }
+body.nsInvitado .nsModalGuestCta.nsSoloInvitado{ display:block !important; }
+
+/* =========================================================
+   NAVBAR
+   ========================================================= */
+
+.nsNav{
+  position:fixed; top:0; left:0; right:0; z-index:900; width:100%;
+  background:rgba(11,12,16,.92);
+  backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);
+}
+
+.nsNavInner{
+  max-width:1400px; margin:0 auto; padding:12px 20px;
+  display:flex; align-items:center; gap:20px;
+}
+
+.nsBrand{ display:flex; align-items:center; gap:10px; text-decoration:none; flex-shrink:0; }
+.nsBrandLogo{ width:34px; height:34px; border-radius:9px; object-fit:cover; }
+
+.nsBrandText{
+  font-family:var(--font-display); font-size:17px; font-weight:700;
+  color:var(--text); letter-spacing:-.2px;
+}
+.nsBrandText em{
+  font-style:normal;
+  background:var(--ribbon);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+
+.nsNavLinks{ display:flex; align-items:center; gap:6px; flex:1; }
+
+.nsNavLinks a{
+  position:relative; padding:8px 14px; border-radius:999px;
+  color:var(--text-dim); text-decoration:none;
+  font-size:13.5px; font-weight:700; transition:.18s ease;
+}
+.nsNavLinks a:hover{ color:var(--text); background:rgba(255,255,255,.04); }
+.nsNavLinks a.activo{ color:var(--text); }
+.nsNavLinks a.activo::after{
+  content:""; position:absolute; left:14px; right:14px; bottom:2px;
+  height:2px; border-radius:2px; background:var(--ribbon);
+}
+
+.nsNavActions{ display:flex; align-items:center; gap:8px; flex-shrink:0; margin-left:auto; }
+
+.nsIconBtn{
+  position:relative; width:36px; height:36px;
+  border:1px solid var(--line); border-radius:var(--radius-s);
+  background:var(--panel); color:var(--text-dim);
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  transition:.18s ease; flex-shrink:0;
+}
+.nsIconBtn svg{
+  width:17px; height:17px; fill:none; stroke:currentColor;
+  stroke-width:2; stroke-linecap:round; stroke-linejoin:round;
+}
+.nsIconBtn:hover{ color:var(--text); border-color:var(--line-strong); }
+
+.nsCartBadge{
+  position:absolute; top:-5px; right:-5px;
+  min-width:16px; height:16px; padding:0 4px; border-radius:999px;
+  background:var(--violet); color:#fff;
+  font-size:10px; font-weight:800;
+  display:none; align-items:center; justify-content:center;
+  border:2px solid var(--bg-0);
+}
+.nsCartBadge.visible{ display:flex; }
+
+.nsSaldoChip{
+  display:flex; flex-direction:column;
+  padding:5px 12px; border-radius:var(--radius-s);
+  background:var(--panel); border:1px solid var(--line);
+  line-height:1.15; flex-shrink:0; white-space:nowrap;
+}
+.nsSaldoLabel{ font-size:9px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:var(--text-faint); }
+.nsSaldoValor{ font-family:var(--font-display); font-size:13.5px; font-weight:700; color:var(--teal); }
+.nsSaldoValorPen{ font-size:10px; font-weight:600; color:var(--text-faint); }
+
+/* ---- Botón INGRESAR (visitante) ---- */
+
+.nsBtnIngresar{
+  align-items:center; gap:8px;
+  height:36px; padding:0 16px;
+  border-radius:var(--radius-s);
+  background:var(--ribbon);
+  color:#04060a;
+  font-size:13px; font-weight:800;
+  text-decoration:none; white-space:nowrap; flex-shrink:0;
+  box-shadow:0 6px 20px rgba(33,230,193,.20);
+  transition:.18s ease;
+}
+.nsBtnIngresar svg{
+  width:15px; height:15px; fill:none; stroke:currentColor;
+  stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round;
+}
+.nsBtnIngresar:hover{ transform:translateY(-1px); filter:brightness(1.08); box-shadow:0 9px 26px rgba(124,92,255,.28); }
+
+.nsOnlyMobile{ display:none; }
+
+/* ---- Búsqueda ---- */
+
+.nsSearchRow{ width:100%; padding:0 20px 12px; }
+
+.nsSearchBox{
+  max-width:640px; margin:0 auto; width:100%; min-width:0;
+  display:flex; align-items:center; gap:10px;
+  padding:0 8px 0 14px; height:44px; border-radius:999px;
+  background:var(--panel); border:1px solid var(--line);
+}
+.nsSearchBox:focus-within{ border-color:var(--teal); }
+.nsSearchIcon{ width:16px; height:16px; flex-shrink:0; stroke:var(--text-dim); fill:none; stroke-width:2; }
+
+.nsSearchBox input{
+  flex:1; min-width:0; width:100%;
+  border:none; outline:none; background:transparent;
+  color:var(--text); font-size:14px;
+}
+.nsSearchBox input::placeholder{ color:var(--text-faint); }
+
+.nsSearchClear{
+  flex-shrink:0; height:30px; padding:0 12px;
+  border:none; border-radius:999px;
+  background:var(--panel-2); color:var(--text-dim);
+  font-size:11.5px; font-weight:800; cursor:pointer; white-space:nowrap;
+}
+
+/* =========================================================
+   DRAWER MÓVIL
+   ========================================================= */
+
+.nsDrawerOverlay{ position:fixed; inset:0; z-index:9997; display:none; background:rgba(0,0,0,.6); }
+.nsDrawerOverlay.activo{ display:block; }
+
+.nsDrawer{
+  position:fixed; top:0; right:0; bottom:0;
+  width:min(310px,86vw);
+  background:var(--bg-1); border-left:1px solid var(--line);
+  padding:16px; display:flex; flex-direction:column; gap:4px;
+  transform:translateX(100%); transition:transform .25s ease;
+  overflow-y:auto;
+}
+.nsDrawerOverlay.activo .nsDrawer{ transform:translateX(0); }
+
+.nsDrawerHead{
+  display:flex; align-items:center; justify-content:space-between;
+  padding-bottom:12px; margin-bottom:8px;
+  border-bottom:1px solid var(--line); font-weight:800;
+}
+
+.nsDrawer > a{
+  padding:12px 10px; border-radius:var(--radius-s);
+  color:var(--text-dim); text-decoration:none;
+  font-weight:700; font-size:14.5px;
+}
+.nsDrawer > a:hover{ background:var(--panel); color:var(--text); }
+
+.nsDrawerSalir{ color:#ff8080 !important; margin-top:6px; }
+
+/* ---- Usuario en drawer ---- */
+
+.nsDrawerUser{
+  align-items:center; gap:12px;
+  padding:13px; margin-bottom:10px;
+  border-radius:var(--radius-m);
+  background:var(--panel); border:1px solid var(--line);
+}
+
+.nsDrawerAvatar{
+  flex-shrink:0; width:42px; height:42px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-display); font-size:17px; font-weight:700;
+  color:#04060a; background:var(--ribbon);
+}
+
+.nsDrawerUserInfo{ min-width:0; }
+.nsDrawerUserInfo strong{
+  display:block; font-size:13.5px; color:var(--text);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.nsDrawerUserInfo span{
+  display:block; font-family:var(--font-display);
+  font-size:14px; font-weight:700; color:var(--teal); margin-top:2px;
+}
+
+/* ---- Invitación en drawer ---- */
+
+.nsDrawerGuest{
+  flex-direction:column; gap:8px;
+  padding:15px; margin-bottom:10px;
+  border-radius:var(--radius-m);
+  background:linear-gradient(160deg, rgba(33,230,193,.08), rgba(124,92,255,.08));
+  border:1px solid rgba(33,230,193,.24);
+}
+.nsDrawerGuest strong{ font-size:13.5px; color:var(--text); }
+.nsDrawerGuest span{ font-size:11.5px; line-height:1.6; color:var(--text-faint); }
+
+.nsDrawerCta{
+  margin-top:5px; padding:11px; text-align:center;
+  border-radius:var(--radius-s);
+  background:var(--ribbon); color:#04060a !important;
+  font-size:13px; font-weight:800; text-decoration:none;
+}
+.nsDrawerCta2{
+  padding:11px; text-align:center;
+  border-radius:var(--radius-s);
+  background:rgba(255,255,255,.05);
+  border:1px solid var(--line-strong);
+  color:var(--text) !important;
+  font-size:12.5px; font-weight:700; text-decoration:none;
+}
+
+/* =========================================================
+   MAIN / BANNER
+   ========================================================= */
+
+.nsMain{ max-width:1400px; margin:0 auto; padding:20px 20px 40px; width:100%; flex:1; }
+
+.nsBanner{
+  position:relative; width:100%; height:360px;
+  border-radius:var(--radius-l); overflow:hidden;
+  margin-bottom:22px; border:1px solid var(--line); background:var(--panel);
+}
+.nsBanner::before{
+  content:""; position:absolute; top:0; left:0; right:0; height:3px;
+  background:var(--ribbon); z-index:2;
+}
+
+.nsSlide{ position:absolute; inset:0; opacity:0; transition:opacity .7s ease; }
+.nsSlide.activo{ opacity:1; }
+.nsSlide img{ width:100%; height:100%; object-fit:cover; }
+
+.nsDots{ position:absolute; left:50%; bottom:14px; transform:translateX(-50%); display:flex; gap:8px; z-index:3; }
+.nsDot{ width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,.35); cursor:pointer; }
+.nsDot.activo{ background:var(--teal); }
+
+/* =========================================================
+   BARRA DE INVITADO
+   ========================================================= */
+
+.nsGuestBar{
+  align-items:center; gap:16px; flex-wrap:wrap;
+  padding:16px 20px; margin-bottom:18px;
+  border-radius:var(--radius-l);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(33,230,193,.10), transparent 45%),
+    radial-gradient(circle at 100% 100%, rgba(124,92,255,.12), transparent 48%),
+    var(--panel);
+  border:1px solid rgba(33,230,193,.22);
+  position:relative; overflow:hidden;
+}
+.nsGuestBar::before{
+  content:""; position:absolute; top:0; left:0; right:0; height:2px;
+  background:var(--ribbon);
+}
+
+.nsGuestIcon{
+  flex-shrink:0; width:44px; height:44px; border-radius:13px;
+  display:flex; align-items:center; justify-content:center;
+  background:linear-gradient(135deg, rgba(33,230,193,.18), rgba(124,92,255,.18));
+  border:1px solid rgba(33,230,193,.30);
+  color:var(--teal);
+}
+.nsGuestIcon svg{
+  width:20px; height:20px; fill:none; stroke:currentColor;
+  stroke-width:2; stroke-linecap:round; stroke-linejoin:round;
+}
+
+.nsGuestText{ flex:1; min-width:220px; }
+.nsGuestText strong{ display:block; font-size:14px; color:var(--text); margin-bottom:4px; }
+.nsGuestText span{ display:block; font-size:12.5px; line-height:1.6; color:var(--text-faint); }
+
+.nsGuestBtns{ display:flex; gap:9px; flex-shrink:0; flex-wrap:wrap; }
+
+.nsGuestBtnPrimary{
+  padding:11px 20px; border-radius:var(--radius-s);
+  background:var(--ribbon); color:#04060a;
+  font-size:13px; font-weight:800; text-decoration:none;
+  white-space:nowrap; transition:.18s ease;
+  box-shadow:0 6px 20px rgba(33,230,193,.18);
+}
+.nsGuestBtnPrimary:hover{ transform:translateY(-2px); filter:brightness(1.08); }
+
+.nsGuestBtnGhost{
+  padding:11px 20px; border-radius:var(--radius-s);
+  background:rgba(255,255,255,.05);
+  border:1px solid var(--line-strong);
+  color:var(--text);
+  font-size:13px; font-weight:700; text-decoration:none;
+  white-space:nowrap; transition:.18s ease;
+}
+.nsGuestBtnGhost:hover{ border-color:var(--teal); background:rgba(33,230,193,.08); }
+
+/* =========================================================
+   CATEGORÍAS
+   ========================================================= */
+
+.nsCategorias{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+
+.nsCatBtn{
+  height:34px; padding:0 15px; border-radius:999px;
+  border:1px solid var(--line); background:var(--panel);
+  color:var(--text-dim); font-size:12.5px; font-weight:700;
+  cursor:pointer; transition:.18s ease;
+}
+.nsCatBtn:hover{ border-color:var(--line-strong); color:var(--text); }
+.nsCatBtn.activo{ color:#04060a; background:var(--ribbon); border-color:transparent; }
+
+.nsCatBtnFoto{ display:flex; align-items:center; gap:8px; height:38px; padding:0 15px 0 6px; }
+
+.nsCatAvatar{
+  width:26px; height:26px; border-radius:50%; overflow:hidden;
+  flex-shrink:0; background:#0e0f14; border:1px solid var(--line);
+}
+.nsCatAvatar img{ width:100%; height:100%; object-fit:cover; }
+.nsCatBtn.activo .nsCatAvatar{ border-color:rgba(4,6,10,.35); }
+
+.nsResultadoInfo{ font-size:12px; font-weight:600; color:var(--text-faint); margin-bottom:16px; }
+
+/* =========================================================
+   GRID / TARJETAS
+   ========================================================= */
+
+.nsGrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:14px; }
+
+.nsCargando{ grid-column:1/-1; text-align:center; padding:40px 0; color:var(--text-dim); font-weight:700; }
+
+.nsCard{
+  position:relative; display:flex; flex-direction:column;
+  border-radius:var(--radius-m); overflow:hidden;
+  background:var(--panel); border:1px solid var(--line);
+  cursor:pointer; transition:transform .18s ease, border-color .18s ease;
+}
+.nsCard::before{ content:""; display:block; height:3px; width:100%; background:var(--ribbon); }
+.nsCard:hover{ transform:translateY(-3px); border-color:var(--line-strong); }
+
+.nsCardImgWrap{ position:relative; }
+.nsCardImg{ width:100%; height:130px; object-fit:cover; background:#0e0f14; }
+
+.nsFavBtn{
+  position:absolute; top:7px; right:7px;
+  width:24px; height:24px; border:none; border-radius:8px;
+  background:rgba(11,12,16,.55); backdrop-filter:blur(3px);
+  display:flex; align-items:center; justify-content:center; cursor:pointer;
+}
+.nsFavBtn svg{ width:13px; height:13px; stroke:#fff; fill:none; stroke-width:2; }
+.nsFavBtn.activo svg{ stroke:var(--violet); fill:var(--violet); }
+
+.nsCardBody{ padding:12px 12px 14px; display:flex; flex-direction:column; gap:8px; flex:1; }
+.nsCardTitulo{ font-size:13.5px; font-weight:800; line-height:1.3; min-height:34px; }
+.nsCardMeta{ display:flex; align-items:center; justify-content:space-between; font-size:11px; color:var(--text-faint); font-weight:700; }
+
+.nsCardPrecio{ display:flex; flex-direction:column; gap:1px; }
+.nsCardPrecioUsd{ font-family:var(--font-display); font-size:20px; font-weight:700; color:var(--teal); }
+.nsCardPrecioPen{ font-family:var(--font-body); font-size:11px; font-weight:700; color:var(--text-faint); }
+
+.nsCardStock{
+  font-size:10.5px; padding:3px 8px; border-radius:999px;
+  background:var(--panel-2); border:1px solid var(--line); color:var(--text-dim);
+}
+
+.nsCardBtns{ display:flex; gap:6px; margin-top:2px; }
+
+.nsBtnVer{
+  flex:0 0 auto; height:32px; width:32px; border-radius:var(--radius-s);
+  border:1px solid var(--line); background:var(--panel-2); color:var(--text-dim);
+  display:flex; align-items:center; justify-content:center; cursor:pointer;
+}
+.nsBtnVer svg{ width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:2; }
+.nsBtnVer:hover{ color:var(--text); border-color:var(--line-strong); }
+
+.nsBtnAgregar{
+  flex:1; height:32px; border-radius:var(--radius-s);
+  background:var(--panel-2); border:1px solid var(--line-strong);
+  color:var(--text); font-size:12px; font-weight:800;
+  cursor:pointer; transition:.18s ease;
+  display:flex; align-items:center; justify-content:center; gap:5px;
+}
+.nsBtnAgregar:hover{ background:var(--ribbon); color:#04060a; border-color:transparent; }
+.nsBtnAgregar:disabled{ opacity:.4; cursor:not-allowed; }
+.nsBtnAgregar:disabled:hover{ background:var(--panel-2); color:var(--text); border-color:var(--line-strong); }
+
+/* ---- Botón bloqueado (visitante) ---- */
+
+.nsBtnAgregar.nsBloqueado{
+  background:linear-gradient(90deg, rgba(33,230,193,.12), rgba(124,92,255,.12));
+  border-color:rgba(33,230,193,.32);
+  color:#c9fff4;
+}
+.nsBtnAgregar.nsBloqueado:hover{
+  background:var(--ribbon); color:#04060a; border-color:transparent;
+}
+.nsBtnAgregar.nsBloqueado svg{
+  width:12px; height:12px; fill:none; stroke:currentColor;
+  stroke-width:2.3; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0;
+}
+
+/* =========================================================
+   PROVEEDOR
+   ========================================================= */
+
+.nsCardProveedor{
+  display:flex; align-items:center; gap:6px;
+  padding:4px 8px 4px 4px; border-radius:999px;
+  background:var(--panel-2); border:1px solid var(--line);
+  width:fit-content; max-width:100%;
+}
+.nsProveedorCheck{
+  flex-shrink:0; width:16px; height:16px; border-radius:50%;
+  background:var(--ribbon);
+  display:flex; align-items:center; justify-content:center;
+}
+.nsProveedorCheck svg{
+  width:9px; height:9px; stroke:#04060a; fill:none;
+  stroke-width:3; stroke-linecap:round; stroke-linejoin:round;
+}
+.nsProveedorTexto{
+  font-size:10.5px; font-weight:600; color:var(--text-faint);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.nsProveedorTexto strong{ color:var(--text-dim); font-weight:800; }
+
+/* =========================================================
+   MODAL PRODUCTO
+   ========================================================= */
+
+.nsModal{
+  display:none; position:fixed; inset:0; z-index:9999;
+  align-items:center; justify-content:center; padding:16px;
+  background:rgba(4,5,8,.78); backdrop-filter:blur(6px);
+}
+
+.nsModalBox{
+  position:relative; width:100%; max-width:820px; max-height:90vh; overflow-y:auto;
+  background:var(--bg-1); border:1px solid var(--line);
+  border-radius:var(--radius-l); padding:24px;
+}
+
+.nsModalCerrar{
+  position:absolute; top:14px; right:14px;
+  width:30px; height:30px; border:none; border-radius:50%;
+  background:var(--panel); color:var(--text-dim);
+  cursor:pointer; font-size:14px; z-index:3;
+}
+
+.nsModalGrid{ display:flex; gap:24px; }
+.nsModalImg{ width:220px; min-width:220px; border-radius:var(--radius-m); object-fit:cover; }
+.nsModalInfo{ flex:1; min-width:0; }
+.nsModalInfo h2{ margin:0 30px 10px 0; font-size:22px; }
+
+.nsModalDesc, .nsModalReglas{
+  margin-top:10px; padding:12px; border-radius:var(--radius-s);
+  background:var(--panel); border:1px solid var(--line);
+}
+.nsModalDesc h4, .nsModalReglas h4{
+  margin:0 0 6px; font-size:12.5px; text-transform:uppercase;
+  letter-spacing:.4px; color:var(--text-faint);
+}
+.nsModalDesc p, .nsModalReglas li{ font-size:13px; color:var(--text-dim); line-height:1.55; }
+.nsModalDesc p{ white-space:pre-line; }
+.nsModalReglas ul{ margin:0; padding-left:18px; }
+.nsModalReglas li{ margin-bottom:5px; }
+
+/* ---- CTA de invitado dentro del modal ---- */
+
+.nsModalGuestCta{
+  margin-top:14px; padding:14px; border-radius:var(--radius-m);
+  background:linear-gradient(135deg, rgba(33,230,193,.09), rgba(124,92,255,.09));
+  border:1px solid rgba(33,230,193,.26);
+}
+.nsModalGuestCta > span{
+  display:block; font-size:12.5px; font-weight:700;
+  color:#c9fff4; margin-bottom:11px;
+}
+.nsModalGuestCta > div{ display:flex; gap:9px; flex-wrap:wrap; }
+
+.nsBtnComprar{
+  width:100%; height:44px; border:none; border-radius:var(--radius-s);
+  background:var(--ribbon); color:#04060a;
+  font-size:14px; font-weight:800; cursor:pointer;
+}
+.nsBtnComprar:disabled{ opacity:.5; cursor:not-allowed; }
+
+/* =========================================================
+   MODAL "NECESITAS CUENTA"
+   ========================================================= */
+
+.nsAuthModal{
+  display:none; position:fixed; inset:0; z-index:10001;
+  align-items:center; justify-content:center; padding:16px;
+  background:rgba(4,5,8,.82); backdrop-filter:blur(8px);
+}
+.nsAuthModal.activo{ display:flex; }
+
+.nsAuthModalBox{
+  position:relative; width:100%; max-width:420px;
+  max-height:92vh; overflow-y:auto;
+  padding:32px 26px 24px;
+  border-radius:24px; text-align:center;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(33,230,193,.10), transparent 45%),
+    linear-gradient(180deg, #1a1c24, #101117);
+  border:1px solid var(--line-strong);
+  box-shadow:0 30px 80px rgba(0,0,0,.6);
+  animation:nsAuthIn .28s cubic-bezier(.2,.8,.2,1);
+}
+.nsAuthModalBox::before{
+  content:""; position:absolute; top:0; left:0; right:0; height:3px;
+  border-radius:24px 24px 0 0; background:var(--ribbon);
+}
+
+@keyframes nsAuthIn{
+  from{ opacity:0; transform:translateY(18px) scale(.96); }
+  to{ opacity:1; transform:translateY(0) scale(1); }
+}
+
+.nsAuthModalIcon{
+  width:62px; height:62px; margin:0 auto 18px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--ribbon);
+  box-shadow:0 0 0 8px rgba(33,230,193,.10);
+}
+.nsAuthModalIcon svg{
+  width:27px; height:27px; fill:none; stroke:#04060a;
+  stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round;
+}
+
+.nsAuthModalTitle{
+  margin:0 0 9px; font-family:var(--font-display);
+  font-size:21px; font-weight:700; color:var(--text);
+}
+.nsAuthModalText{
+  margin:0 0 18px; font-size:13px; line-height:1.65; color:var(--text-dim);
+}
+
+.nsAuthProducto{
+  display:flex; align-items:center; gap:12px; text-align:left;
+  padding:11px; margin-bottom:18px;
+  border-radius:var(--radius-m);
+  background:rgba(255,255,255,.035); border:1px solid var(--line);
+}
+.nsAuthProducto img{
+  width:46px; height:46px; border-radius:10px; object-fit:cover; flex-shrink:0; background:#0e0f14;
+}
+.nsAuthProducto strong{
+  display:block; font-size:12.5px; color:var(--text);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.nsAuthProducto span{
+  display:block; font-family:var(--font-display);
+  font-size:15px; font-weight:700; color:var(--teal); margin-top:2px;
+}
+
+.nsAuthModalLista{
+  list-style:none; margin:0 0 20px; padding:0;
+  display:flex; flex-direction:column; gap:8px; text-align:left;
+}
+.nsAuthModalLista li{
+  display:flex; align-items:center; gap:10px;
+  padding:10px 12px; border-radius:var(--radius-s);
+  background:rgba(255,255,255,.03); border:1px solid var(--line);
+  font-size:12.5px; font-weight:600; color:var(--text-dim);
+}
+.nsAuthModalLista li span{ font-size:14px; flex-shrink:0; }
+
+.nsAuthModalBtn{
+  display:block; padding:14px; border-radius:var(--radius-m);
+  background:var(--ribbon); color:#04060a;
+  font-size:14px; font-weight:800; text-decoration:none;
+  box-shadow:0 10px 28px rgba(33,230,193,.20);
+  transition:.18s ease;
+}
+.nsAuthModalBtn:hover{ transform:translateY(-2px); filter:brightness(1.08); }
+
+.nsAuthModalBtnGhost{
+  display:block; margin-top:9px; padding:13px;
+  border-radius:var(--radius-m);
+  background:rgba(255,255,255,.045);
+  border:1px solid var(--line-strong);
+  color:var(--text); font-size:13px; font-weight:700; text-decoration:none;
+  transition:.18s ease;
+}
+.nsAuthModalBtnGhost:hover{ border-color:var(--teal); background:rgba(33,230,193,.08); }
+
+.nsAuthModalFoot{
+  display:block; margin-top:14px;
+  font-size:11px; color:var(--text-faint); line-height:1.5;
+}
+
+/* =========================================================
+   CARRITO
+   ========================================================= */
+
+.nsCartOverlay{ position:fixed; inset:0; z-index:10000; display:none; background:rgba(4,5,8,.7); }
+.nsCartOverlay.activo{ display:block; }
+
+.nsCartPanel{
+  position:fixed; top:0; right:0; bottom:0; width:min(400px,100vw);
+  background:var(--bg-1); border-left:1px solid var(--line);
+  display:flex; flex-direction:column;
+  transform:translateX(100%); transition:transform .25s ease;
+}
+.nsCartOverlay.activo .nsCartPanel{ transform:translateX(0); }
+
+.nsCartHead{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:16px 18px; border-bottom:1px solid var(--line);
+}
+.nsCartBody{ flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:10px; }
+.nsCartVacio{ margin:auto; color:var(--text-dim); text-align:center; font-size:13px; }
+
+.nsCartItem{
+  display:flex; gap:10px; padding:10px; border-radius:var(--radius-s);
+  background:var(--panel); border:1px solid var(--line);
+}
+.nsCartItemImg{ width:48px; height:48px; border-radius:8px; object-fit:cover; flex-shrink:0; }
+.nsCartItemInfo{ flex:1; min-width:0; }
+.nsCartItemNombre{ font-size:12.5px; font-weight:700; }
+.nsCartItemPrecio{ font-size:12px; color:var(--teal); font-weight:800; margin-top:2px; }
+.nsCartItemPen{ font-size:10.5px; color:var(--text-faint); font-weight:600; margin-left:4px; }
+.nsCartQty{ display:flex; align-items:center; gap:8px; margin-top:6px; }
+.nsCartQty button{ width:22px; height:22px; border:none; border-radius:6px; background:var(--panel-2); color:var(--text); cursor:pointer; }
+.nsCartRemove{ border:none; background:none; color:#ff8080; font-size:11px; font-weight:700; cursor:pointer; margin-left:auto; }
+
+.nsCartFoot{ padding:14px 18px 18px; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:8px; }
+.nsCartTotal{ display:flex; justify-content:space-between; font-weight:800; font-size:15px; }
+.nsCartTotalLinePen{
+  display:flex; justify-content:space-between;
+  font-size:11.5px; font-weight:600; color:var(--text-faint);
+  margin-top:-4px; margin-bottom:4px;
+}
+
+/* =========================================================
+   FOOTER
+   ========================================================= */
+
+.nsFooter{
+  position:relative; margin-top:auto;
+  background:linear-gradient(180deg, var(--bg-1), #0d0e13);
+  border-top:1px solid var(--line);
+}
+.nsFooter::before{
+  content:""; position:absolute; top:0; left:0; right:0; height:2px;
+  background:var(--ribbon);
+}
+
+.nsFooterInner{ max-width:1400px; margin:0 auto; padding:44px 20px 22px; }
+
+.nsFooterGrid{
+  display:grid; grid-template-columns:1.7fr 1fr 1fr 1fr; gap:34px;
+  padding-bottom:30px; border-bottom:1px solid var(--line);
+}
+
+.nsFooterCol{ display:flex; flex-direction:column; gap:11px; min-width:0; }
+
+.nsFooterCol h4{
+  margin:0 0 3px; font-family:var(--font-display);
+  font-size:12px; font-weight:700; letter-spacing:.8px;
+  text-transform:uppercase; color:var(--text);
+}
+
+.nsFooterCol a{
+  color:var(--text-faint); text-decoration:none;
+  font-size:13px; font-weight:600; width:fit-content;
+  transition:.18s ease; position:relative;
+}
+.nsFooterCol a:hover{ color:var(--teal); transform:translateX(2px); }
+
+.nsFooterColBrand{ padding-right:20px; }
+.nsFooterBrand{ display:flex; align-items:center; gap:10px; text-decoration:none; margin-bottom:2px; }
+.nsFooterLogo{ width:36px; height:36px; border-radius:10px; object-fit:cover; }
+
+.nsFooterBrandText{
+  font-family:var(--font-display); font-size:18px; font-weight:700;
+  color:var(--text); letter-spacing:-.2px;
+}
+.nsFooterBrandText em{
+  font-style:normal; background:var(--ribbon);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+
+.nsFooterAbout{
+  margin:0; font-size:12.5px; line-height:1.7;
+  color:var(--text-faint); max-width:380px;
+}
+
+.nsFooterBadges{ display:flex; flex-wrap:wrap; gap:7px; margin-top:6px; }
+.nsFooterBadge{
+  font-size:10.5px; font-weight:700; padding:5px 11px; border-radius:999px;
+  background:var(--panel); border:1px solid var(--line);
+  color:var(--text-dim); white-space:nowrap;
+}
+
+.nsFooterBottom{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:18px; flex-wrap:wrap; padding-top:20px;
+}
+
+.nsFooterCopy{ margin:0; font-size:12px; color:var(--text-faint); font-weight:600; }
+.nsFooterCopy strong{ color:var(--text-dim); font-weight:800; }
+
+.nsFooterCredito{
+  display:flex; align-items:center; gap:11px;
+  padding:9px 15px 9px 11px; border-radius:999px;
+  text-decoration:none; background:var(--panel);
+  border:1px solid var(--line);
+  transition:.22s ease; position:relative; overflow:hidden;
+}
+.nsFooterCredito::before{
+  content:""; position:absolute; inset:0;
+  background:var(--ribbon); opacity:0; transition:opacity .22s ease;
+}
+.nsFooterCredito:hover{
+  border-color:transparent; transform:translateY(-2px);
+  box-shadow:0 10px 26px rgba(33,230,193,.16);
+}
+.nsFooterCredito:hover::before{ opacity:.14; }
+
+.nsCreditoIcono{
+  position:relative; z-index:1; flex-shrink:0;
+  width:30px; height:30px; border-radius:50%;
+  background:#25d366; color:#fff;
+  display:flex; align-items:center; justify-content:center;
+}
+.nsCreditoIcono svg{ width:17px; height:17px; }
+
+.nsCreditoTexto{ position:relative; z-index:1; display:flex; flex-direction:column; line-height:1.25; }
+.nsCreditoLinea1{
+  font-size:9px; font-weight:700; letter-spacing:.7px;
+  text-transform:uppercase; color:var(--text-faint);
+}
+.nsCreditoLinea2{
+  font-family:var(--font-display); font-size:14px; font-weight:700;
+  background:var(--ribbon);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+
+.nsCreditoCta{
+  position:relative; z-index:1;
+  font-size:11px; font-weight:800; color:var(--teal);
+  padding-left:12px; border-left:1px solid var(--line);
+  white-space:nowrap; transition:.18s ease;
+}
+.nsFooterCredito:hover .nsCreditoCta{ color:var(--violet); }
+
+/* =========================================================
+   TOAST / WHATSAPP
+   ========================================================= */
+
+.nsToast{
+  position:fixed; top:16px; right:16px; z-index:99999;
+  max-width:340px; padding:12px 16px; border-radius:var(--radius-s);
+  background:var(--bg-1); border:1px solid var(--line);
+  font-size:13px; font-weight:700;
+  transform:translateY(-12px); opacity:0; pointer-events:none;
+  transition:.25s ease; display:flex; align-items:center; gap:12px; cursor:default;
+}
+.nsToast.visible{ transform:translateY(0); opacity:1; pointer-events:auto; }
+
+.nsToast.nsToastClicable{
+  cursor:pointer; border-color:var(--teal);
+  box-shadow:0 8px 24px rgba(33,230,193,.15);
+}
+.nsToast.nsToastClicable:hover{
+  transform:translateY(-2px); border-color:var(--violet);
+  box-shadow:0 10px 28px rgba(124,92,255,.2);
+}
+
+.nsToastMain{
+  flex:1; min-width:0; color:var(--text);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.nsToastCTA{ flex-shrink:0; font-size:11px; font-weight:800; color:var(--teal); white-space:nowrap; }
+.nsToast.nsToastClicable:hover .nsToastCTA{ color:var(--violet); }
+
+.nsWhatsapp{
+  position:fixed; right:18px; bottom:18px; z-index:9990;
+  width:52px; height:52px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  background:#25d366; color:#fff;
+  box-shadow:0 10px 26px rgba(0,0,0,.4);
+  transition:transform .18s ease;
+}
+.nsWhatsapp:hover{ transform:scale(1.07); }
+.nsWhatsapp svg{ width:26px; height:26px; }
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width:1080px){
+  .nsFooterGrid{ grid-template-columns:1fr 1fr 1fr; gap:26px; }
+  .nsFooterColBrand{ grid-column:1/-1; padding-right:0; }
+  .nsFooterAbout{ max-width:600px; }
+}
+
+@media (max-width:880px){
+  .nsNavLinks{ display:none; }
+  body.nsAutenticado .nsNavLinks a.nsSoloAuth{ display:none !important; }
+  .nsOnlyMobile{ display:flex; }
+
+  .nsGuestBar{ padding:14px 16px; }
+  .nsGuestBtns{ width:100%; }
+  .nsGuestBtns a{ flex:1; text-align:center; }
+}
+
+@media (max-width:600px){
+  .nsNavInner{ padding:10px 12px; gap:6px; }
+  .nsBrandText{ font-size:14px; }
+  .nsBrandLogo{ width:28px; height:28px; }
+
+  .nsNavActions{ gap:6px; }
+  .nsIconBtn{ width:32px; height:32px; }
+  .nsIconBtn svg{ width:15px; height:15px; }
+
+  .nsSaldoChip{ padding:4px 8px; }
+  .nsSaldoLabel{ display:none; }
+  .nsSaldoValor{ font-size:12px; }
+  .nsSaldoValorPen{ font-size:9px; }
+
+  .nsBtnIngresar{ height:32px; padding:0 12px; font-size:12px; gap:6px; }
+  .nsBtnIngresar svg{ width:14px; height:14px; }
+
+  .nsSearchRow{ padding:0 14px 10px; }
+  .nsSearchBox{ max-width:none; }
+  .nsMain{ padding:16px 14px 34px; }
+
+  .nsBanner{ height:auto; aspect-ratio: 4 / 1; min-height:0; border-radius:14px; }
+  .nsSlide{ position:absolute; inset:0; }
+  .nsSlide img{ width:100%; height:100%; object-fit:cover; object-position:center; }
+
+  .nsGuestBar{ padding:13px; gap:12px; border-radius:16px; }
+  .nsGuestIcon{ width:38px; height:38px; }
+  .nsGuestIcon svg{ width:17px; height:17px; }
+  .nsGuestText{ min-width:0; flex:1 1 100%; }
+  .nsGuestText strong{ font-size:13px; }
+  .nsGuestText span{ font-size:11.5px; }
+  .nsGuestBtnPrimary, .nsGuestBtnGhost{ padding:10px 14px; font-size:12px; }
+
+  .nsModalGrid{ flex-direction:column; }
+  .nsModalImg{ width:100%; min-width:0; height:180px; }
+
+  .nsGrid{ grid-template-columns:repeat(3,1fr); gap:8px; }
+
+  .nsCardImg{ height:88px; }
+  .nsCardBody{ padding:8px 8px 10px; gap:5px; }
+  .nsCardTitulo{ font-size:11px; min-height:28px; line-height:1.25; }
+  .nsCardMeta{ font-size:9px; flex-direction:column; align-items:flex-start; gap:3px; }
+  .nsCardPrecioUsd{ font-size:15px; }
+  .nsCardPrecioPen{ font-size:9.5px; }
+  .nsCardStock{ font-size:9px; padding:2px 6px; }
+  .nsCardBtns{ gap:4px; }
+  .nsBtnVer{ width:26px; height:26px; }
+  .nsBtnVer svg{ width:12px; height:12px; }
+  .nsBtnAgregar{ height:26px; font-size:9.5px; padding:0 3px; gap:3px; }
+  .nsBtnAgregar.nsBloqueado svg{ width:10px; height:10px; }
+  .nsFavBtn{ width:20px; height:20px; }
+  .nsFavBtn svg{ width:11px; height:11px; }
+
+  .nsCardProveedor{ padding:3px 7px 3px 3px; gap:5px; }
+  .nsProveedorCheck{ width:14px; height:14px; }
+  .nsProveedorCheck svg{ width:8px; height:8px; }
+  .nsProveedorTexto{ font-size:9px; }
+
+  .nsCatBtnFoto{ height:34px; padding:0 12px 0 5px; gap:6px; }
+  .nsCatAvatar{ width:22px; height:22px; }
+
+  .nsCategorias{
+    flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden;
+    -webkit-overflow-scrolling:touch; scrollbar-width:none;
+    padding-bottom:2px;
+    margin-left:-14px; margin-right:-14px;
+    padding-left:14px; padding-right:14px;
+  }
+  .nsCategorias::-webkit-scrollbar{ display:none; }
+  .nsCatBtn{ flex-shrink:0; }
+
+  .nsAuthModalBox{ padding:26px 20px 20px; border-radius:20px; }
+  .nsAuthModalTitle{ font-size:19px; }
+  .nsAuthModalIcon{ width:54px; height:54px; }
+  .nsAuthModalLista li{ font-size:12px; padding:9px 11px; }
+
+  .nsFooterInner{ padding:32px 14px 18px; }
+  .nsFooterGrid{ grid-template-columns:1fr 1fr; gap:24px 18px; padding-bottom:24px; }
+  .nsFooterColBrand{ grid-column:1/-1; }
+  .nsFooterBrandText{ font-size:16px; }
+  .nsFooterLogo{ width:32px; height:32px; }
+  .nsFooterAbout{ font-size:12px; line-height:1.65; }
+  .nsFooterBadge{ font-size:9.5px; padding:4px 9px; }
+  .nsFooterCol h4{ font-size:11px; }
+  .nsFooterCol a{ font-size:12.5px; }
+
+  .nsFooterBottom{ flex-direction:column-reverse; align-items:stretch; gap:14px; text-align:center; }
+  .nsFooterCredito{ justify-content:center; width:100%; padding:10px 14px; }
+  .nsFooterCopy{ font-size:11px; }
+
+  .nsWhatsapp{ right:14px; bottom:14px; width:48px; height:48px; }
+  .nsWhatsapp svg{ width:23px; height:23px; }
+}
+
+@media (max-width:400px){
+  .nsFooterCredito{ gap:9px; padding:9px 12px; }
+  .nsCreditoCta{ padding-left:9px; font-size:10px; }
+  .nsCreditoLinea2{ font-size:13px; }
+  .nsCreditoIcono{ width:27px; height:27px; }
+  .nsCreditoIcono svg{ width:15px; height:15px; }
+
+  .nsBtnIngresar span{ display:none; }
+  .nsBtnIngresar{ padding:0 10px; }
+}
+
+@media (max-width:360px){
+  .nsBrandText{ font-size:13px; }
+  .nsGrid{ gap:6px; }
+  .nsCardImg{ height:78px; }
+}
+
+@media (prefers-reduced-motion:reduce){
+  .nsCard, .nsSlide, .nsFooterCredito, .nsWhatsapp, .nsAuthModalBox{ transition:none !important; animation:none !important; }
+}

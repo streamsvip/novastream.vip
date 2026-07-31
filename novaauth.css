@@ -1,0 +1,901 @@
+/* =========================================================
+   NOVASTREAM.VIP — novaauth.css (v1)
+   Pantallas de acceso: login.html + registro.html
+
+   Mantiene la identidad del catálogo (carbón cálido + cinta
+   teal→violeta), pero con un layout partido: panel de marca
+   a la izquierda y formulario a la derecha. En móvil el panel
+   de marca se oculta y el formulario ocupa todo el ancho.
+   ========================================================= */
+
+:root{
+  --bg-0:#0b0c10;
+  --bg-1:#14151b;
+  --panel:#1a1c24;
+  --panel-2:#1f212b;
+
+  --line:rgba(255,255,255,.08);
+  --line-strong:rgba(255,255,255,.14);
+
+  --teal:#21e6c1;
+  --violet:#7c5cff;
+  --ribbon:linear-gradient(90deg,var(--teal),var(--violet));
+
+  --ok:#21e6c1;
+  --warn:#ffb84d;
+  --err:#ff6b7d;
+
+  --text:#f5f6fa;
+  --text-dim:#9a9db0;
+  --text-faint:#6b6e80;
+
+  --font-display:'Space Grotesk','Inter',sans-serif;
+  --font-body:'Inter',Arial,sans-serif;
+
+  --r-s:10px;
+  --r-m:14px;
+  --r-l:20px;
+  --r-xl:26px;
+}
+
+*,*::before,*::after{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; }
+
+body.naBody{
+  min-height:100vh;
+  background:var(--bg-0);
+  color:var(--text);
+  font-family:var(--font-body);
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+
+img{ max-width:100%; display:block; }
+button{ font-family:inherit; }
+a{ text-decoration:none; }
+
+/* =========================================================
+   FONDO AMBIENTAL
+   ========================================================= */
+
+.naBg{
+  position:fixed; inset:0; z-index:0;
+  overflow:hidden; pointer-events:none;
+}
+
+.naGrid{
+  position:absolute; inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px);
+  background-size:52px 52px;
+  mask-image:radial-gradient(circle at 50% 40%, #000 0%, transparent 72%);
+  -webkit-mask-image:radial-gradient(circle at 50% 40%, #000 0%, transparent 72%);
+}
+
+.naOrb{
+  position:absolute; border-radius:50%;
+  filter:blur(80px); opacity:.30;
+  animation:naFloat 16s ease-in-out infinite;
+}
+
+.naOrb1{
+  width:420px; height:420px; top:-110px; left:-90px;
+  background:radial-gradient(circle, rgba(33,230,193,.55), transparent 70%);
+}
+.naOrb2{
+  width:480px; height:480px; bottom:-160px; right:-120px;
+  background:radial-gradient(circle, rgba(124,92,255,.55), transparent 70%);
+  animation-delay:-5s;
+}
+.naOrb3{
+  width:280px; height:280px; top:46%; left:44%;
+  background:radial-gradient(circle, rgba(33,230,193,.30), transparent 70%);
+  animation-delay:-9s;
+}
+
+@keyframes naFloat{
+  0%,100%{ transform:translate(0,0) scale(1); }
+  35%{ transform:translate(38px,-42px) scale(1.12); }
+  70%{ transform:translate(-26px,34px) scale(.92); }
+}
+
+/* =========================================================
+   PANTALLA DE CARGA (verificar sesión)
+   ========================================================= */
+
+.naBooting{
+  position:fixed; inset:0; z-index:500;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:16px;
+  background:var(--bg-0);
+  transition:opacity .3s ease, visibility .3s ease;
+}
+.naBooting.oculto{ opacity:0; visibility:hidden; }
+
+.naBooting span{ font-size:12.5px; font-weight:700; color:var(--text-faint); letter-spacing:.3px; }
+
+.naBootingRing{
+  width:44px; height:44px; border-radius:50%;
+  border:3px solid rgba(255,255,255,.08);
+  border-top-color:var(--teal);
+  border-right-color:var(--violet);
+  animation:naSpin .85s linear infinite;
+}
+
+@keyframes naSpin{ to{ transform:rotate(360deg); } }
+
+/* =========================================================
+   LAYOUT PRINCIPAL
+   ========================================================= */
+
+.naWrap{
+  position:relative; z-index:1;
+  min-height:100vh;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,560px);
+  opacity:0;
+  transition:opacity .35s ease;
+}
+.naWrap.listo{ opacity:1; }
+
+/* ---- Panel de marca ---- */
+
+.naAside{
+  position:relative;
+  padding:44px 52px;
+  display:flex; flex-direction:column; justify-content:space-between;
+  border-right:1px solid var(--line);
+  background:
+    radial-gradient(circle at 12% 8%, rgba(33,230,193,.07), transparent 42%),
+    radial-gradient(circle at 88% 92%, rgba(124,92,255,.09), transparent 44%),
+    linear-gradient(180deg, rgba(20,21,27,.72), rgba(11,12,16,.86));
+  backdrop-filter:blur(6px);
+}
+
+.naAsideBrand{ display:flex; align-items:center; gap:12px; width:fit-content; }
+.naAsideLogo{ width:42px; height:42px; border-radius:12px; object-fit:cover; }
+
+.naAsideBrandText{
+  font-family:var(--font-display);
+  font-size:20px; font-weight:700; color:var(--text); letter-spacing:-.3px;
+}
+.naAsideBrandText em{
+  font-style:normal;
+  background:var(--ribbon);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+
+.naAsideBody{ max-width:480px; padding:40px 0; }
+
+.naAsidePill{
+  display:inline-block;
+  padding:7px 15px; border-radius:999px;
+  font-size:11px; font-weight:800; letter-spacing:.5px; text-transform:uppercase;
+  color:#c9fff4;
+  background:rgba(33,230,193,.09);
+  border:1px solid rgba(33,230,193,.26);
+  margin-bottom:22px;
+}
+
+.naAsideTitle{
+  margin:0 0 18px;
+  font-family:var(--font-display);
+  font-size:44px; font-weight:700; line-height:1.05; letter-spacing:-1.5px;
+  color:var(--text);
+}
+.naAsideTitle span{
+  display:block;
+  background:var(--ribbon);
+  background-size:200% auto;
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  animation:naShine 6s linear infinite;
+}
+
+@keyframes naShine{
+  0%{ background-position:0% center; }
+  100%{ background-position:200% center; }
+}
+
+.naAsideText{
+  margin:0 0 30px;
+  font-size:14.5px; line-height:1.75; color:var(--text-dim); max-width:440px;
+}
+
+.naAsideList{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:14px; }
+
+.naAsideList li{
+  display:flex; align-items:flex-start; gap:14px;
+  padding:14px 16px; border-radius:var(--r-m);
+  background:rgba(255,255,255,.028);
+  border:1px solid var(--line);
+  transition:.2s ease;
+}
+.naAsideList li:hover{ border-color:rgba(33,230,193,.28); transform:translateX(3px); }
+
+.naAsideIcon{
+  flex-shrink:0;
+  width:34px; height:34px; border-radius:11px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:15px; font-weight:800;
+  color:#04060a;
+  background:var(--ribbon);
+}
+
+.naAsideList strong{ display:block; font-size:13.5px; font-weight:800; color:var(--text); margin-bottom:3px; }
+.naAsideList small{ display:block; font-size:12px; line-height:1.55; color:var(--text-faint); }
+
+.naAsideFoot{
+  margin:0; font-size:12px; line-height:1.7; color:var(--text-faint); max-width:420px;
+}
+.naAsideFoot strong{ color:var(--text-dim); }
+
+/* ---- Panel del formulario ---- */
+
+.naPanel{
+  padding:38px 40px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px;
+}
+
+.naCard{
+  position:relative;
+  width:100%; max-width:420px;
+  padding:34px 32px 28px;
+  border-radius:var(--r-xl);
+  background:linear-gradient(180deg, rgba(26,28,36,.94), rgba(15,16,21,.97));
+  border:1px solid var(--line-strong);
+  box-shadow:0 30px 80px rgba(0,0,0,.55);
+  overflow:hidden;
+  animation:naCardIn .6s cubic-bezier(.2,.8,.2,1) both;
+}
+
+.naCardWide{ max-width:490px; }
+
+.naCard::before{
+  content:"";
+  position:absolute; top:0; left:0; right:0; height:3px;
+  background:var(--ribbon);
+}
+
+@keyframes naCardIn{
+  from{ opacity:0; transform:translateY(24px) scale(.98); }
+  to{ opacity:1; transform:translateY(0) scale(1); }
+}
+
+/* Marca dentro de la tarjeta (solo móvil) */
+.naCardBrand{
+  display:none;
+  align-items:center; justify-content:center; gap:10px;
+  margin-bottom:22px;
+}
+.naCardBrand img{ width:36px; height:36px; border-radius:10px; object-fit:cover; }
+.naCardBrand span{
+  font-family:var(--font-display); font-size:17px; font-weight:700; color:var(--text);
+}
+.naCardBrand em{
+  font-style:normal;
+  background:var(--ribbon);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+
+.naCardHead{ margin-bottom:26px; }
+.naCardHead h1{
+  margin:0 0 7px;
+  font-family:var(--font-display);
+  font-size:26px; font-weight:700; letter-spacing:-.6px; color:var(--text);
+}
+.naCardHead p{ margin:0; font-size:13.5px; line-height:1.6; color:var(--text-faint); }
+
+.naCardFoot{ margin:18px 0 0; text-align:center; font-size:12.5px; }
+
+/* =========================================================
+   CAMPOS
+   ========================================================= */
+
+.naFieldGrid{ display:grid; grid-template-columns:1fr 1fr; gap:0 14px; }
+
+.naField{ margin-bottom:17px; }
+
+.naField label{
+  display:block; margin-bottom:8px;
+  font-size:12.5px; font-weight:700; color:#dfe3f2; letter-spacing:.1px;
+}
+
+.naInputWrap{
+  position:relative;
+  display:flex; align-items:center;
+  height:52px;
+  border-radius:var(--r-m);
+  background:rgba(255,255,255,.032);
+  border:1.5px solid var(--line);
+  transition:border-color .2s ease, box-shadow .2s ease, background .2s ease;
+}
+
+.naInputWrap:focus-within{
+  border-color:var(--teal);
+  background:rgba(255,255,255,.052);
+  box-shadow:0 0 0 4px rgba(33,230,193,.10);
+}
+
+.naInputWrap.error{ border-color:var(--err); }
+.naInputWrap.error:focus-within{ box-shadow:0 0 0 4px rgba(255,107,125,.10); }
+.naInputWrap.ok{ border-color:rgba(33,230,193,.55); }
+
+.naInputIcon,
+.naInputIconTxt{
+  position:absolute; left:15px;
+  width:19px; height:19px;
+  display:flex; align-items:center; justify-content:center;
+  color:var(--text-faint);
+  pointer-events:none;
+  transition:color .2s ease, transform .2s ease;
+}
+
+.naInputIcon svg{
+  width:19px; height:19px;
+  fill:none; stroke:currentColor; stroke-width:1.9;
+  stroke-linecap:round; stroke-linejoin:round;
+}
+
+.naInputIconTxt{ font-size:17px; font-weight:800; }
+
+.naInputWrap:focus-within .naInputIcon,
+.naInputWrap:focus-within .naInputIconTxt{ color:var(--teal); transform:scale(1.06); }
+
+.naInputWrap input{
+  width:100%; height:100%;
+  padding:0 46px 0 46px;
+  border:none; outline:none; background:transparent;
+  color:var(--text);
+  font-size:14.5px; font-weight:500;
+  font-family:inherit;
+  border-radius:var(--r-m);
+}
+
+.naInputWrap input::placeholder{ color:var(--text-faint); font-weight:400; }
+.naInputWrap input:-webkit-autofill{
+  -webkit-text-fill-color:var(--text);
+  -webkit-box-shadow:0 0 0 60px #1d1f28 inset;
+}
+
+.naEye{
+  position:absolute; right:8px;
+  width:36px; height:36px;
+  border:none; border-radius:9px;
+  background:transparent; color:var(--text-faint);
+  cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:.18s ease;
+}
+.naEye svg{
+  width:18px; height:18px;
+  fill:none; stroke:currentColor; stroke-width:1.9;
+  stroke-linecap:round; stroke-linejoin:round;
+}
+.naEye:hover{ background:rgba(255,255,255,.06); color:var(--text); }
+.naEye.activo{ color:var(--teal); }
+
+.naInputStatus{
+  position:absolute; right:14px;
+  font-size:14px; line-height:1;
+}
+
+.naFieldHint{
+  display:block; margin-top:6px;
+  font-size:11px; line-height:1.5; color:var(--text-faint);
+}
+
+.naFieldError{
+  display:none; margin-top:6px;
+  font-size:11.5px; font-weight:700; line-height:1.45; color:var(--err);
+}
+.naFieldError.visible{ display:block; }
+
+.naCapsWarn{
+  display:none; margin-top:6px;
+  font-size:11px; font-weight:700; color:var(--warn);
+}
+.naCapsWarn.visible{ display:block; }
+
+/* =========================================================
+   MEDIDOR DE CONTRASEÑA
+   ========================================================= */
+
+.naStrength{ margin-top:9px; }
+
+.naStrengthBars{ display:flex; gap:5px; margin-bottom:6px; }
+
+.naStrengthBars span{
+  flex:1; height:4px; border-radius:99px;
+  background:rgba(255,255,255,.08);
+  transition:background .25s ease;
+}
+
+.naStrengthTxt{ font-size:10.5px; font-weight:700; color:var(--text-faint); }
+
+.naStrength[data-nivel="1"] .naStrengthBars span:nth-child(1){ background:var(--err); }
+.naStrength[data-nivel="2"] .naStrengthBars span:nth-child(-n+2){ background:var(--warn); }
+.naStrength[data-nivel="3"] .naStrengthBars span:nth-child(-n+3){ background:#59d9ff; }
+.naStrength[data-nivel="4"] .naStrengthBars span{ background:var(--teal); }
+
+.naStrength[data-nivel="1"] .naStrengthTxt{ color:var(--err); }
+.naStrength[data-nivel="2"] .naStrengthTxt{ color:var(--warn); }
+.naStrength[data-nivel="3"] .naStrengthTxt{ color:#59d9ff; }
+.naStrength[data-nivel="4"] .naStrengthTxt{ color:var(--teal); }
+
+/* =========================================================
+   FILA / CHECKBOX
+   ========================================================= */
+
+.naRow{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px; flex-wrap:wrap; margin:2px 0 22px;
+}
+
+.naCheck{
+  display:flex; align-items:center; gap:9px;
+  cursor:pointer; user-select:none;
+}
+
+.naCheck input{ position:absolute; opacity:0; width:0; height:0; }
+
+.naCheckBox{
+  flex-shrink:0;
+  width:19px; height:19px; border-radius:6px;
+  border:1.8px solid var(--line-strong);
+  background:rgba(255,255,255,.04);
+  display:flex; align-items:center; justify-content:center;
+  transition:.18s ease;
+}
+
+.naCheckBox::after{
+  content:"✓";
+  font-size:12px; font-weight:900; color:#04060a;
+  opacity:0; transform:scale(.4);
+  transition:.18s ease;
+}
+
+.naCheck input:checked + .naCheckBox{
+  background:var(--ribbon);
+  border-color:transparent;
+}
+.naCheck input:checked + .naCheckBox::after{ opacity:1; transform:scale(1); }
+.naCheck input:focus-visible + .naCheckBox{ box-shadow:0 0 0 4px rgba(33,230,193,.15); }
+
+.naCheckText{ font-size:12.5px; font-weight:600; color:var(--text-dim); line-height:1.55; }
+
+.naCheckBlock{
+  align-items:flex-start;
+  margin:4px 0 4px;
+  padding:13px 14px;
+  border-radius:var(--r-m);
+  background:rgba(255,255,255,.028);
+  border:1px solid var(--line);
+}
+.naCheckBlock .naCheckBox{ margin-top:1px; }
+
+/* =========================================================
+   BOTONES
+   ========================================================= */
+
+.naBtn{
+  position:relative;
+  width:100%;
+  min-height:52px;
+  padding:14px 20px;
+  border:none; border-radius:var(--r-m);
+  display:flex; align-items:center; justify-content:center; gap:10px;
+  font-size:14.5px; font-weight:800;
+  cursor:pointer;
+  overflow:hidden;
+  transition:transform .18s ease, filter .18s ease, box-shadow .18s ease, background .18s ease;
+}
+
+.naBtnLabel{ position:relative; z-index:1; }
+
+.naBtnPrimary{
+  background:var(--ribbon);
+  color:#04060a;
+  box-shadow:0 12px 30px rgba(33,230,193,.18);
+  margin-top:4px;
+}
+.naBtnPrimary:hover{ transform:translateY(-2px); filter:brightness(1.07); box-shadow:0 16px 38px rgba(124,92,255,.24); }
+.naBtnPrimary:active{ transform:translateY(0); }
+
+.naBtnPrimary::after{
+  content:"";
+  position:absolute; top:0; left:-130%;
+  width:70%; height:100%;
+  background:linear-gradient(120deg, transparent, rgba(255,255,255,.42), transparent);
+  transform:skewX(-20deg);
+}
+.naBtnPrimary:hover::after{ animation:naShineBtn .8s ease; }
+
+@keyframes naShineBtn{ to{ left:150%; } }
+
+.naBtnGhost{
+  background:rgba(255,255,255,.045);
+  border:1px solid var(--line-strong);
+  color:var(--text);
+}
+.naBtnGhost:hover{ background:rgba(255,255,255,.08); border-color:rgba(33,230,193,.45); }
+
+.naBtnSoft{
+  background:linear-gradient(90deg, rgba(33,230,193,.09), rgba(124,92,255,.09));
+  border:1px solid rgba(33,230,193,.26);
+  color:var(--text);
+  min-height:46px;
+  font-size:13px;
+  margin-bottom:6px;
+}
+.naBtnSoft:hover{ filter:brightness(1.12); border-color:rgba(33,230,193,.5); }
+
+.naBtnArrow{
+  position:relative; z-index:1;
+  font-size:17px; line-height:1;
+  transition:transform .2s ease;
+}
+.naBtn:hover .naBtnArrow{ transform:translateX(4px); }
+
+/* Estado cargando */
+.naBtnSpinner{
+  display:none;
+  width:17px; height:17px; border-radius:50%;
+  border:2.2px solid rgba(0,0,0,.22);
+  border-top-color:#04060a;
+  animation:naSpin .7s linear infinite;
+}
+.naBtn.cargando .naBtnSpinner{ display:block; }
+.naBtn.cargando .naBtnArrow{ display:none; }
+.naBtn.cargando{ pointer-events:none; opacity:.9; }
+.naBtnGhost.cargando .naBtnSpinner{ border-color:rgba(255,255,255,.2); border-top-color:var(--teal); }
+
+.naBtn:disabled{ opacity:.5; pointer-events:none; }
+
+/* =========================================================
+   MENSAJES / DIVISOR / ENLACES
+   ========================================================= */
+
+.naMessage{
+  display:none;
+  margin-top:15px; padding:12px 14px;
+  border-radius:var(--r-s);
+  font-size:12.5px; font-weight:700; line-height:1.55;
+  text-align:center;
+}
+.naMessage.visible{ display:block; animation:naMsgIn .25s ease; }
+
+@keyframes naMsgIn{
+  from{ opacity:0; transform:translateY(-5px); }
+  to{ opacity:1; transform:translateY(0); }
+}
+
+.naMessage.info{ color:#c8ecff; background:rgba(89,217,255,.09); border:1px solid rgba(89,217,255,.24); }
+.naMessage.ok{ color:#bdfff2; background:rgba(33,230,193,.09); border:1px solid rgba(33,230,193,.26); }
+.naMessage.warn{ color:#ffe0ad; background:rgba(255,184,77,.09); border:1px solid rgba(255,184,77,.26); }
+.naMessage.err{ color:#ffd0d6; background:rgba(255,107,125,.09); border:1px solid rgba(255,107,125,.26); }
+
+.naDivider{
+  display:flex; align-items:center; gap:12px;
+  margin:22px 0 14px;
+  font-size:11.5px; font-weight:700; color:var(--text-faint);
+}
+.naDivider::before, .naDivider::after{
+  content:""; flex:1; height:1px; background:var(--line);
+}
+
+.naLinkInline{
+  border:none; background:none; padding:0;
+  color:var(--teal);
+  font-family:inherit; font-size:inherit; font-weight:800;
+  cursor:pointer;
+  position:relative;
+  transition:color .18s ease;
+}
+.naLinkInline::after{
+  content:"";
+  position:absolute; left:0; bottom:-2px;
+  width:0; height:1.5px; border-radius:2px;
+  background:var(--ribbon);
+  transition:width .25s ease;
+}
+.naLinkInline:hover{ color:var(--violet); }
+.naLinkInline:hover::after{ width:100%; }
+
+/* =========================================================
+   AVISO DE SEGURIDAD
+   ========================================================= */
+
+.naSecure{
+  display:flex; align-items:flex-start; gap:12px;
+  margin-top:18px; padding:13px 14px;
+  border-radius:var(--r-m);
+  background:rgba(33,230,193,.05);
+  border:1px solid rgba(33,230,193,.16);
+}
+.naSecureIcon{ font-size:17px; flex-shrink:0; line-height:1.3; }
+.naSecure strong{ display:block; font-size:12.5px; color:#dcfff8; margin-bottom:3px; }
+.naSecure small{ display:block; font-size:11.5px; line-height:1.55; color:var(--text-faint); }
+
+/* =========================================================
+   CRÉDITO IMPULSO PROJECT
+   ========================================================= */
+
+.naCredito{
+  display:flex; align-items:center; gap:11px;
+  padding:9px 16px 9px 11px;
+  border-radius:999px;
+  background:rgba(255,255,255,.035);
+  border:1px solid var(--line);
+  transition:.22s ease;
+}
+.naCredito:hover{
+  border-color:rgba(33,230,193,.42);
+  transform:translateY(-2px);
+  box-shadow:0 10px 26px rgba(33,230,193,.14);
+}
+
+.naCreditoIcono{
+  flex-shrink:0;
+  width:28px; height:28px; border-radius:50%;
+  background:#25d366; color:#fff;
+  display:flex; align-items:center; justify-content:center;
+}
+.naCreditoIcono svg{ width:16px; height:16px; }
+
+.naCreditoTexto{ display:flex; flex-direction:column; line-height:1.25; }
+.naCreditoL1{
+  font-size:8.5px; font-weight:700; letter-spacing:.7px;
+  text-transform:uppercase; color:var(--text-faint);
+}
+.naCreditoL2{
+  font-family:var(--font-display);
+  font-size:13px; font-weight:700;
+  background:var(--ribbon);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+
+/* =========================================================
+   MODALES
+   ========================================================= */
+
+.naModal{
+  display:none;
+  position:fixed; inset:0; z-index:1000;
+  align-items:center; justify-content:center;
+  padding:18px;
+  background:rgba(4,5,8,.80);
+  backdrop-filter:blur(7px);
+}
+.naModal.show{ display:flex; }
+
+.naModalBox{
+  position:relative;
+  width:100%; max-width:560px; max-height:88vh; overflow-y:auto;
+  padding:26px;
+  border-radius:var(--r-xl);
+  background:linear-gradient(180deg, #191b23, #0f1015);
+  border:1px solid var(--line-strong);
+  box-shadow:0 30px 80px rgba(0,0,0,.6);
+  animation:naModalIn .26s cubic-bezier(.2,.8,.2,1);
+}
+
+.naModalBoxSm{ max-width:430px; }
+
+@keyframes naModalIn{
+  from{ opacity:0; transform:translateY(16px) scale(.97); }
+  to{ opacity:1; transform:translateY(0) scale(1); }
+}
+
+.naModalBox::before{
+  content:"";
+  position:absolute; top:0; left:0; right:0; height:3px;
+  border-radius:var(--r-xl) var(--r-xl) 0 0;
+  background:var(--ribbon);
+}
+
+.naModalX{
+  position:absolute; top:16px; right:16px;
+  width:32px; height:32px;
+  border:none; border-radius:50%;
+  background:rgba(255,255,255,.07);
+  color:var(--text-dim);
+  font-size:14px; cursor:pointer;
+  transition:.18s ease;
+}
+.naModalX:hover{ background:rgba(255,255,255,.13); color:var(--text); }
+
+.naModalHead{
+  display:flex; align-items:center; gap:14px;
+  padding-bottom:16px; margin-bottom:18px;
+  border-bottom:1px solid var(--line);
+}
+
+.naModalIcon{
+  flex-shrink:0;
+  width:46px; height:46px; border-radius:14px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:22px;
+  background:linear-gradient(135deg, rgba(33,230,193,.16), rgba(124,92,255,.16));
+  border:1px solid rgba(33,230,193,.28);
+}
+
+.naModalHead h3{
+  margin:0 0 3px;
+  font-family:var(--font-display); font-size:19px; font-weight:700; color:var(--text);
+}
+.naModalHead small{ font-size:12px; color:var(--text-faint); }
+
+.naModalBody{ margin-bottom:18px; }
+
+.naModalBody p{
+  position:relative;
+  margin:0 0 9px;
+  padding:11px 13px 11px 38px;
+  border-radius:var(--r-s);
+  font-size:12.8px; line-height:1.65;
+  color:var(--text-dim);
+  background:rgba(255,255,255,.028);
+  border:1px solid var(--line);
+}
+.naModalBody p::before{
+  content:"✓";
+  position:absolute; left:13px; top:11px;
+  width:16px; height:16px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:10px; font-weight:900; color:#04060a;
+  background:var(--ribbon);
+}
+.naModalBody strong{ color:var(--text); }
+
+.naModalBody::-webkit-scrollbar{ width:7px; }
+.naModalBox::-webkit-scrollbar{ width:7px; }
+.naModalBox::-webkit-scrollbar-track{ background:rgba(255,255,255,.04); border-radius:99px; }
+.naModalBox::-webkit-scrollbar-thumb{ background:var(--ribbon); border-radius:99px; }
+
+/* ---- Modal de bienvenida ---- */
+
+.naModalSuccess{ text-align:center; padding:32px 26px 26px; }
+
+.naSuccessIcon{
+  width:64px; height:64px; margin:0 auto 18px;
+  border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--ribbon);
+  box-shadow:0 0 0 8px rgba(33,230,193,.10);
+  animation:naPop .45s cubic-bezier(.2,1.4,.4,1) both;
+}
+.naSuccessIcon svg{
+  width:30px; height:30px;
+  fill:none; stroke:#04060a; stroke-width:3.2;
+  stroke-linecap:round; stroke-linejoin:round;
+}
+
+@keyframes naPop{
+  from{ opacity:0; transform:scale(.4); }
+  to{ opacity:1; transform:scale(1); }
+}
+
+.naSuccessTitle{
+  margin:0 0 9px;
+  font-family:var(--font-display); font-size:23px; font-weight:700; color:var(--text);
+}
+.naSuccessText{
+  margin:0 0 22px;
+  font-size:13.5px; line-height:1.65; color:var(--text-dim);
+}
+.naSuccessText strong{ color:var(--teal); }
+
+.naSuccessSteps{
+  display:flex; flex-direction:column; gap:9px;
+  margin-bottom:22px; text-align:left;
+}
+.naSuccessStep{
+  display:flex; align-items:center; gap:12px;
+  padding:11px 13px; border-radius:var(--r-m);
+  background:rgba(255,255,255,.028);
+  border:1px solid var(--line);
+}
+.naSuccessStep > span{
+  flex-shrink:0;
+  width:26px; height:26px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:12px; font-weight:900; color:#04060a;
+  background:var(--ribbon);
+}
+.naSuccessStep strong{ display:block; font-size:12.5px; color:var(--text); }
+.naSuccessStep small{ display:block; font-size:11px; color:var(--text-faint); margin-top:2px; }
+
+.naModalSuccess .naBtnGhost{ margin-top:9px; }
+
+/* =========================================================
+   TOAST
+   ========================================================= */
+
+.naToast{
+  position:fixed; top:18px; right:18px; z-index:2000;
+  max-width:340px;
+  padding:13px 16px;
+  border-radius:var(--r-m);
+  background:#181a22;
+  border:1px solid var(--line-strong);
+  box-shadow:0 16px 40px rgba(0,0,0,.5);
+  font-size:12.8px; font-weight:700; line-height:1.5;
+  color:var(--text);
+  opacity:0; transform:translateY(-12px);
+  pointer-events:none;
+  transition:.25s ease;
+}
+.naToast.visible{ opacity:1; transform:translateY(0); }
+.naToast.ok{ border-color:rgba(33,230,193,.45); }
+.naToast.err{ border-color:rgba(255,107,125,.45); }
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width:1180px){
+  .naWrap{ grid-template-columns:minmax(0,1fr) minmax(0,500px); }
+  .naAside{ padding:36px 38px; }
+  .naAsideTitle{ font-size:37px; }
+}
+
+@media (max-width:980px){
+  .naWrap{ grid-template-columns:1fr; }
+  .naAside{ display:none; }
+  .naPanel{ padding:30px 20px; min-height:100vh; }
+  .naCardBrand{ display:flex; }
+}
+
+@media (max-width:560px){
+  .naPanel{ padding:22px 14px 26px; gap:18px; }
+
+  .naCard{
+    padding:26px 20px 22px;
+    border-radius:22px;
+    box-shadow:0 20px 50px rgba(0,0,0,.45);
+  }
+
+  .naCardHead h1{ font-size:22px; }
+  .naCardHead p{ font-size:12.5px; }
+  .naCardHead{ margin-bottom:22px; }
+
+  .naFieldGrid{ grid-template-columns:1fr; gap:0; }
+
+  .naInputWrap{ height:50px; }
+  .naInputWrap input{ font-size:14px; padding:0 44px; }
+
+  .naRow{ margin-bottom:18px; }
+  .naCheckText{ font-size:12px; }
+
+  .naBtn{ min-height:50px; font-size:14px; }
+  .naBtnSoft{ min-height:44px; font-size:12.5px; }
+
+  .naSecure{ padding:12px; }
+  .naSecure small{ font-size:11px; }
+
+  .naOrb{ filter:blur(60px); opacity:.24; }
+  .naOrb3{ display:none; }
+
+  .naModalBox{ padding:22px 18px; border-radius:20px; }
+  .naModalHead h3{ font-size:17px; }
+  .naModalIcon{ width:40px; height:40px; font-size:19px; }
+  .naModalBody p{ font-size:12px; padding:10px 12px 10px 34px; }
+
+  .naSuccessIcon{ width:56px; height:56px; }
+  .naSuccessTitle{ font-size:20px; }
+
+  .naToast{ top:12px; left:12px; right:12px; max-width:none; }
+}
+
+@media (max-width:400px){
+  .naCredito{ padding:8px 13px 8px 9px; gap:9px; }
+  .naCreditoL2{ font-size:12px; }
+  .naCreditoIcono{ width:25px; height:25px; }
+  .naCreditoIcono svg{ width:14px; height:14px; }
+}
+
+@media (prefers-reduced-motion:reduce){
+  .naOrb, .naCard, .naAsideTitle span, .naModalBox, .naSuccessIcon{ animation:none !important; }
+  .naBtn, .naAsideList li, .naCredito{ transition:none !important; }
+}

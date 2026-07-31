@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <!--
+    NOVASTREAM.VIP — catalogo.html (v5)
+
+    MODO VISITANTE vs MODO CLIENTE
+    El catálogo es público: cualquiera puede ver los productos.
+    Pero comprar requiere cuenta. El estado se maneja con dos
+    clases en el <body> que pone novastream.js:
+       body.nsInvitado    → sin sesión
+       body.nsAutenticado → con sesión
+    Los elementos marcados con .nsSoloAuth / .nsSoloInvitado
+    se muestran u ocultan según ese estado.
+  -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NovaStream · Catálogo</title>
+
+  <meta name="description" content="NovaStream · Cuentas premium, licencias y servicios digitales con entrega automática.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <link rel="stylesheet" href="novastream.css?v=5">
+</head>
+
+<!-- Arranca en estado "cargando" para evitar parpadeos -->
+<body class="nsBody nsSesionCargando">
+
+  <!-- ================= NAVBAR SUPERIOR ================= -->
+  <header class="nsNav" id="nsNav">
+    <div class="nsNavInner">
+
+      <a href="catalogo.html" class="nsBrand">
+        <img src="img/logo.png" alt="NovaStream" class="nsBrandLogo">
+        <span class="nsBrandText">NOVA<em>STREAM</em></span>
+      </a>
+
+      <nav class="nsNavLinks" id="nsNavLinks">
+        <a href="catalogo.html" class="activo">Catálogo</a>
+        <a href="recargas.html" class="nsSoloAuth">Recargas</a>
+        <a href="mis-compras.html" class="nsSoloAuth">Mis compras</a>
+      </nav>
+
+      <div class="nsNavActions">
+
+        <button type="button" class="nsIconBtn" id="btnAbrirBusqueda" aria-label="Buscar">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg>
+        </button>
+
+        <button type="button" class="nsIconBtn" id="btnFavoritosTop" aria-label="Favoritos">
+          <svg viewBox="0 0 24 24"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9 12 2"></polygon></svg>
+        </button>
+
+        <!-- Carrito: solo con sesión -->
+        <button type="button" class="nsIconBtn nsCartBtn nsSoloAuth" id="btnCarrito" aria-label="Carrito">
+          <svg viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.4"></circle><circle cx="18" cy="20" r="1.4"></circle><path d="M3 4h2l2.2 10.2a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.8L20 7H7"></path></svg>
+          <span class="nsCartBadge" id="badgeCarrito">0</span>
+        </button>
+
+        <!-- Saldo: solo con sesión -->
+        <div class="nsSaldoChip nsSoloAuth">
+          <span class="nsSaldoLabel">Saldo</span>
+          <span id="saldoUsuario" class="nsSaldoValor">$0.00</span>
+          <span id="saldoUsuarioPen" class="nsSaldoValorPen">S/ 0.00</span>
+        </div>
+
+        <!-- Botón Ingresar: solo visitante -->
+        <a href="login.html" class="nsBtnIngresar nsSoloInvitado">
+          <svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+          <span>Ingresar</span>
+        </a>
+
+        <button type="button" class="nsIconBtn nsOnlyMobile" id="btnMenuMovil" aria-label="Menú">
+          <svg viewBox="0 0 24 24"><line x1="4" y1="7" x2="20" y2="7"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="17" x2="20" y2="17"></line></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="nsSearchRow" id="nsSearchRow">
+      <div class="nsSearchBox">
+        <svg class="nsSearchIcon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg>
+        <input type="text" id="buscadorProductos" placeholder="Buscar plataforma, producto o proveedor..." autocomplete="off">
+        <button type="button" id="btnLimpiarBusqueda" class="nsSearchClear">Limpiar</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= DRAWER MÓVIL ================= -->
+  <div class="nsDrawerOverlay" id="nsDrawerOverlay">
+    <aside class="nsDrawer" id="nsDrawer">
+      <div class="nsDrawerHead">
+        <span>Menú</span>
+        <button type="button" id="btnCerrarDrawer" class="nsIconBtn" aria-label="Cerrar">
+          <svg viewBox="0 0 24 24"><line x1="5" y1="5" x2="19" y2="19"></line><line x1="19" y1="5" x2="5" y2="19"></line></svg>
+        </button>
+      </div>
+
+      <!-- Tarjeta de usuario: solo con sesión -->
+      <div class="nsDrawerUser nsSoloAuth">
+        <div class="nsDrawerAvatar" id="drawerAvatar">N</div>
+        <div class="nsDrawerUserInfo">
+          <strong id="drawerNombre">Cliente</strong>
+          <span id="drawerSaldo">$0.00</span>
+        </div>
+      </div>
+
+      <!-- Invitación: solo visitante -->
+      <div class="nsDrawerGuest nsSoloInvitado">
+        <strong>Estás navegando como invitado</strong>
+        <span>Crea tu cuenta para comprar y recibir tus accesos al instante.</span>
+        <a href="registro.html" class="nsDrawerCta">Crear cuenta gratis</a>
+        <a href="login.html" class="nsDrawerCta2">Ya tengo cuenta</a>
+      </div>
+
+      <a href="catalogo.html">Catálogo</a>
+      <a href="recargas.html" class="nsSoloAuth">Recargas</a>
+      <a href="mis-compras.html" class="nsSoloAuth">Mis compras</a>
+      <a href="#" id="linkFavoritosDrawer">Favoritos</a>
+      <a href="#" id="linkSalirDrawer" class="nsSoloAuth nsDrawerSalir">Cerrar sesión</a>
+    </aside>
+  </div>
+
+  <main class="nsMain">
+
+    <div class="nsBanner">
+      <div class="nsSlides" id="nsSlides">
+        <div class="nsSlide activo"><img src="img/banner1.png" alt="NovaStream"></div>
+        <div class="nsSlide"><img src="img/banner1.png" alt="NovaStream"></div>
+        <div class="nsSlide"><img src="img/banner1.png" alt="NovaStream"></div>
+      </div>
+      <div class="nsDots" id="nsDots"></div>
+    </div>
+
+    <!-- ===== BARRA DE INVITADO (solo sin sesión) ===== -->
+    <div class="nsGuestBar nsSoloInvitado">
+      <div class="nsGuestIcon">
+        <svg viewBox="0 0 24 24"><rect x="4" y="10.5" width="16" height="10" rx="2.5"></rect><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path></svg>
+      </div>
+
+      <div class="nsGuestText">
+        <strong>Estás explorando como invitado</strong>
+        <span>Puedes ver todo el catálogo, pero necesitas una cuenta para comprar y recibir tus accesos.</span>
+      </div>
+
+      <div class="nsGuestBtns">
+        <a href="registro.html" class="nsGuestBtnPrimary">Crear cuenta gratis</a>
+        <a href="login.html" class="nsGuestBtnGhost">Ingresar</a>
+      </div>
+    </div>
+
+    <section class="nsCategorias" id="categoriasBox">
+      <div class="nsCargando">Cargando categorías...</div>
+    </section>
+
+    <div class="nsResultadoInfo" id="resultadoFiltroInfo">Conectando con el catálogo...</div>
+
+    <div class="nsGrid" id="contenedorProductos">
+      <div class="nsCargando">Cargando productos...</div>
+    </div>
+
+  </main>
+
+  <!-- ================= FOOTER ================= -->
+  <footer class="nsFooter">
+    <div class="nsFooterInner">
+
+      <div class="nsFooterGrid">
+
+        <div class="nsFooterCol nsFooterColBrand">
+          <a href="catalogo.html" class="nsFooterBrand">
+            <img src="img/logo.png" alt="NovaStream" class="nsFooterLogo">
+            <span class="nsFooterBrandText">NOVA<em>STREAM</em></span>
+          </a>
+          <p class="nsFooterAbout">
+            Plataforma de servicios digitales premium con entrega automática.
+            Cuentas, licencias y suscripciones verificadas por proveedores
+            confiables, disponibles 24/7.
+          </p>
+          <div class="nsFooterBadges">
+            <span class="nsFooterBadge">⚡ Entrega inmediata</span>
+            <span class="nsFooterBadge">🛡️ Proveedores verificados</span>
+            <span class="nsFooterBadge">💬 Soporte real</span>
+          </div>
+        </div>
+
+        <div class="nsFooterCol">
+          <h4>Navegación</h4>
+          <a href="catalogo.html">Catálogo</a>
+          <a href="recargas.html" class="nsSoloAuth">Recargar saldo</a>
+          <a href="mis-compras.html" class="nsSoloAuth">Mis compras</a>
+          <a href="registro.html" class="nsSoloInvitado">Crear cuenta</a>
+          <a href="login.html" class="nsSoloInvitado">Iniciar sesión</a>
+          <a href="#" id="linkFooterFavoritos">Mis favoritos</a>
+        </div>
+
+        <div class="nsFooterCol">
+          <h4>Ayuda</h4>
+          <a href="#" id="linkFooterSoporte" target="_blank" rel="noopener">Soporte WhatsApp</a>
+          <a href="#" id="linkFooterReembolso">Política de reembolso</a>
+          <a href="#" id="linkFooterGarantia">Garantía de cuentas</a>
+          <a href="#" id="linkFooterFaq">Preguntas frecuentes</a>
+        </div>
+
+        <div class="nsFooterCol">
+          <h4>Legal</h4>
+          <a href="#" id="linkFooterTerminos">Términos y condiciones</a>
+          <a href="#" id="linkFooterPrivacidad">Política de privacidad</a>
+          <a href="#" id="linkFooterProveedor">Vender como proveedor</a>
+        </div>
+
+      </div>
+
+      <div class="nsFooterBottom">
+
+        <p class="nsFooterCopy">
+          &copy; <span id="nsAnioActual">2025</span> <strong>NovaStream</strong>. Todos los derechos reservados.
+        </p>
+
+        <a
+          href="https://wa.me/51916252754?text=Hola%20Impulso%20Project%2C%20vi%20su%20trabajo%20en%20NovaStream%20y%20quiero%20informaci%C3%B3n%20sobre%20la%20creaci%C3%B3n%20de%20p%C3%A1ginas%20web%20y%20sistemas%20a%20medida."
+          target="_blank" rel="noopener"
+          class="nsFooterCredito" id="nsFooterCredito"
+          aria-label="Contactar a Impulso Project por WhatsApp">
+
+          <span class="nsCreditoIcono">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2zm0 18.1a8.1 8.1 0 0 1-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8.1 8.1 0 1 1 12 20.1z"></path>
+              <path d="M17.5 14.4c-.3-.2-1.7-.9-2-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-.3-.2-1.3-.5-2.5-1.6-.9-.8-1.5-1.9-1.7-2.2-.2-.3 0-.5.1-.6.1-.1.3-.4.5-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5C9.6 9 9.1 7.8 8.9 7.3c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.3.3-1 1-1 2.4s1 2.8 1.2 3c.1.2 2 3.2 5 4.4.7.3 1.2.5 1.7.6.7.2 1.3.2 1.8.1.6-.1 1.7-.7 1.9-1.3.2-.6.2-1.2.2-1.3-.1-.1-.3-.2-.6-.4z"></path>
+            </svg>
+          </span>
+
+          <span class="nsCreditoTexto">
+            <span class="nsCreditoLinea1">Designed &amp; Developed by</span>
+            <span class="nsCreditoLinea2">Impulso Project</span>
+          </span>
+
+          <span class="nsCreditoCta">Contactar →</span>
+        </a>
+
+      </div>
+    </div>
+  </footer>
+
+  <!-- ================= MODAL PRODUCTO ================= -->
+  <div id="modalCompra" class="nsModal">
+    <div class="nsModalBox">
+      <button type="button" class="nsModalCerrar" id="btnCerrarModal" aria-label="Cerrar">✕</button>
+
+      <div class="nsModalGrid">
+        <img id="modalImagen" class="nsModalImg" alt="Producto">
+
+        <div class="nsModalInfo">
+          <h2 id="modalNombre"></h2>
+
+          <div class="nsModalDesc">
+            <h4>Descripción</h4>
+            <p id="modalDescripcion"></p>
+          </div>
+
+          <div class="nsModalReglas">
+            <h4>Reglas de uso</h4>
+            <ul id="listaReglas"></ul>
+          </div>
+
+          <!-- CTA dentro del modal: solo visitante -->
+          <div class="nsModalGuestCta nsSoloInvitado">
+            <span>🔒 Necesitas una cuenta para comprar este producto.</span>
+            <div>
+              <a href="registro.html" class="nsGuestBtnPrimary">Crear cuenta gratis</a>
+              <a href="login.html" class="nsGuestBtnGhost">Ingresar</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL "NECESITAS CUENTA" ================= -->
+  <div class="nsAuthModal" id="nsAuthModal">
+    <div class="nsAuthModalBox">
+      <button type="button" class="nsModalCerrar" id="btnCerrarAuthModal" aria-label="Cerrar">✕</button>
+
+      <div class="nsAuthModalIcon">
+        <svg viewBox="0 0 24 24"><rect x="4" y="10.5" width="16" height="10" rx="2.5"></rect><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path></svg>
+      </div>
+
+      <h3 class="nsAuthModalTitle">Crea tu cuenta para comprar</h3>
+      <p class="nsAuthModalText" id="nsAuthModalText">
+        Estás explorando como invitado. Para adquirir productos necesitas
+        una cuenta con saldo.
+      </p>
+
+      <div class="nsAuthProducto" id="nsAuthProducto" style="display:none;">
+        <img id="nsAuthProdImg" alt="">
+        <div>
+          <strong id="nsAuthProdNombre"></strong>
+          <span id="nsAuthProdPrecio"></span>
+        </div>
+      </div>
+
+      <ul class="nsAuthModalLista">
+        <li><span>⚡</span> Recibe tus accesos al instante</li>
+        <li><span>💳</span> Recarga saldo con Yape, Plin o Binance</li>
+        <li><span>📋</span> Historial de compras siempre disponible</li>
+        <li><span>🔄</span> Reembolsos y renovaciones en un clic</li>
+      </ul>
+
+      <a href="registro.html" class="nsAuthModalBtn">Crear cuenta gratis →</a>
+      <a href="login.html" class="nsAuthModalBtnGhost">Ya tengo cuenta</a>
+
+      <small class="nsAuthModalFoot">El registro es gratuito y toma menos de un minuto.</small>
+    </div>
+  </div>
+
+  <!-- ================= CARRITO ================= -->
+  <div class="nsCartOverlay" id="nsCartOverlay">
+    <aside class="nsCartPanel">
+      <div class="nsCartHead">
+        <strong>Tu carrito</strong>
+        <button type="button" id="btnCerrarCarrito" class="nsIconBtn" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="nsCartBody" id="carritoBody"></div>
+      <div class="nsCartFoot">
+        <div class="nsCartTotal"><span>Total</span><span id="carritoTotalTexto">$0.00</span></div>
+        <div class="nsCartTotalLinePen"><span>Equivalente</span><span id="carritoTotalPen">S/ 0.00</span></div>
+        <button type="button" class="nsBtnComprar" id="btnPagarCarrito">Proceder al pago</button>
+      </div>
+    </aside>
+  </div>
+
+  <div id="toastAviso" class="nsToast"></div>
+
+  <a
+    href="https://wa.me/51900000000?text=Hola%2C%20necesito%20ayuda%20con%20NovaStream"
+    target="_blank" rel="noopener"
+    class="nsWhatsapp" aria-label="Soporte por WhatsApp">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.2-1.7-.9-2-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-.3-.2-1.3-.5-2.5-1.6-.9-.8-1.5-1.9-1.7-2.2-.2-.3 0-.5.1-.6.1-.1.3-.4.5-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5C9.6 9 9.1 7.8 8.9 7.3c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.3.3-1 1-1 2.4s1 2.8 1.2 3c.1.2 2 3.2 5 4.4.7.3 1.2.5 1.7.6.7.2 1.3.2 1.8.1.6-.1 1.7-.7 1.9-1.3.2-.6.2-1.2.2-1.3-.1-.1-.3-.2-.6-.4z"></path><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2zm0 18.1a8.1 8.1 0 0 1-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8.1 8.1 0 1 1 12 20.1z"></path></svg>
+  </a>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+  <script src="novastream.js?v=5"></script>
+</body>
+</html>

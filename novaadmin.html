@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NovaStream.vip | Panel Administrador</title>
+  <link rel="stylesheet" href="novaadmin.css?v=3">
+</head>
+<body class="nvaBody">
+
+  <div id="nvaToastStack" class="nvaToastStack" aria-live="polite"></div>
+
+  <!-- ============ LOGIN ============ -->
+  <div id="loginSection" class="nvaLoginScreen">
+    <div class="nvaLoginBox">
+      <div class="nvaLoginBrand">
+        <span class="dot"></span>
+        <span>NovaStream · Panel Interno</span>
+      </div>
+
+      <h1>Acceso administrador</h1>
+      <p class="sub">Inicia sesión con la cuenta autorizada para gestionar la operación completa.</p>
+
+      <div class="nvaField">
+        <label>Correo</label>
+        <div class="wrap">
+          <input type="email" id="adminEmail" placeholder="admin@novastream.vip" autocomplete="email">
+        </div>
+      </div>
+
+      <div class="nvaField">
+        <label>Contraseña</label>
+        <div class="wrap">
+          <input type="password" id="adminPassword" placeholder="••••••••" autocomplete="current-password">
+          <button type="button" class="nvaTogglePass" id="toggleBtn" onclick="togglePassword()">👁️</button>
+        </div>
+      </div>
+
+      <button class="nvaBtn" id="loginBtn" onclick="loginAdmin()">Iniciar sesión</button>
+      <div id="loginMsg" class="nvaLoginMsg"></div>
+      <div class="nvaLoginFoot">Acceso exclusivo · Actividad monitoreada</div>
+    </div>
+  </div>
+
+  <!-- ============ PANEL ============ -->
+  <div id="panelSection" class="nvaShell hidden">
+
+    <div class="nvaOverlay" id="nvaOverlay" onclick="cerrarSidebar()"></div>
+
+    <aside class="nvaSidebar" id="nvaSidebar">
+      <div class="nvaSideBrand">
+        <span class="dot"></span>
+        <div>
+          <strong>NovaStream</strong>
+          <span>Panel Admin</span>
+        </div>
+        <button class="nvaSideClose" type="button" onclick="cerrarSidebar()">✕</button>
+      </div>
+
+      <nav>
+        <div class="nvaGroup">
+          <div class="nvaGroupTitle">General</div>
+          <a class="nvaLink activo" data-target="dashboardResumen" onclick="irASeccion('dashboardResumen'); return false;" href="#dashboardResumen">
+            <span class="nvaNavIcon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span>
+            Resumen
+          </a>
+        </div>
+
+        <div class="nvaGroup">
+          <div class="nvaGroupTitle">Pagos</div>
+          <a class="nvaLink" data-target="secRecargas" onclick="irASeccion('secRecargas'); return false;" href="#secRecargas">
+            <span class="nvaNavIcon"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/></svg></span>
+            Recargas
+            <span class="nvaLinkBadge" id="badgeRecargas">0</span>
+          </a>
+          <a class="nvaLink" data-target="secRetirosProveedores" onclick="irASeccion('secRetirosProveedores'); return false;" href="#secRetirosProveedores">
+            <span class="nvaNavIcon"><svg viewBox="0 0 24 24"><path d="M12 19V6M6 12l6-6 6 6"/></svg></span>
+            Retiros de proveedores
+            <span class="nvaLinkBadge" id="badgeRetiros">0</span>
+          </a>
+          <a class="nvaLink" data-target="secReembolsos" onclick="irASeccion('secReembolsos'); return false;" href="#secReembolsos">
+            <span class="nvaNavIcon"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></span>
+            Reembolsos
+            <span class="nvaLinkBadge" id="badgeReembolsos">0</span>
+          </a>
+        </div>
+
+        <div class="nvaGroup">
+          <div class="nvaGroupTitle">Catálogo</div>
+          <a class="nvaLink" data-target="secCategorias" onclick="irASeccion('secCategorias'); return false;" href="#secCategorias">
+            <span class="nvaNavIcon"><svg viewBox="0 0 24 24"><path d="M12 17.3 6.2 21l1.5-6.6L2.5 9.7l6.7-.6L12 3l2.8 6.1 6.7.6-5.2 4.7L18 21z"/></svg></span>
+            Categorías
+          </a>
+          <a class="nvaLink" data-target="secStock" onclick="irASeccion('secStock'); return false;" href="#secStock">
+            <span class="nvaNavIcon"><svg viewBox="0 0 24 24"><path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></span>
+            Catálogo y stock
+          </a>
+        </div>
+
+        <div class="nvaGroup">
+          <div class="nvaGroupTitle">Ventas</div>
+          <a class="nvaLink" data-target="secVentas" onclick="irASeccion('secVentas'); return false;" href="#secVentas">
+            <span class="nvaNavIcon"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></svg></span>
+            Ventas
+          </a>
+          <a class="nvaLink" data-target="secVentasHoy" onclick="irASeccion('secVentasHoy'); return false;" href="#secVentasHoy">
+            <span class="nvaNavIcon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span>
+            Ventas de hoy
+          </a>
+        </div>
+
+        <div class="nvaGroup">
+          <div class="nvaGroupTitle">Personas</div>
+          <a class="nvaLink" data-target="secUsuarios" onclick="irASeccion('secUsuarios'); return false;" href="#secUsuarios">
+            <span class="nvaNavIcon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg></span>
+            Clientes
+          </a>
+          <a class="nvaLink" data-target="secProveedores" onclick="irASeccion('secProveedores'); return false;" href="#secProveedores">
+            <span class="nvaNavIcon"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M6 21V9l6-5 6 5v12"/><path d="M10 21v-6h4v6"/></svg></span>
+            Proveedores
+          </a>
+        </div>
+          <a class="nvaLink" data-target="secAdmins" onclick="irASeccion('secAdmins'); return false;" href="#secAdmins">
+            <span class="nvaNavIcon"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.4 8.4-8 9.5C7.4 20.4 4 17 4 12V7l8-4Z"/><path d="m9 12 2 2 4-4"/></svg></span>
+            Administradores
+            <span class="nvaLinkBadge" id="adminsTotal">0</span>
+          </a>
+        <div class="nvaGroup">
+          <div class="nvaGroupTitle">Próximamente</div>
+          <a class="nvaLink nvaLinkDisabled" data-target="secSolicitudesAcceso" onclick="irASeccion('secSolicitudesAcceso'); return false;" href="#secSolicitudesAcceso">
+            <span class="nvaNavIcon"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></svg></span>
+            Solicitudes de ingreso
+            <span class="nvaLinkBadge soon">Pronto</span>
+          </a>
+        </div>
+      </nav>
+
+      <div class="nvaSideFoot">
+        NovaStream.vip · Panel interno.<br>
+        Comisión de plataforma: <strong id="footComision">20%</strong> aplicada al retiro del proveedor.
+      </div>
+    </aside>
+
+    <div class="nvaMain">
+
+      <div class="nvaTopBar">
+        <div class="nvaTopLeft">
+          <button class="nvaSideToggle" type="button" onclick="abrirSidebar()">☰</button>
+          <div>
+            <span class="nvaTopEyebrow">● Sesión activa</span>
+            <h2>Administrador conectado</h2>
+            <p id="adminInfo">Cargando...</p>
+          </div>
+        </div>
+
+        <div class="nvaTopActions">
+          <span class="nvaFxChip">USD → PEN · <strong id="fxChipValor">3.40</strong></span>
+          <button id="toggleTiempoActivoBtn" class="nvaBtnMini soft" type="button" onclick="toggleTiempoActivo()">
+            Tiempo activo: Desactivado
+          </button>
+          <button class="nvaLogout" onclick="cerrarSesion()">Cerrar sesión</button>
+        </div>
+      </div>
+        <!-- ============ ADMINISTRADORES ============ -->
+        <div class="nvaCard" id="secAdmins">
+          <div class="nvaCardHead">
+            <span class="nvaCardEyebrow">Personas</span>
+            <h3 class="nvaCardTitle">Administradores</h3>
+            <span class="nvaCardHint">Cuentas con acceso total al panel interno</span>
+          </div>
+          <div class="nvaCardBody">
+
+            <div class="nvaInfoBanner nvaInfoBannerKey">
+              <span class="nvaInfoIcon">👑</span>
+              <div>
+                <strong>Cómo agregar un administrador</strong>
+                <span>
+                  La persona se registra normal en <code>registro</code> (queda como cliente).
+                  Luego ve a <b>Clientes</b>, búscala y pulsa <b>👑 Admin</b>.
+                  <br><br>
+                  ⚠️ Un admin puede aprobar recargas y retiros, ajustar saldos y crear otros admins.
+                  <b>Dale este rol solo a gente de total confianza.</b>
+                  <br><br>
+                  📁 Para que también pueda subir logos de categorías, añade su UID en
+                  <b>Storage → Reglas</b> (Storage no puede leer los roles de la base).
+                </span>
+              </div>
+            </div>
+
+            <div class="nvaTableWrap">
+              <table class="nvaTable hidden" id="tablaAdmins">
+                <thead>
+                  <tr><th>Administrador</th><th>Correo</th><th>Registro</th><th>Estado</th><th>Acciones</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <div id="adminsVacio" class="nvaEmpty">
+                No se detectan administradores. Si ves este mensaje estando logueado,
+                tu cuenta no tiene <code>rol: "admin"</code> en la base de datos.
+              </div>
+            </div>
+          </div>
+        </div>
+      <main class="nvaContent">
+
+        <!-- ============ RESUMEN ============ -->
+        <section id="dashboardResumen">
+          <div class="nvaPageHead">
+            <span class="nvaPageEyebrow">Panel de control</span>
+            <h1>Resumen general</h1>
+            <p>
+              Modelo de negocio: el <strong>100% del precio</strong> se acredita al proveedor.
+              La plataforma gana su <strong id="txtComisionResumen">20%</strong> únicamente cuando el proveedor solicita un retiro.
+            </p>
+          </div>
+
+          <div class="nvaDashGroup">
+            <div class="nvaDashGroupTitle">Necesita tu atención</div>
+            <div class="nvaGrid">
+              <div class="nvaMiniCard accentOrange">
+                <div class="nvaMiniCardTop">
+                  <h3>Recargas pendientes</h3>
+                  <span class="nvaMiniIcon"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/></svg></span>
+                </div>
+                <p id="totalRecargas">0</p>
+              </div>
+              <div class="nvaMiniCard accentOrange">
+                <div class="nvaMiniCardTop">
+                  <h3>Retiros pendientes</h3>
+                  <span class="nvaMiniIcon"><svg viewBox="0 0 24 24"><path d="M12 19V6M6 12l6-6 6 6"/></svg></span>
+                </div>
+                <p id="totalRetirosProveedores">0</p>
+              </div>
+              <div class="nvaMiniCard accentOrange">
+                <div class="nvaMiniCardTop">
+                  <h3>Reembolsos pendientes</h3>
+                  <span class="nvaMiniIcon"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/></svg></span>
+                </div>
+                <p id="totalReembolsos">0</p>
+              </div>
+              <div class="nvaMiniCard accentOrange">
+                <div class="nvaMiniCardTop">
+                  <h3>Por pagar (retiros)</h3>
+                  <span class="nvaMiniIcon"><svg viewBox="0 0 24 24"><path d="M2 7h20v10H2z"/><circle cx="12" cy="12" r="2.5"/></svg></span>
+                </div>
+                <p id="montoPorPagar">$0.00</p>
+                <span class="nvaMiniCardSub" id="montoPorPagarPen">≈ S/ 0.00 · neto a transferir</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="nvaDashGroup">
+            <div class="nvaDashGroupTitle">Este mes</div>
+            <div class="nvaGrid">
+              <div class="nvaMiniCard accentViolet">
+                <div class="nvaMiniCardTop"><h3>Ventas del mes</h3></div>
+                <p id="totalVentasMes">0</p>
+                <span class="nvaMiniCardSub">Unidades vendidas</span>
+              </div>
+              <div class="nvaMiniCard accentViolet">
+                <div class="nvaMiniCardTop"><h3>Volumen del mes</h3></div>
+                <p id="volumenMes">$0.00</p>
+                <span class="nvaMiniCardSub" id="volumenMesPen">≈ S/ 0.00 · dinero movido</span>
+              </div>
+              <div class="nvaMiniCard accentTeal">
+                <div class="nvaMiniCardTop">
+                  <h3>Comisión del mes (20%)</h3>
+                  <span class="nvaMiniIcon"><svg viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+                </div>
+                <p id="comisionMes">$0.00</p>
+                <span class="nvaMiniCardSub" id="comisionMesPen">≈ S/ 0.00 · ganancia devengada</span>
+              </div>
+              <div class="nvaMiniCard accentViolet nvaMiniCardText">
+                <div class="nvaMiniCardTop"><h3>Producto top</h3></div>
+                <p id="topProductoMes">-</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="nvaDashGroup">
+            <div class="nvaDashGroupTitle">Hoy</div>
+            <div class="nvaGrid">
+              <div class="nvaMiniCard">
+                <div class="nvaMiniCardTop"><h3>Ventas hoy</h3></div>
+                <p id="totalVentasHoy">0</p>
+              </div>
+              <div class="nvaMiniCard">
+                <div class="nvaMiniCardTop"><h3>Volumen hoy</h3></div>
+                <p id="volumenHoy">$0.00</p>
+                <span class="nvaMiniCardSub" id="volumenHoyPen">≈ S/ 0.00</span>
+              </div>
+              <div class="nvaMiniCard accentTeal">
+                <div class="nvaMiniCardTop"><h3>Comisión hoy (20%)</h3></div>
+                <p id="comisionHoy">$0.00</p>
+                <span class="nvaMiniCardSub" id="comisionHoyPen">≈ S/ 0.00</span>
+              </div>
+              <div class="nvaMiniCard">
+                <div class="nvaMiniCardTop"><h3>Recargado hoy</h3></div>
+                <p id="montoRecargadoHoyDash">$0.00</p>
+                <span class="nvaMiniCardSub" id="recargasHoyDash">0 recargas aprobadas</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="nvaDashGroup">
+            <div class="nvaDashGroupTitle">Histórico</div>
+            <div class="nvaGrid">
+              <div class="nvaMiniCard accentTeal">
+                <div class="nvaMiniCardTop"><h3>Comisión histórica (20%)</h3></div>
+                <p id="comisionHistorica">$0.00</p>
+                <span class="nvaMiniCardSub" id="comisionHistoricaPen">≈ S/ 0.00 · sobre todas las ventas</span>
+              </div>
+              <div class="nvaMiniCard accentGreenCard">
+                <div class="nvaMiniCardTop"><h3>Comisión ya cobrada</h3></div>
+                <p id="comisionCobrada">$0.00</p>
+                <span class="nvaMiniCardSub" id="comisionCobradaPen">≈ S/ 0.00 · retiros aprobados</span>
+              </div>
+              <div class="nvaMiniCard">
+                <div class="nvaMiniCardTop"><h3>Volumen histórico</h3></div>
+                <p id="volumenHistorico">$0.00</p>
+                <span class="nvaMiniCardSub" id="volumenHistoricoPen">≈ S/ 0.00</span>
+              </div>
+              <div class="nvaMiniCard">
+                <div class="nvaMiniCardTop"><h3>Saldo en manos de proveedores</h3></div>
+                <p id="saldoProveedores">$0.00</p>
+                <span class="nvaMiniCardSub" id="saldoProveedoresPen">≈ S/ 0.00 · pendiente de retiro</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="nvaStatStrip">
+            <div class="nvaStatStripItem"><span>Productos publicados</span><strong id="totalProductos">0</strong></div>
+            <div class="nvaStatStripItem"><span>Unidades en stock</span><strong id="totalStock">0</strong></div>
+            <div class="nvaStatStripItem"><span>Clientes registrados</span><strong id="totalUsuarios">0</strong></div>
+            <div class="nvaStatStripItem"><span>Proveedores activos</span><strong id="totalProveedoresActivos">0</strong></div>
+            <div class="nvaStatStripItem"><span>Ventas históricas</span><strong id="totalVentasHistorico">0</strong></div>
+          </div>
+        </section>
+
+        <!-- ============ RECARGAS ============ -->
+        <div class="nvaCard" id="secRecargas">
+          <div class="nvaCardHead">
+            <span class="nvaCardEyebrow">Pagos</span>
+            <h3 class="nvaCardTitle">Recargas de clientes</h3>
+            <span class="nvaCardHint">Al aprobar se suma el monto (USD) al saldo del cliente</span>
+          </div>
+          <div class="nvaCardBody">
+            <div id="recargaMsg" class="nvaMsg"></div>
+
+            <div class="nvaInfoBanner">
+              <span class="nvaInfoIcon">💡</span>
+              <div>
+                <strong>Cómo funciona</strong>
+                <span>El cliente sube su comprobante y el monto que dice haber pagado. Verifica el comprobante, corrige el monto en dólares si hace falta y aprueba. El saldo se acredita al instante en <code>saldoUsd</code>.</span>
+              </div>
+            </div>
+
+            <div class="nvaStatsRow">
+              <div class="nvaStat">
+                <span class="nvaStatLabel">Recargas aprobadas hoy</span>
+                <span class="nvaStatValue" id="recargasHoyCount">0</span>
+                <span class="nvaStatSub">Se reinicia cada día</span>
+              </div>
+              <div class="nvaStat accentGreen">
+                <span class="nvaStatLabel">Recargado hoy</span>
+                <span class="nvaStatValue" id="recargasHoyMonto">$0.00</span>
+                <span class="nvaStatSub" id="recargasHoyMontoPen">≈ S/ 0.00</span>
+              </div>
+              <div class="nvaStat accentOrange">
+                <span class="nvaStatLabel">Pendientes</span>
+                <span class="nvaStatValue" id="recargasPendientesCount">0</span>
+                <span class="nvaStatSub">Esperando revisión</span>
+              </div>
+            </div>
+
+            <div class="nvaSectionTools">
+              <button class="nvaBtnMini danger" type="button" onclick="vaciarNodoConfirmado('recargas', 'Se eliminarán todas las recargas del historial.')">Vaciar historial recargas</button>
+            </div>
+
+            <div class="nvaSearch">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input type="text" id="buscarRecargas" placeholder="Buscar por cliente, UID, correo, método u operación...">
+            </div>
+
+            <div class="nvaTableWrap">
+              <table class="nvaTable hidden" id="tablaRecargas">
+                <thead>
+                  <tr><th>Fecha</th><th>Cliente</th><th>Monto (USD)</th><th>≈ Soles</th><th>Método</th><th>Operación</th><th>Comprobante</th><th>Estado</th><th>Acciones</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <div id="recargasVacio" class="nvaEmpty">Aún no hay solicitudes de recarga.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ RETIROS DE PROVEEDORES ============ -->
+        <div class="nvaCard" id="secRetirosProveedores">
+          <div class="nvaCardHead">
+            <span class="nvaCardEyebrow">Pagos</span>
+            <h3 class="nvaCardTitle">Retiros de proveedores</h3>
+            <span class="nvaCardHint">Aquí es donde la plataforma cobra su comisión</span>
+          </div>
+          <div class="nvaCardBody">
+
+            <div class="nvaInfoBanner nvaInfoBannerKey">
+              <span class="nvaInfoIcon">🏦</span>
+              <div>
+                <strong>Reparto de cada retiro</strong>
+                <span>
+                  Del monto que solicita el proveedor:
+                  <b class="nvaTagTeal">20% queda para NovaStream</b> (tu ganancia) y
+                  <b class="nvaTagViolet">80% se le paga al proveedor</b>.
+                  <br>
+                  <u>El monto que debes yapear / transferir es el "Neto a pagar"</u>, que ya tiene la comisión descontada.
+                  Al aprobar, se descuenta el <b>monto completo solicitado</b> del saldo del proveedor.
+                </span>
+              </div>
+            </div>
+
+            <div class="nvaStatsRow">
+              <div class="nvaStat accentOrange">
+                <span class="nvaStatLabel">Pendientes de pago</span>
+                <span class="nvaStatValue" id="retirosPendientesCount">0</span>
+                <span class="nvaStatSub">Solicitudes por revisar</span>
+              </div>
+              <div class="nvaStat accentViolet">
+                <span class="nvaStatLabel">Total a transferir (neto)</span>
+                <span class="nvaStatValue" id="retirosPendientesNeto">$0.00</span>
+                <span class="nvaStatSub" id="retirosPendientesNetoPen">≈ S/ 0.00 · lo que sale de tu bolsillo</span>
+              </div>
+              <div class="nvaStat accentGreen">
+                <span class="nvaStatLabel">Comisión en juego</span>
+                <span class="nvaStatValue" id="retirosPendientesComision">$0.00</span>
+                <span class="nvaStatSub" id="retirosPendientesComisionPen">≈ S/ 0.00 · tu ganancia al aprobar</span>
+              </div>
+              <div class="nvaStat">
+                <span class="nvaStatLabel">Comisión cobrada (histórico)</span>
+                <span class="nvaStatValue" id="retirosComisionCobrada">$0.00</span>
+                <span class="nvaStatSub" id="retirosComisionCobradaPen">≈ S/ 0.00</span>
+              </div>
+            </div>
+
+            <div class="nvaSectionTools">
+              <button class="nvaBtnMini danger" type="button" onclick="vaciarNodoConfirmado('retirosProveedores', 'Se eliminarán todas las solicitudes de retiro.')">Vaciar historial retiros</button>
+            </div>
+
+            <div class="nvaSearch">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input type="text" id="buscarRetiros" placeholder="Buscar por proveedor, método, dato de pago o estado...">
+            </div>
+
+            <div class="nvaTableWrap">
+              <table class="nvaTable hidden" id="tablaRetirosProveedores">
+                <thead>
+                  <tr>
+                    <th>Fecha</th><th>Proveedor</th><th>Solicitado</th>
+                    <th>Comisión 20%</th><th>Neto a pagar</th>
+                    <th>Método</th><th>Dato de pago</th><th>Estado</th><th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <div id="retirosProveedoresVacio" class="nvaEmpty">No hay solicitudes de retiro.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ REEMBOLSOS ============ -->
+        <div class="nvaCard" id="secReembolsos">
+          <div class="nvaCardHead">
+            <span class="nvaCardEyebrow">Pagos</span>
+            <h3 class="nvaCardTitle">Reembolsos</h3>
+            <span class="nvaCardHint">Devuelve el saldo al cliente y descuenta al proveedor</span>
+          </div>
+          <div class="nvaCardBody">
+            <div id="reembolsoMsg" class="nvaMsg"></div>
+
+            <div class="nvaInfoBanner">
+              <span class="nvaInfoIcon">↩️</span>
+              <div>
+                <strong>Al aprobar un reembolso</strong>
+                <span>Se devuelve el 100% al cliente, se descuenta el mismo monto al proveedor que hizo la venta y —si la cuenta no fue usada— vuelve al stock como disponible.</span>
+              </div>
+            </div>
+
+            <div class="nvaSectionTools">
+              <button class="nvaBtnMini danger" type="button" onclick="vaciarNodoConfirmado('reembolsos', 'Se eliminarán todas las solicitudes de reembolso.')">Vaciar historial reembolsos</button>
+            </div>
+
+            <div class="nvaSearch">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input type="text" id="buscarReembolsos" placeholder="Buscar por cliente, producto, proveedor o estado...">
+            </div>
+
+            <div class="nvaTableWrap">
+              <table class="nvaTable hidden" id="tablaReembolsos">
+                <thead>
+                  <tr><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Proveedor</th><th>Monto</th><th>Motivo</th><th>Estado</th><th>Acciones</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <div id="reembolsosVacio" class="nvaEmpty">No hay solicitudes de reembolso.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ CATEGORÍAS ============ -->
+        <div class="nvaCard" id="secCategorias">
+          <div class="nvaCardHead">
+            <span class="nvaCardEyebrow">Catálogo</span>
+            <h3 class="nvaCardTitle">Categorías / Plataformas</h3>
+            <span class="nvaCardHint">Sube el logo y define el nombre. Los proveedores eligen entre estas al publicar productos.</span>
+          </div>
+          <div class="nvaCardBody">
+            <div id="categoriasMsg" class="nvaMsg"></div>
+
+            <form class="nvaCatForm" id="formCategoria" onsubmit="agregarCategoria(event)">
+
+              <div class="nvaUploadZone" id="categoriaDropZone">
+                <div class="nvaCatAvatarPreview" id="categoriaAvatarPreview">
+                  <span>Sin imagen</span>
+                </div>
+                <div class="nvaUploadInfo">
+                  <strong id="categoriaNombreArchivo">Arrastra el logo o haz clic</strong>
+                  <small>PNG o JPG · se recorta en círculo y se optimiza a 320px automáticamente</small>
+                </div>
+                <button type="button" class="nvaBtnMini soft" id="btnElegirImagen">Elegir imagen</button>
+                <input type="file" id="categoriaArchivo" accept="image/png,image/jpeg,image/webp" class="nvaFileHidden">
+              </div>
+
+              <div class="nvaCatFormRow">
+                <div class="nvaCatField">
+                  <label>Nombre de la plataforma</label>
+                  <input type="text" id="categoriaNombre" placeholder="Ej: Netflix" required autocomplete="off">
+                </div>
+                <button class="nvaBtn nvaBtnInline" type="submit" id="btnGuardarCategoria">Agregar categoría</button>
+              </div>
+            </form>
+
+            <div class="nvaCatGrid" id="categoriasGrid"></div>
+            <div id="categoriasVacio" class="nvaEmpty hidden" style="margin-top:16px;">No hay categorías creadas todavía.</div>
+          </div>
+        </div>
+
+        <!-- ============ CATÁLOGO Y STOCK ============ -->
+        <div class="nvaCard" id="secStock">
+          <div class="nvaCardHead">
+            <span class="nvaCardEyebrow">Catálogo</span>
+            <h3 class="nvaCardTitle">Catálogo y stock</h3>
+            <span class="nvaCardHint">Vista de moderación · el stock lo cargan los proveedores desde su panel</span>
+          </div>
+          <div class="nvaCardBody">
+
+            <div class="nvaInfoBanner">
+              <span class="nvaInfoIcon">📦</span>
+              <div>
+                <strong>Solo lectura y moderación</strong>
+                <span>El administrador no sube stock. Cada proveedor carga sus cuentas desde su panel y el stock se calcula automáticamente. Desde aquí puedes <b>activar / desactivar</b> un producto o eliminarlo si incumple las reglas.</span>
+              </div>
+            </div>
+
+            <div class="nvaStatsRow">
+              <div class="nvaStat">
+                <span class="nvaStatLabel">Unidades disponibles</span>
+                <span class="nvaStatValue" id="totalStockStockTab">0</span>
+                <span class="nvaStatSub">Suma del inventario real</span>
+              </div>
+              <div class="nvaStat accentGreen">
+                <span class="nvaStatLabel">Productos activos</span>
+                <span class="nvaStatValue" id="stockStatActivos">0</span>
+                <span class="nvaStatSub">Visibles en el catálogo</span>
+              </div>
+              <div class="nvaStat accentViolet">
+                <span class="nvaStatLabel">Entrega ilimitada</span>
+                <span class="nvaStatValue" id="stockStatIlimitados">0</span>
+                <span class="nvaStatSub">Productos de descarga</span>
+              </div>
+              <div class="nvaStat accentOrange">
+                <span class="nvaStatLabel">Sin stock / inactivos</span>
+                <span class="nvaStatValue" id="stockStatAgotados">0</span>
+                <span class="nvaStatSub">Requieren reposición</span>
+              </div>
+            </div>
+
+            <div class="nvaSectionTools">
+              <button class="nvaBtnMini soft" type="button" onclick="recalcularTodoElStock()">Recalcular stock desde cuentas reales</button>
+            </div>
+
+            <div class="nvaSearch">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input type="text" id="buscarStock" placeholder="Buscar por producto, plataforma o proveedor...">
+            </div>
+
+            <div class="nvaTableWrap">
+              <table class="nvaTable hidden" id="tablaStock">
+                <thead>
+                  <tr><th>Producto</th><th>Plataforma</th><th>Proveedor</th><th>Precio</th><th>Stock</th><th>Estado</th><th>Acciones</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <div id="stockVacio" class="nvaEmpty">Todavía no hay productos publicados por proveedores.</div>
+            </div>
+            <div id="stockMsg" class="nvaMsg"></div>
+          </div>
+        </div>
+
+        <!-- ============ VENTAS ============ -->
+        <div class="nvaCard" id="secVentas">
+          <div class="nvaCardHead">
+            <span class="nvaCardEyebrow">Ventas</span>
+            <h3 class="nvaCardTitle">Ventas</h3>
+            <span class="nvaCardHint">100% al proveedor · la comisión del 20% se cobra al retirar</span>
+          </div>
+          <div class="nvaCardBody">
+            <div class="nvaSectionTools">
+              <button class="nvaBtnMini danger" type="button" onclick="vaciarNodoConfirmado('ventas', 'Se eliminará todo el historial de ventas.')">Vaciar historial ventas</button>
+            </div>
+            <div class="nvaSearch">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input type="text" id="buscarVentas" placeholder="Buscar por producto, cliente, proveedor o plataforma...">
+            </div>
+            <div class="nvaTableWrap">
+              <table class="nvaTable hidden" id="tablaVentas">
+                <thead>
+                  <tr><th>Fecha</th><th>Producto</th><th>Cliente</th><th>Proveedor</th><th>Precio</th><th>Comisión 20%</th><th>Estado</th><th>Acciones</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <div id="ventasVacio" class="nvaEmpty">No hay ventas registradas.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ VENTAS DE HOY ============ -->
+        <div class="nvaCard" id="secVentasHoy">
+          <div class="nvaCardHead">
+            <span class="nvaCardEyebrow">Ventas</span>
+            <h3 class="nvaCardTitle">Ventas de hoy</h3>
+            <span class="nvaCardHint">Filtro automático del día actual sobre el mismo historial</span>
+          </div>
+          <div class="nvaCardBody">
+            <div class="nvaStatsRow">
+              <div class="nvaStat">
+                <span class="nvaStatLabel">Unidades vendidas hoy</span>
+                <span class="nvaStatValue" id="ventasHoyCount">0</span>
+                <span class="nvaStatSub">Se reinicia cada día</span>
+              </div>
+              <div class="nvaStat accentViolet">
+                <span class="nvaStatLabel">Volumen de hoy</span>
+                <span class="nvaStatValue" id="ventasHoyVolumen">$0.00</span>
+                <span class="nvaStatSub" id="ventasHoyVolumenPen">≈ S/ 0.00</span>
+              </div>
+              <div class="nvaStat accentGreen">
+                <span class="nvaStatLabel">Comisión generada hoy</span>
+                <span class="nvaStatValue" id="ventasHoyComision">$0.00</span>
+                <span class="nvaStatSub" id="ventasHoyComisionPen">≈ S/ 0.00</span>
+              </div>
+            </div>
+
+            <div class="nvaSearch">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input type="text" id="buscarVentasHoy" placeholder="Buscar por producto, cliente o proveedor...">
+            </div>
+            <div class="nvaTableWrap">
+              <table class="nvaTable hidden" id="tablaVentasHoy">
+                <thead>
+                  <tr><th>Hora</th><th>Producto</th><th>Cliente</th><th>Proveedor</th><th>Precio</th><th>Comisión 20%</th><th>Estado</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <div id="ventasHoyVacio" class="nvaEmpty">Todavía no hay ventas hoy.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ CLIENTES ============ -->
+        <div class="nvaCard" id="secUsuarios">
+          <div class="nvaCardHead">
+            <span class="nvaCardEyebrow">Personas</span>
+            <h3 class="nvaCardTitle">Clientes</h3>
+            <span class="nvaCardHint">Saldo en USD, bloqueos y ascenso a proveedor</span>
+          </div>
+          <div class="nvaCardBody">
+            <div class="nvaSearch">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input type="text" id="buscarUsuarios" placeholder="Buscar por nombre, @usuario, correo o UID...">
+            </div>
+            <div class="nvaTableWrap">
+              <table class="nvaTable hidden" id="tablaUsuarios">
+                <thead>
+                  <tr><th>Cliente</th><th>Correo</th><th>Saldo (USD)</th><th>Compras</th><th>Registro</th><th>Estado</th><th>Acciones</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <div id="usuariosVacio" class="nvaEmpty">Aún no hay clientes registrados.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ PROVEEDORES ============ -->
+        <div class="nvaCard" id="secProveedores">
+          <div class="nvaCardHead">
+            <span class="nvaCardEyebrow">Personas</span>
+            <h3 class="nvaCardTitle">Proveedores</h3>
+            <span class="nvaCardHint">Saldo pendiente de retiro, productos publicados y soporte</span>
+          </div>
+          <div class="nvaCardBody">
+            <div class="nvaSearch">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input type="text" id="buscarProveedores" placeholder="Buscar por nombre, @usuario, correo o estado...">
+            </div>
+            <div class="nvaTableWrap">
+              <table class="nvaTable hidden" id="tablaProveedores">
+                <thead>
+                  <tr><th>Proveedor</th><th>Correo</th><th>Saldo (USD)</th><th>Productos</th><th>Ventas</th><th>WhatsApp</th><th>Estado</th><th>Acciones</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <div id="proveedoresVacio" class="nvaEmpty">No hay proveedores registrados. Convierte un cliente desde la sección Clientes.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ SOLICITUDES DE INGRESO (BLOQUEADO) ============ -->
+        <div class="nvaCard" id="secSolicitudesAcceso">
+          <div class="nvaCardHead">
+            <span class="nvaCardEyebrow">Personas</span>
+            <h3 class="nvaCardTitle">Solicitudes de ingreso</h3>
+            <span class="nvaCardHint">Función desactivada en esta versión</span>
+          </div>
+          <div class="nvaCardBody">
+            <div class="nvaSoon">
+              <div class="nvaSoonIcon">🚧</div>
+              <h4>Próximamente</h4>
+              <p>
+                Por ahora el registro en NovaStream es <strong>abierto e inmediato</strong>:
+                cualquier persona crea su cuenta y entra directo al catálogo como cliente.
+              </p>
+              <p>
+                Cuando activemos el modo <em>por invitación</em>, aquí podrás aprobar o rechazar
+                cada registro antes de que el usuario pueda comprar.
+              </p>
+              <div class="nvaSoonNote">
+                Mientras tanto, si necesitas frenar a alguien puedes <strong>bloquear su cuenta</strong>
+                desde la sección <em>Clientes</em>.
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+  <script src="novaadmin.js?v=4"></script>
+</body>
+</html>

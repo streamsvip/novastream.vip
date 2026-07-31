@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NovaPro | Panel de Proveedores</title>
+
+<link rel="icon" type="image/png" href="img/logo.png" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="novapro.css?v=5" />
+</head>
+<body>
+
+<div class="npOverlayMovil" id="npOverlayMovil" onclick="cerrarMenuMovil()"></div>
+<div class="npNotifyWrap" id="npNotifyWrap"></div>
+
+<!-- CONFIRMACIÓN -->
+<div class="npConfirmOverlay" id="npConfirmOverlay">
+  <div class="npConfirmBox">
+    <div class="npConfirmHead">
+      <div class="npConfirmIcon" id="npConfirmIcon">?</div>
+      <div class="npConfirmText">
+        <h3 id="npConfirmTitle">Confirmación</h3>
+        <p id="npConfirmMessage">¿Deseas continuar?</p>
+      </div>
+    </div>
+    <div class="npConfirmActions">
+      <button class="npBtn npBtnGhost" id="npConfirmCancel" type="button">Cancelar</button>
+      <button class="npBtn npBtnPrimary" id="npConfirmAccept" type="button">Aceptar</button>
+    </div>
+  </div>
+</div>
+
+<div class="npApp">
+
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="npSidebar" id="npSidebar">
+
+    <div class="npBrand">
+      <div class="npBrandMark">NP</div>
+      <div class="npBrandText">
+        <h1>NovaPro</h1>
+        <p>Panel de proveedores</p>
+      </div>
+    </div>
+
+    <div class="npWalletGauge">
+      <div class="npGaugeTop">
+        <div class="npGaugeRing"><span class="npGaugeCenter">💳</span></div>
+        <div class="npGaugeMeta">
+          <div class="npGaugeLabel">Saldo disponible</div>
+          <div class="npGaugeValueUsd" id="npSaldoUsd">$0.00</div>
+          <div class="npGaugeValuePen" id="npSaldoPen">≈ S/ 0.00</div>
+        </div>
+      </div>
+      <div class="npNivelChip" id="npNivelChip">🆕 Proveedor Básico</div>
+    </div>
+
+    <div class="npMenuTitle">Panel</div>
+    <div class="npMenu">
+      <button class="npMenuBtn activo" data-section="resumen"><span class="npMenuIcon">📊</span><span>Resumen</span></button>
+      <button class="npMenuBtn" data-section="productos"><span class="npMenuIcon">🗂️</span><span>Productos / Cuentas</span></button>
+      <button class="npMenuBtn" data-section="ventas"><span class="npMenuIcon">🧾</span><span>Mis ventas</span></button>
+      <button class="npMenuBtn" data-section="retiros"><span class="npMenuIcon">🏦</span><span>Retiros</span></button>
+      <button class="npMenuBtn" data-section="reembolsos"><span class="npMenuIcon">↩️</span><span>Reembolsos</span><span class="npMenuBadge" id="npBadgeReembolsos">0</span></button>
+      <button class="npMenuBtn" data-section="renovaciones"><span class="npMenuIcon">🔁</span><span>Renovaciones</span><span class="npMenuBadge" id="npBadgeRenovaciones">0</span></button>
+    </div>
+
+    <div class="npMenuTitle">Cuenta</div>
+    <div class="npMenu">
+      <button class="npMenuBtn" id="npBtnSoporte"><span class="npMenuIcon">📞</span><span>Soporte WhatsApp</span></button>
+      <button class="npMenuBtn" id="npBtnCerrarSesion"><span class="npMenuIcon">🚪</span><span>Cerrar sesión</span></button>
+    </div>
+  </aside>
+
+  <!-- ===================== MAIN ===================== -->
+  <main class="npMain">
+
+    <div class="npTopbar">
+      <div class="npTopbarLeft">
+        <button class="npMobileBtn" id="npMobileBtn" onclick="abrirMenuMovil()">☰</button>
+        <div class="npPageTitle">
+          <h2 id="npPageTitle">Resumen</h2>
+          <p id="npPageSubtitle">Tu billetera, tus ventas y el estado de tu negocio, de un vistazo.</p>
+        </div>
+      </div>
+
+      <div class="npTopActions">
+        <button class="npBtn npBtnGhost" onclick="abrirModalTienda()">🛍️ <span>Ver tienda</span></button>
+        <button class="npBtn npBtnGhost" id="npBtnActualizar">↻ <span>Actualizar</span></button>
+        <button class="npBtn npBtnPrimary" onclick="irASeccion('retiros')">Solicitar retiro</button>
+      </div>
+    </div>
+
+    <!-- ================= RESUMEN ================= -->
+    <section class="npSection activa" id="section-resumen">
+
+      <div class="npCard npHero">
+        <div class="npHeroTop">
+          <div class="npHeroSaldo">
+            <span class="npHeroLabel">Billetera principal</span>
+            <div class="npHeroMonto mono" id="npHeroSaldoUsd">$0.00</div>
+            <div class="npHeroMontoPen mono" id="npHeroSaldoPen">≈ S/ 0.00</div>
+
+            <div class="npSaldoSplit">
+              <div class="npSaldoSplitItem disponible">
+                <span>Disponible p/ retiro</span>
+                <strong id="npHeroSaldoDisponible">$0.00</strong>
+              </div>
+              <div class="npSaldoSplitItem congelado">
+                <span>Congelado (24h)</span>
+                <strong id="npHeroSaldoCongelado">$0.00</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="npHeroNivel">
+            <div class="npNivelChip" id="npNivelChipHero">🆕 Proveedor Básico</div>
+            <div class="npNivelBar"><div class="npNivelBarFill" id="npNivelProgresoBarra"></div></div>
+            <div class="npNivelTexto" id="npNivelProgresoTexto">$0 de $40 generados</div>
+          </div>
+        </div>
+
+        <div class="npInfoChips">
+          <div class="npInfoChip"><b>0%</b><span>Comisión por venta</span></div>
+          <div class="npInfoChip"><b>20%</b><span>Comisión al retirar</span></div>
+          <div class="npInfoChip"><b>24h</b><span>Retención por venta</span></div>
+        </div>
+
+        <p class="npHeroNota">
+          Cada venta se acredita <strong>100% a tu saldo</strong>. La única comisión se aplica al solicitar un retiro.
+        </p>
+      </div>
+
+      <div class="npCard npAvisoVencimientos npAvisoOk npAvisoClickable" id="npAvisoVencimientos" onclick="abrirModalVencimientos()">
+        <div class="npAvisoVencIcono" id="npAvisoVencIcono">✓</div>
+        <div class="npAvisoVencTexto">
+          <strong id="npAvisoVencTitulo">Todo al día</strong>
+          <span id="npAvisoVencSubtitulo">No tienes cuentas entregadas por vencer en los próximos días.</span>
+        </div>
+        <div class="npAvisoVencFlecha">›</div>
+      </div>
+
+      <div class="npGridStats">
+        <div class="npCard npStat">
+          <span>Ventas hoy</span><strong id="npStatVentasHoy">0</strong>
+          <small>Unidades vendidas en las últimas 24h.</small>
+        </div>
+        <div class="npCard npStat">
+          <span>Ventas totales</span><strong id="npStatVentasTotales">0</strong>
+          <small>Histórico completo de tu catálogo.</small>
+        </div>
+        <div class="npCard npStat">
+          <span>Total generado</span><strong id="npStatTotalGenerado">$0.00</strong>
+          <small>Suma histórica acreditada a tu saldo.</small>
+        </div>
+        <div class="npCard npStat">
+          <span>Retiros pendientes</span><strong id="npStatRetirosPend">0</strong>
+          <small>Solicitudes esperando revisión.</small>
+        </div>
+      </div>
+
+      <div class="npDashGrid">
+        <div class="npCard npPanel">
+          <div class="npPanelHead">
+            <div><h3>Últimos movimientos</h3><p>Ingresos por ventas y descuentos por retiros aprobados.</p></div>
+          </div>
+          <div id="npMovimientos"><div class="npEmpty">Aún no hay movimientos registrados.</div></div>
+        </div>
+
+        <div class="npCard npPanel">
+          <div class="npPanelHead">
+            <div><h3>Tu perfil de proveedor</h3><p>Datos visibles para administración.</p></div>
+          </div>
+          <div class="npDataList">
+            <div class="npDataRow"><span>Nombre</span><strong id="npPerfilNombre">-</strong></div>
+            <div class="npDataRow"><span>Correo</span><strong id="npPerfilCorreo">-</strong></div>
+            <div class="npDataRow"><span>Comisión de venta</span><strong>0%</strong></div>
+            <div class="npDataRow"><span>Comisión de retiro</span><strong>20%</strong></div>
+            <div class="npDataRow"><span>Retención de saldo</span><strong>24 horas</strong></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= PRODUCTOS / CUENTAS ================= -->
+    <section class="npSection" id="section-productos">
+
+      <div class="npHint">
+        El <strong>ID del producto</strong> se genera solo y queda bloqueado. El <strong>stock no se declara aquí</strong>:
+        se calcula automáticamente según las cuentas que cargues en modo masivo.
+      </div>
+
+      <div class="npSubToggleWrap">
+        <button class="npSubToggleBtn activo" data-subpanel="npPanelProductos">Productos</button>
+        <button class="npSubToggleBtn" data-subpanel="npPanelCuentas">Cuentas (stock)</button>
+      </div>
+
+      <!-- ---- PRODUCTOS ---- -->
+      <div class="npSubPanel activo" id="npPanelProductos">
+        <div class="npCard npPanel">
+          <div class="npPanelHead">
+            <div>
+              <h3 id="npTituloFormProducto">Crear producto</h3>
+              <p>Precio en dólares. La conversión a soles se muestra en vivo.</p>
+            </div>
+            <button class="npBtn npBtnGhost" id="npBtnCancelarEdicionProducto" style="display:none;">Cancelar edición</button>
+          </div>
+
+          <form id="formProducto" class="npFormGrid">
+
+            <div class="npField full">
+              <label>🔒 ID único del producto</label>
+              <div class="npIdLocked">
+                <div class="npIdLockIcon">🔒</div>
+                <span id="npProdIdTexto">generando…</span>
+              </div>
+              <span class="npFieldHelp">Se genera automáticamente. No se puede editar ni repetir.</span>
+            </div>
+
+            <div class="npField">
+              <label>Nombre del producto</label>
+              <input type="text" id="prodNombre" placeholder="Ej. Crunchyroll Premium · Perfil 1 mes" required />
+            </div>
+
+            <div class="npField">
+              <label>Plataforma (categoría del catálogo)</label>
+              <input type="text" id="prodPlataforma" placeholder="Ej. Netflix, Spotify, Canva" list="npListaPlataformas" />
+              <datalist id="npListaPlataformas"></datalist>
+              <span class="npFieldHelp">Así se agrupa en el catálogo. Si repites el nombre, no se duplica la categoría.</span>
+            </div>
+
+            <div class="npField">
+              <label>Categoría general</label>
+              <select id="prodCategoria" required>
+                <option value="streaming">Streaming</option>
+                <option value="musica">Música</option>
+                <option value="diseno">Diseño</option>
+                <option value="ia">Inteligencia artificial</option>
+                <option value="licencias">Licencias / claves</option>
+                <option value="descarga">Descarga</option>
+              </select>
+            </div>
+
+            <div class="npField">
+              <label>Precio (USD)</label>
+              <input type="number" id="prodPrecio" min="0" step="0.01" placeholder="Ej. 3.50" required />
+              <div class="npFxChip"><span class="npFxDot"></span>Equivale a <strong id="npFxTextoPrecio">S/ 0.00</strong> al tipo de cambio S/ 3.40</div>
+            </div>
+
+            <div class="npField">
+              <label>Tipo de entrega</label>
+              <select id="prodTipoEntrega" required>
+                <option value="cuenta">Cuenta</option>
+                <option value="codigo">Código / licencia</option>
+                <option value="descarga">Descarga</option>
+              </select>
+              <span class="npFieldHelp">Cuenta/Código necesitan stock. Descarga es stock ilimitado.</span>
+            </div>
+
+            <div class="npField">
+              <label>Modo de entrega</label>
+              <div class="npToggleGroup" id="npGrupoModoEntrega">
+                <button type="button" class="npToggleBtn on cyan" data-modo="automatico">⚡ Automático</button>
+                <button type="button" class="npToggleBtn" data-modo="manual">🕒 Manual</button>
+              </div>
+              <span class="npFieldHelp" id="npModoEntregaHelp">Automático: el cliente recibe el acceso al instante.</span>
+              <input type="hidden" id="prodModoEntrega" value="automatico" />
+            </div>
+
+            <div class="npField">
+              <label>¿Aplica reembolso?</label>
+              <div class="npToggleGroup" id="npGrupoReembolso">
+                <button type="button" class="npToggleBtn on" data-reembolso="si">Sí aplica</button>
+                <button type="button" class="npToggleBtn" data-reembolso="no">No aplica</button>
+              </div>
+              <input type="hidden" id="prodAplicaReembolso" value="si" />
+            </div>
+
+            <div class="npField">
+              <label>Duración</label>
+              <select id="prodDuracion">
+                <option value="7">7 días</option>
+                <option value="15">15 días</option>
+                <option value="30" selected>1 mes</option>
+                <option value="60">2 meses</option>
+                <option value="90">3 meses</option>
+                <option value="180">6 meses</option>
+                <option value="365">1 año</option>
+                <option value="3650">Permanente</option>
+                <option value="personalizado">Personalizado…</option>
+              </select>
+
+              <div class="npDuracionPersonalizada" id="npDuracionPersonalizadaWrap">
+                <label style="font-size:12.5px; font-weight:700; color:#dfe3f2; display:block; margin-bottom:7px;">Fecha exacta de vencimiento</label>
+                <input type="date" id="prodDuracionFecha" />
+                <div class="npDuracionEquivalencia" id="npDuracionEquivalenciaTexto">Selecciona una fecha (mínimo 7 días).</div>
+              </div>
+              <input type="hidden" id="prodDuracionDiasCalculado" value="" />
+            </div>
+
+            <div class="npField full">
+              <label>Imagen del producto</label>
+              <div class="npImgUpload">
+                <div class="npImgPreview" id="npImgPreview">🖼️</div>
+                <div class="npImgUploadInfo">
+                  <strong id="npImgNombreArchivo">Ningún archivo seleccionado</strong>
+                  <span>JPG o PNG, recomendado 500×500px.</span>
+                </div>
+                <div class="npImgUploadBtns">
+                  <button type="button" class="npBtn npBtnGhost" id="npBtnSubirImagen">Subir imagen</button>
+                  <button type="button" class="npBtn npBtnGhost" id="npBtnQuitarImagen" style="display:none;">Quitar</button>
+                </div>
+                <input type="file" accept="image/png, image/jpeg, image/webp" id="prodImagenArchivo" class="npFileHidden" />
+              </div>
+            </div>
+
+            <div class="npField full">
+              <label>Descripción</label>
+              <textarea id="prodDescripcion" placeholder="Descripción detallada del producto"></textarea>
+            </div>
+
+            <div class="npField full">
+              <label>Reglas del producto</label>
+              <textarea id="prodReglas" placeholder="Ej. No cambiar correo ni contraseña / no revender"></textarea>
+            </div>
+
+            <div class="npField full">
+              <button type="submit" class="npBtn npBtnPrimary npBtnBlockMovil" id="npBtnGuardarProducto">Guardar producto</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="npCard npPanel">
+          <div class="npPanelHead"><div><h3>Mis productos</h3><p>Solo se muestran los productos de tu proveedor.</p></div></div>
+          <div class="npTableWrap">
+            <table class="npTable">
+              <thead>
+                <tr>
+                  <th>Producto</th><th>ID</th><th>Plataforma</th><th>Entrega</th><th>Modo</th>
+                  <th>Reembolso</th><th>Precio</th><th>Stock</th><th>Estado</th><th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="npTablaProductos">
+                <tr><td colspan="10" class="npTdEmpty"><div class="npEmpty">Aún no tienes productos registrados.</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---- CUENTAS ---- -->
+      <div class="npSubPanel" id="npPanelCuentas">
+
+        <div class="npCard npPanel">
+          <div class="npPanelHead"><div><h3>Producto activo</h3><p>Selecciona el producto al que pertenece el stock.</p></div></div>
+          <div class="npField full">
+            <label>Producto</label>
+            <select id="npCuentaProducto"><option value="">Selecciona producto</option></select>
+          </div>
+        </div>
+
+        <div class="npCard npPanel">
+          <div class="npBulkGrid">
+            <div>
+              <div class="npPanelHead" style="margin-bottom:10px;">
+                <div><h3>Carga masiva de cuentas</h3><p>Una línea = una unidad de stock.</p></div>
+              </div>
+
+              <form id="formCargaMasiva">
+                <div class="npField">
+                  <label>Cuentas (una por línea)</label>
+                  <textarea id="npCuentasMasivasTexto" class="npBulkTextarea"
+                    placeholder="Correo: perfil1@gmail.com Contraseña: abc123 Perfil: H1 PIN: 4455&#10;Correo: perfil2@gmail.com Contraseña: abc123 Perfil: H2 PIN: 4455"></textarea>
+                </div>
+                <div class="npBulkActions">
+                  <button type="submit" class="npBtn npBtnPrimary npBtnBlockMovil">+ Agregar stock</button>
+                  <span class="npFieldHelp">Formato: Correo / Contraseña / Perfil / PIN.</span>
+                </div>
+              </form>
+            </div>
+
+            <div class="npBulkHelp">
+              <h4>¿Cómo funciona?</h4>
+              <div class="npBulkStep"><b>1</b><span>El producto seleccionado arriba se mantiene fijo mientras cargas.</span></div>
+              <div class="npBulkStep"><b>2</b><span>Cada línea equivale a una unidad de stock nueva.</span></div>
+              <div class="npBulkStep"><b>3</b><span>El sistema separa correo, clave, perfil y PIN automáticamente.</span></div>
+              <div class="npBulkStep"><b>4</b><span>Las cuentas quedan disponibles al instante en el catálogo.</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="npGridStats">
+          <div class="npCard npStat"><span>Total cuentas</span><strong id="npMiniTotalCuentas">0</strong></div>
+          <div class="npCard npStat"><span>Disponibles</span><strong id="npMiniDisponibles">0</strong></div>
+          <div class="npCard npStat"><span>Usadas</span><strong id="npMiniUsadas">0</strong></div>
+          <div class="npCard npStat"><span>Producto activo</span><strong id="npMiniProductoActivo" style="font-size:14px;">-</strong></div>
+        </div>
+
+        <div class="npCard npPanel">
+          <div class="npPanelHead">
+            <div>
+              <h3>Cambiar contraseña por correo</h3>
+              <p>Actualiza la contraseña en <strong>todas</strong> las cuentas ligadas a un correo del producto activo.</p>
+            </div>
+          </div>
+
+          <form id="formCambioClavePorCorreo" class="npFormGrid">
+            <div class="npField">
+              <label>Correo de la cuenta compartida</label>
+              <select id="npCorreoCambioClave"><option value="">Selecciona producto primero</option></select>
+            </div>
+            <div class="npField">
+              <label>Nueva contraseña</label>
+              <input type="text" id="npNuevaClavePorCorreo" placeholder="Nueva contraseña" required />
+            </div>
+            <div class="npField full" id="npCorreoResultadoWrap" style="display:none;">
+              <div class="npCorreoResultadoBox" id="npCorreoResultadoBox"></div>
+            </div>
+            <div class="npField full">
+              <button type="submit" class="npBtn npBtnPrimary npBtnBlockMovil">Aplicar a todas las cuentas de este correo</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="npCard npPanel">
+          <div class="npPanelHead">
+            <div><h3>Cuentas disponibles</h3><p>Libres, listas para la próxima venta.</p></div>
+            <div class="npPanelHeadTools">
+              <input type="number" id="npCantidadBorrar" min="1" step="1" placeholder="Cantidad" class="npMiniInput" style="max-width:110px;" />
+              <button class="npBtnMini del" id="npBtnBorrarCantidad" type="button">Borrar cantidad</button>
+            </div>
+          </div>
+          <div class="npTableWrap">
+            <table class="npTable">
+              <thead><tr><th>Cuenta</th><th>Clave</th><th>Perfil</th><th>PIN</th><th>Estado</th><th>Fecha</th><th>Acciones</th></tr></thead>
+              <tbody id="npTablaCuentasDisponibles"><tr><td colspan="7" class="npTdEmpty"><div class="npEmpty">No hay cuentas disponibles todavía.</div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="npCard npPanel">
+          <div class="npPanelHead"><div><h3>Cuentas usadas / historial</h3><p>Ya entregadas a un comprador.</p></div></div>
+          <div class="npTableWrap">
+            <table class="npTable">
+              <thead><tr><th>Cuenta</th><th>Perfil</th><th>Comprador</th><th>Fecha venta</th><th>Vence</th><th>Estado</th></tr></thead>
+              <tbody id="npTablaCuentasUsadas"><tr><td colspan="6" class="npTdEmpty"><div class="npEmpty">No hay cuentas usadas todavía.</div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= VENTAS ================= -->
+    <section class="npSection" id="section-ventas">
+      <div class="npGridStats cols2">
+        <div class="npCard npStat"><span>Ventas hoy</span><strong id="npStatVentasHoy2">0</strong></div>
+        <div class="npCard npStat"><span>Ventas totales</span><strong id="npStatVentasTotales2">0</strong></div>
+      </div>
+      <div class="npCard npPanel">
+        <div class="npPanelHead"><div><h3>Mis ventas</h3><p>100% de cada venta se acredita a tu saldo (retirable 24h después).</p></div></div>
+        <div class="npTableWrap">
+          <table class="npTable">
+            <thead><tr><th>Producto</th><th>Cliente</th><th>Fecha</th><th>Estado</th><th>Precio</th><th>Comisión</th><th>Tu ganancia</th><th>Saldo</th></tr></thead>
+            <tbody id="npTablaVentas"><tr><td colspan="8" class="npTdEmpty"><div class="npEmpty">Todavía no hay ventas registradas.</div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= RETIROS ================= -->
+    <section class="npSection" id="section-retiros">
+
+      <div class="npGridStats cols3">
+        <div class="npCard npStat"><span>Disponible para retiro</span><strong id="npStatSaldoRetiros">$0.00</strong><small>Ya cumplió la ventana de 24h.</small></div>
+        <div class="npCard npStat"><span>Congelado (24h)</span><strong id="npStatSaldoCongelado">$0.00</strong><small>Se libera automáticamente.</small></div>
+        <div class="npCard npStat"><span>Retiros pendientes</span><strong id="npStatRetirosPend2">0</strong><small>En revisión por administración.</small></div>
+      </div>
+
+      <div class="npRetencionNotice" id="npRetencionNoticeRetiros">
+        <span class="npRetencionIcono">⏳</span>
+        <span>Tienes <strong id="npRetencionTextoMonto">$0.00</strong> congelados por la ventana de seguridad de 24h. Se liberan automáticamente.</span>
+      </div>
+
+      <div class="npRetiroLayout">
+
+        <div class="npCard npPanel npRetiroFormCard">
+          <div class="npPanelHead">
+            <div><h3>Solicitar retiro</h3><p>Comisión fija del 20% sobre el monto solicitado.</p></div>
+          </div>
+
+          <form id="formRetiro" class="npRetiroForm">
+
+            <div class="npField">
+              <label>Monto a retirar (USD)</label>
+              <div class="npRetiroMontoWrap">
+                <span class="npRetiroMontoPrefijo">$</span>
+                <input type="number" id="retiroMonto" min="1" step="0.01" placeholder="0.00" inputmode="decimal" required />
+              </div>
+
+              <div class="npRetiroQuick" id="npRetiroQuick">
+                <button type="button" class="npQuickBtn" data-porcentaje="25">25%</button>
+                <button type="button" class="npQuickBtn" data-porcentaje="50">50%</button>
+                <button type="button" class="npQuickBtn" data-porcentaje="100">Máx</button>
+              </div>
+
+              <div class="npFxChip"><span class="npFxDot"></span>Equivale a <strong id="npFxTextoRetiro">S/ 0.00</strong> · tasa S/ 3.40</div>
+              <span class="npFieldHelp">Disponible ahora: <strong id="npRetiroDisponibleTexto">$0.00</strong></span>
+            </div>
+
+            <div class="npField npFieldMetodo">
+              <label>Método de pago</label>
+              <div class="npToggleGroupWrap" id="npGrupoMetodoRetiro">
+                <button type="button" class="npMetodoBtn on" data-metodo="Yape"><span class="npMetodoDot"></span>Yape</button>
+                <button type="button" class="npMetodoBtn" data-metodo="Plin"><span class="npMetodoDot"></span>Plin</button>
+                <button type="button" class="npMetodoBtn" data-metodo="Lemon"><span class="npMetodoDot"></span>Lemon</button>
+                <button type="button" class="npMetodoBtn" data-metodo="Binance"><span class="npMetodoDot"></span>Binance</button>
+              </div>
+              <input type="hidden" id="retiroMetodo" value="Yape" />
+            </div>
+
+            <div class="npField">
+              <label>Dato de pago</label>
+              <input type="text" id="retiroDatoPago" placeholder="Nº Yape/Plin, correo Lemon o wallet Binance" required />
+            </div>
+
+            <div class="npRetiroResumen">
+              <div class="npRetiroLinea">
+                <span>Monto solicitado</span>
+                <div class="npRetiroLineaValores">
+                  <strong id="npRetiroLineaMonto">$0.00</strong>
+                  <span class="npRetiroLineaPen" id="npRetiroLineaMontoPen">≈ S/ 0.00</span>
+                </div>
+              </div>
+              <div class="npRetiroLinea">
+                <span>Comisión de retiro (20%)</span>
+                <div class="npRetiroLineaValores">
+                  <strong id="npRetiroLineaComision" style="color:#ffb8c1;">-$0.00</strong>
+                  <span class="npRetiroLineaPen" id="npRetiroLineaComisionPen">≈ S/ 0.00</span>
+                </div>
+              </div>
+              <div class="npRetiroLinea total">
+                <span>Recibirás</span>
+                <div class="npRetiroLineaValores">
+                  <strong id="npRetiroLineaNeto">$0.00</strong>
+                  <span class="npRetiroLineaPen" id="npRetiroLineaNetoPen">≈ S/ 0.00</span>
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="npBtn npBtnPrimary npBtnBlock">Enviar solicitud</button>
+          </form>
+        </div>
+
+        <div class="npCard npPanel">
+          <div class="npPanelHead"><div><h3>Historial de retiros</h3><p>Seguimiento de tus solicitudes.</p></div></div>
+          <div class="npTableWrap">
+            <table class="npTable">
+              <thead><tr><th>Fecha</th><th>Solicitado</th><th>Comisión</th><th>Neto</th><th>Neto (S/)</th><th>Método</th><th>Estado</th></tr></thead>
+              <tbody id="npTablaRetiros"><tr><td colspan="7" class="npTdEmpty"><div class="npEmpty">Aún no has enviado solicitudes.</div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= REEMBOLSOS ================= -->
+    <section class="npSection" id="section-reembolsos">
+      <div class="npHint">Solo verás reembolsos de productos marcados como <strong>"Sí aplica reembolso"</strong>.</div>
+      <div class="npGridStats cols2">
+        <div class="npCard npStat"><span>Saldo</span><strong id="npStatSaldoReembolsos">$0.00</strong></div>
+        <div class="npCard npStat"><span>Pendientes</span><strong id="npStatReembolsosPend">0</strong></div>
+      </div>
+      <div class="npCard npPanel">
+        <div class="npPanelHead"><div><h3>Solicitudes de reembolso</h3></div><button class="npBtn npBtnGhost" id="npBtnRefrescarReembolsos">Refrescar</button></div>
+        <div id="npListaReembolsos"><div class="npEmpty">No hay solicitudes de reembolso por ahora.</div></div>
+      </div>
+    </section>
+
+    <!-- ================= RENOVACIONES ================= -->
+    <section class="npSection" id="section-renovaciones">
+      <div class="npHint">Al aceptar una renovación se te acredita el 100% del monto.</div>
+      <div class="npGridStats cols2">
+        <div class="npCard npStat"><span>Saldo</span><strong id="npStatSaldoRenovaciones">$0.00</strong></div>
+        <div class="npCard npStat"><span>Pendientes</span><strong id="npStatRenovacionesPend">0</strong></div>
+      </div>
+      <div class="npCard npPanel">
+        <div class="npPanelHead"><div><h3>Solicitudes de renovación</h3></div><button class="npBtn npBtnGhost" id="npBtnRefrescarRenovaciones">Refrescar</button></div>
+        <div id="npListaRenovaciones"><div class="npEmpty">No hay solicitudes de renovación por ahora.</div></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ===================== MODAL SOPORTE ===================== -->
+<div class="npModalBase" id="npModalSoporte">
+  <div class="npModalBox" style="max-width:560px;">
+    <div class="npModalHead">
+      <div><h3>Soporte WhatsApp</h3><p>Número al que serán derivados tus clientes.</p></div>
+      <button class="npModalX" onclick="cerrarModalSoporte()">✕</button>
+    </div>
+    <form id="formSoporte" class="npFormGrid">
+      <div class="npField full">
+        <label>WhatsApp (Perú)</label>
+        <input type="text" id="npSoporteNumero" placeholder="Ej. 51999999999" maxlength="15" required />
+      </div>
+      <div class="npField full">
+        <label>Estado</label>
+        <div class="npToggleGroup" id="npGrupoSoporteActivo">
+          <button type="button" class="npToggleBtn on cyan" data-soporte="si">Activo</button>
+          <button type="button" class="npToggleBtn" data-soporte="no">Inactivo</button>
+        </div>
+        <input type="hidden" id="npSoporteActivo" value="si" />
+      </div>
+      <div class="npField full"><button type="submit" class="npBtn npBtnPrimary npBtnBlockMovil">Guardar</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== MODAL TIENDA ===================== -->
+<div class="npModalBase" id="npModalTienda">
+  <div class="npModalBox" style="max-width:1180px;">
+    <div class="npModalHead">
+      <div><h3>Vista de tienda</h3><p>Así ven tus productos los clientes.</p></div>
+      <button class="npModalX" onclick="cerrarModalTienda()">✕</button>
+    </div>
+
+    <div class="npCard npPanel" style="margin-bottom:14px;">
+      <div class="npFormGrid npFormGrid3">
+        <div class="npField"><label>Buscar producto</label><input type="text" id="npBuscarTiendaProducto" placeholder="🔎 Nombre del producto..." /></div>
+        <div class="npField"><label>Buscar proveedor</label><input type="text" id="npBuscarTiendaProveedor" placeholder="🔎 Nombre del proveedor..." /></div>
+        <div class="npField"><label class="npLabelHueco">&nbsp;</label><button type="button" class="npBtn npBtnGhost npBtnBlock" id="npBtnLimpiarTienda">Limpiar</button></div>
+      </div>
+      <div class="npFieldHelp" id="npTextoResultadoTienda" style="margin-top:4px;">Mostrando 0 productos activos.</div>
+    </div>
+
+    <div id="npTiendaGrid" class="npTiendaGrid"><div class="npEmpty">Cargando productos…</div></div>
+  </div>
+</div>
+
+<!-- ===================== MODAL VENCIMIENTOS ===================== -->
+<div class="npModalBase" id="npModalVencimientos">
+  <div class="npModalBox" style="max-width:720px;">
+    <div class="npModalHead">
+      <div><h3>Cuentas por vencer</h3><p>El cambio de contraseña se aplica solo a los marcados como "Renovó".</p></div>
+      <button class="npModalX" onclick="cerrarModalVencimientos()">✕</button>
+    </div>
+    <div id="npListaVencimientos"><div class="npEmpty">No hay cuentas por vencer.</div></div>
+  </div>
+</div>
+
+<!-- ===================== MODAL EDITAR CUENTA ===================== -->
+<div class="npModalBase" id="npModalEditarCuenta">
+  <div class="npModalBox" style="max-width:520px;">
+    <div class="npModalHead">
+      <div class="npCuentaModalHead">
+        <div class="npCuentaModalIcono">✏️</div>
+        <div><h3>Editar cuenta</h3><p>Actualiza los datos de esta unidad de stock.</p></div>
+      </div>
+      <button class="npModalX" onclick="cerrarModalEditarCuenta()">✕</button>
+    </div>
+    <form id="formEditarCuenta" class="npFormGrid">
+      <input type="hidden" id="ecCuentaId" value="" />
+      <div class="npField full"><label>Correo / usuario</label><input type="text" id="ecCorreo" required /></div>
+      <div class="npField"><label>Contraseña</label><input type="text" id="ecClave" required /></div>
+      <div class="npField"><label>Perfil</label><input type="text" id="ecPerfil" /></div>
+      <div class="npField"><label>PIN</label><input type="text" id="ecPin" /></div>
+      <div class="npField"><label>Observación</label><input type="text" id="ecObservacion" /></div>
+      <div class="npField full npModalFooterBtns">
+        <button type="button" class="npBtn npBtnGhost" onclick="cerrarModalEditarCuenta()">Cancelar</button>
+        <button type="submit" class="npBtn npBtnPrimary">Guardar cambios</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== SCRIPTS ===================== -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+<script src="novapro.js?v=5"></script>
+</body>
+</html>

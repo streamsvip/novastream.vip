@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NovaStream · Iniciar sesión</title>
+
+  <meta name="description" content="Accede a NovaStream: cuentas premium, licencias y servicios digitales con entrega automática.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <link rel="stylesheet" href="novaauth.css?v=1">
+</head>
+
+<body class="naBody">
+
+  <!-- ===== FONDO AMBIENTAL ===== -->
+  <div class="naBg" aria-hidden="true">
+    <span class="naOrb naOrb1"></span>
+    <span class="naOrb naOrb2"></span>
+    <span class="naOrb naOrb3"></span>
+    <div class="naGrid"></div>
+  </div>
+
+  <!-- Pantalla de carga mientras se verifica si ya hay sesión -->
+  <div class="naBooting" id="naBooting">
+    <div class="naBootingRing"></div>
+    <span>Verificando sesión...</span>
+  </div>
+
+  <main class="naWrap" id="naWrap">
+
+    <!-- ============ PANEL IZQUIERDO (marca) ============ -->
+    <aside class="naAside">
+      <a href="catalogo.html" class="naAsideBrand">
+        <img src="img/logo.png" alt="NovaStream" class="naAsideLogo">
+        <span class="naAsideBrandText">NOVA<em>STREAM</em></span>
+      </a>
+
+      <div class="naAsideBody">
+        <span class="naAsidePill">Servicios digitales premium</span>
+
+        <h2 class="naAsideTitle">
+          Todo tu entretenimiento
+          <span>en un solo lugar</span>
+        </h2>
+
+        <p class="naAsideText">
+          Cuentas, licencias y suscripciones verificadas. Compra con saldo,
+          recibe tu acceso al instante y gestiona todo desde tu panel.
+        </p>
+
+        <ul class="naAsideList">
+          <li>
+            <span class="naAsideIcon">⚡</span>
+            <div>
+              <strong>Entrega automática</strong>
+              <small>Tu acceso llega al momento de pagar, sin esperas.</small>
+            </div>
+          </li>
+          <li>
+            <span class="naAsideIcon">🛡️</span>
+            <div>
+              <strong>Proveedores verificados</strong>
+              <small>Cada producto muestra quién lo respalda.</small>
+            </div>
+          </li>
+          <li>
+            <span class="naAsideIcon">🔄</span>
+            <div>
+              <strong>Reembolsos y renovaciones</strong>
+              <small>Gestiona tus servicios sin complicaciones.</small>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <p class="naAsideFoot">
+        Al continuar aceptas nuestros
+        <button type="button" class="naLinkInline" id="btnTerminosAside">términos y condiciones</button>.
+      </p>
+    </aside>
+
+    <!-- ============ PANEL DERECHO (formulario) ============ -->
+    <section class="naPanel">
+      <div class="naCard" id="naCard">
+
+        <!-- Marca visible solo en móvil -->
+        <a href="catalogo.html" class="naCardBrand">
+          <img src="img/logo.png" alt="NovaStream">
+          <span>NOVA<em>STREAM</em></span>
+        </a>
+
+        <header class="naCardHead">
+          <h1>Bienvenido de nuevo</h1>
+          <p>Ingresa tus datos para acceder a tu cuenta.</p>
+        </header>
+
+        <form id="formLogin" novalidate autocomplete="on">
+
+          <div class="naField">
+            <label for="loginUsuario">Usuario o correo</label>
+            <div class="naInputWrap">
+              <span class="naInputIcon">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"></path></svg>
+              </span>
+              <input
+                type="text"
+                id="loginUsuario"
+                name="username"
+                placeholder="tu_usuario o tu@correo.com"
+                autocomplete="username"
+                spellcheck="false">
+            </div>
+            <span class="naFieldError" id="errLoginUsuario"></span>
+          </div>
+
+          <div class="naField">
+            <label for="loginPassword">Contraseña</label>
+            <div class="naInputWrap">
+              <span class="naInputIcon">
+                <svg viewBox="0 0 24 24"><rect x="4" y="10.5" width="16" height="10" rx="2.5"></rect><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path></svg>
+              </span>
+              <input
+                type="password"
+                id="loginPassword"
+                name="current-password"
+                placeholder="Tu contraseña"
+                autocomplete="current-password">
+              <button type="button" class="naEye" data-target="loginPassword" aria-label="Mostrar contraseña">
+                <svg viewBox="0 0 24 24"><path d="M1.5 12S5.5 5.5 12 5.5 22.5 12 22.5 12 18.5 18.5 12 18.5 1.5 12 1.5 12z"></path><circle cx="12" cy="12" r="3.2"></circle></svg>
+              </button>
+            </div>
+            <span class="naFieldError" id="errLoginPassword"></span>
+            <span class="naCapsWarn" id="capsWarnLogin">⚠ Bloq Mayús está activado</span>
+          </div>
+
+          <div class="naRow">
+            <label class="naCheck">
+              <input type="checkbox" id="mantenerSesion">
+              <span class="naCheckBox"></span>
+              <span class="naCheckText">Mantener sesión</span>
+            </label>
+
+            <button type="button" class="naLinkInline" id="btnRecuperar">¿Olvidaste tu contraseña?</button>
+          </div>
+
+          <button type="submit" class="naBtn naBtnPrimary" id="btnLogin">
+            <span class="naBtnSpinner"></span>
+            <span class="naBtnLabel">Iniciar sesión</span>
+            <span class="naBtnArrow">→</span>
+          </button>
+
+          <div class="naMessage" id="naMessage" role="status" aria-live="polite"></div>
+        </form>
+
+        <div class="naSecure">
+          <span class="naSecureIcon">🔐</span>
+          <div>
+            <strong>Conexión cifrada</strong>
+            <small>Tus credenciales viajan protegidas. Nunca compartas tu contraseña.</small>
+          </div>
+        </div>
+
+        <div class="naDivider"><span>¿Aún no tienes cuenta?</span></div>
+
+        <a href="registro.html" class="naBtn naBtnGhost">Crear cuenta gratis</a>
+
+        <p class="naCardFoot">
+          <a href="catalogo.html" class="naLinkInline">← Volver al catálogo</a>
+        </p>
+
+      </div>
+
+      <!-- Crédito de desarrollo -->
+      <a
+        href="https://wa.me/51916252754?text=Hola%20Impulso%20Project%2C%20quiero%20informaci%C3%B3n%20sobre%20la%20creaci%C3%B3n%20de%20p%C3%A1ginas%20web%20y%20sistemas%20a%20medida."
+        target="_blank" rel="noopener"
+        class="naCredito" id="naCredito">
+        <span class="naCreditoIcono">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2zm0 18.1a8.1 8.1 0 0 1-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8.1 8.1 0 1 1 12 20.1z"></path><path d="M17.5 14.4c-.3-.2-1.7-.9-2-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-.3-.2-1.3-.5-2.5-1.6-.9-.8-1.5-1.9-1.7-2.2-.2-.3 0-.5.1-.6.1-.1.3-.4.5-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5C9.6 9 9.1 7.8 8.9 7.3c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.3.3-1 1-1 2.4s1 2.8 1.2 3c.1.2 2 3.2 5 4.4.7.3 1.2.5 1.7.6.7.2 1.3.2 1.8.1.6-.1 1.7-.7 1.9-1.3.2-.6.2-1.2.2-1.3-.1-.1-.3-.2-.6-.4z"></path></svg>
+        </span>
+        <span class="naCreditoTexto">
+          <span class="naCreditoL1">Designed &amp; Developed by</span>
+          <span class="naCreditoL2">Impulso Project</span>
+        </span>
+      </a>
+    </section>
+  </main>
+
+  <!-- ===== MODAL TÉRMINOS ===== -->
+  <div class="naModal" id="naModalTerminos">
+    <div class="naModalBox">
+      <button type="button" class="naModalX" id="btnCerrarTerminos" aria-label="Cerrar">✕</button>
+
+      <div class="naModalHead">
+        <span class="naModalIcon">📜</span>
+        <div>
+          <h3>Términos y condiciones</h3>
+          <small>Uso responsable de NovaStream</small>
+        </div>
+      </div>
+
+      <div class="naModalBody" id="naTerminosTexto"></div>
+
+      <button type="button" class="naBtn naBtnPrimary" id="btnAceptarTerminos">
+        <span class="naBtnLabel">Entendido</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== MODAL RECUPERAR CONTRASEÑA ===== -->
+  <div class="naModal" id="naModalRecuperar">
+    <div class="naModalBox naModalBoxSm">
+      <button type="button" class="naModalX" id="btnCerrarRecuperar" aria-label="Cerrar">✕</button>
+
+      <div class="naModalHead">
+        <span class="naModalIcon">🔑</span>
+        <div>
+          <h3>Recuperar contraseña</h3>
+          <small>Te enviaremos un enlace a tu correo</small>
+        </div>
+      </div>
+
+      <form id="formRecuperar" novalidate>
+        <div class="naField">
+          <label for="recuperarCorreo">Correo registrado</label>
+          <div class="naInputWrap">
+            <span class="naInputIcon">
+              <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"></rect><path d="M3.5 7l8.5 6 8.5-6"></path></svg>
+            </span>
+            <input type="email" id="recuperarCorreo" placeholder="tu@correo.com" autocomplete="email">
+          </div>
+          <span class="naFieldError" id="errRecuperar"></span>
+        </div>
+
+        <button type="submit" class="naBtn naBtnPrimary" id="btnEnviarRecuperar">
+          <span class="naBtnSpinner"></span>
+          <span class="naBtnLabel">Enviar enlace</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="naToast" id="naToast"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+  <script src="novaauth.js?v=2"></script>
+</body>
+</html>

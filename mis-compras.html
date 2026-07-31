@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <!--
+    NOVASTREAM.VIP — mis-compras.html (v3)
+    ✅ CONECTADO A FIREBASE (Auth + Database)
+
+    · Página protegida: sin sesión → login.html
+    · Las compras se leen de compras/{uid} (lectura directa)
+    · Cada acceso se muestra como una fila independiente
+    · La vigencia se calcula: fecha de compra + duración + renovaciones aceptadas
+    · Reembolsos y renovaciones se crean en estado "pendiente"
+  -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NovaStream · Mis compras</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <link rel="stylesheet" href="novastream.css?v=5">
+  <link rel="stylesheet" href="mis-compras.css?v=3">
+</head>
+
+<body class="nsBody">
+
+  <div class="rgBooting" id="rgBooting">
+    <div class="rgBootingRing"></div>
+    <span>Cargando tus compras...</span>
+  </div>
+
+  <!-- ================= NAVBAR SUPERIOR ================= -->
+  <header class="nsNav" id="nsNav">
+    <div class="nsNavInner">
+
+      <a href="catalogo.html" class="nsBrand">
+        <img src="img/logo.png" alt="NovaStream" class="nsBrandLogo">
+        <span class="nsBrandText">NOVA<em>STREAM</em></span>
+      </a>
+
+      <nav class="nsNavLinks" id="nsNavLinks">
+        <a href="catalogo.html">Catálogo</a>
+        <a href="recargas.html">Recargas</a>
+        <a href="mis-compras.html" class="activo">Mis compras</a>
+      </nav>
+
+      <div class="nsNavActions">
+        <div class="nsSaldoChip">
+          <span class="nsSaldoLabel">Saldo</span>
+          <span id="saldoUsuario" class="nsSaldoValor">$0.00</span>
+          <span id="saldoUsuarioPen" class="nsSaldoValorPen">S/ 0.00</span>
+        </div>
+
+        <button type="button" class="nsIconBtn nsOnlyMobile" id="btnMenuMovil" aria-label="Menú">
+          <svg viewBox="0 0 24 24"><line x1="4" y1="7" x2="20" y2="7"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="17" x2="20" y2="17"></line></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= DRAWER MÓVIL ================= -->
+  <div class="nsDrawerOverlay" id="nsDrawerOverlay">
+    <aside class="nsDrawer" id="nsDrawer">
+      <div class="nsDrawerHead">
+        <span>Menú</span>
+        <button type="button" id="btnCerrarDrawer" class="nsIconBtn" aria-label="Cerrar">
+          <svg viewBox="0 0 24 24"><line x1="5" y1="5" x2="19" y2="19"></line><line x1="19" y1="5" x2="5" y2="19"></line></svg>
+        </button>
+      </div>
+
+      <div class="nsDrawerUser">
+        <div class="nsDrawerAvatar" id="drawerAvatar">N</div>
+        <div class="nsDrawerUserInfo">
+          <strong id="drawerNombre">Cliente</strong>
+          <span id="drawerSaldo">$0.00</span>
+        </div>
+      </div>
+
+      <a href="catalogo.html">Catálogo</a>
+      <a href="recargas.html">Recargas</a>
+      <a href="mis-compras.html">Mis compras</a>
+      <a href="#" id="linkSalirDrawer" class="nsDrawerSalir">Cerrar sesión</a>
+    </aside>
+  </div>
+
+  <main class="mcMain">
+
+    <section class="mcHero">
+      <span class="mcHeroBadge">TUS ACCESOS</span>
+      <h1>Mis compras</h1>
+      <p>Consulta tus accesos, revisa cuánto tiempo les queda y renueva cuando estén por vencer.</p>
+    </section>
+
+    <div class="mcResumen" id="mcResumen">
+      <div class="mcResumenItem"><span>Accesos activos</span><strong id="mcStatActivos">0</strong></div>
+      <div class="mcResumenItem"><span>Por vencer</span><strong id="mcStatPorVencer">0</strong></div>
+      <div class="mcResumenItem"><span>Expirados</span><strong id="mcStatExpirados">0</strong></div>
+      <div class="mcResumenItem"><span>Total invertido</span><strong id="mcStatInvertido">$0.00</strong></div>
+    </div>
+
+    <div class="mcToolbar">
+      <div class="mcSearchBox">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg>
+        <input type="text" id="buscadorCompras" placeholder="Buscar por plataforma, correo de la cuenta o cliente..." autocomplete="off">
+      </div>
+
+      <select id="filtroEstado" class="mcSelect">
+        <option value="todos">Todos los estados</option>
+        <option value="activa">Activas</option>
+        <option value="porVencer">Por vencer</option>
+        <option value="expirada">Expiradas</option>
+      </select>
+
+      <div class="mcVistaSwitch" id="mcVistaSwitch">
+        <button type="button" class="mcVistaBtn" data-vista="compacto" aria-label="Vista compacta">
+          <svg viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="18" x2="20" y2="18"></line></svg>
+          <span>Compacto</span>
+        </button>
+        <button type="button" class="mcVistaBtn" data-vista="tarjetas" aria-label="Vista de tarjetas">
+          <svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"></rect><rect x="13" y="4" width="7" height="7" rx="1.5"></rect><rect x="4" y="13" width="7" height="7" rx="1.5"></rect><rect x="13" y="13" width="7" height="7" rx="1.5"></rect></svg>
+          <span>Tarjetas</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="mcPlataformas" id="mcPlataformas"></div>
+
+    <div class="mcResultadoInfo" id="mcResultadoInfo">Cargando...</div>
+
+    <div class="mcListado" id="mcListado">
+      <div class="nsCargando">Cargando compras...</div>
+    </div>
+
+  </main>
+
+  <!-- ================= MODAL VER CUENTA ================= -->
+  <div id="mcModalCuenta" class="nsModal">
+    <div class="nsModalBox mcModalBox">
+      <button type="button" class="nsModalCerrar" id="mcCerrarModalCuenta" aria-label="Cerrar">✕</button>
+
+      <div class="mcModalHead">
+        <img id="mcModalImagen" class="mcModalAvatar" alt="">
+        <div>
+          <h2 id="mcModalServicio">-</h2>
+          <span id="mcModalEstadoBadge" class="mcBadge">-</span>
+        </div>
+      </div>
+
+      <div class="mcModalGrid">
+        <div class="mcDato full">
+          <span class="mcDatoLabel">Correo / Usuario</span>
+          <div class="mcCopiable">
+            <div id="mcModalCorreo" class="mcDatoValor">-</div>
+            <button type="button" class="mcBtnCopiar" data-copy-target="mcModalCorreo">Copiar</button>
+          </div>
+        </div>
+
+        <div class="mcDato full">
+          <span class="mcDatoLabel">Cliente (tu nota privada)</span>
+          <div class="mcClienteBox">
+            <div id="mcModalClienteTexto" class="mcDatoValor">Sin registrar</div>
+            <input type="text" id="mcModalClienteInput" class="mcClienteInput" placeholder="Nombre del cliente" maxlength="60">
+            <button type="button" id="mcBtnEditarCliente" class="mcBtnCopiar">Registrar</button>
+            <button type="button" id="mcBtnGuardarCliente" class="mcBtnCopiar">Guardar</button>
+          </div>
+        </div>
+
+        <div class="mcDato full">
+          <span class="mcDatoLabel">Clave</span>
+          <div class="mcCopiable">
+            <div id="mcModalClave" class="mcDatoValor">-</div>
+            <button type="button" class="mcBtnCopiar" data-copy-target="mcModalClave">Copiar</button>
+          </div>
+        </div>
+
+        <div class="mcDato">
+          <span class="mcDatoLabel">Perfil</span>
+          <div id="mcModalPerfil" class="mcDatoValor">-</div>
+        </div>
+
+        <div class="mcDato">
+          <span class="mcDatoLabel">PIN</span>
+          <div id="mcModalPin" class="mcDatoValor">-</div>
+        </div>
+
+        <div class="mcDato full">
+          <span class="mcDatoLabel">Vence</span>
+          <div id="mcModalVence" class="mcDatoValor">-</div>
+        </div>
+
+        <div class="mcDato full">
+          <span class="mcDatoLabel">Proveedor</span>
+          <div id="mcModalProveedor" class="mcDatoValor">-</div>
+        </div>
+
+        <div id="mcModalObsWrap" class="mcDato full">
+          <span class="mcDatoLabel">Reglas de uso</span>
+          <div id="mcModalObservacion" class="mcDatoValor">-</div>
+        </div>
+      </div>
+
+      <button type="button" class="mcBtnCopiarTodo" id="mcBtnCopiarTodo">📋 Copiar todos los datos</button>
+
+      <div class="mcModalAcciones">
+        <button type="button" class="mcBtnGhost" id="mcBtnReembolso">↩️ Solicitar reembolso</button>
+        <button type="button" class="mcBtnGhost" id="mcBtnSoporteModal">🎧 Contactar soporte</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= CONFIRMACIÓN GENÉRICA ================= -->
+  <div id="mcConfirm" class="mcConfirmOverlay">
+    <div class="mcConfirmCard">
+      <div class="mcConfirmIcono" id="mcConfirmIcono">🔄</div>
+      <h3 id="mcConfirmTitulo">Confirmar</h3>
+      <p id="mcConfirmTexto">¿Deseas continuar?</p>
+
+      <div class="mcConfirmCampo" id="mcConfirmCampo">
+        <label for="mcConfirmMotivo">Motivo</label>
+        <textarea id="mcConfirmMotivo" rows="3" maxlength="380" placeholder="Explica brevemente el problema..."></textarea>
+      </div>
+
+      <div class="mcConfirmActions">
+        <button type="button" class="mcBtnGhost" id="mcConfirmCancelar">Cancelar</button>
+        <button type="button" class="mcBtnPrimary" id="mcConfirmAceptar">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toastAviso" class="nsToast"></div>
+
+  <a href="https://wa.me/51900000000?text=Hola%2C%20necesito%20ayuda%20con%20mi%20compra" target="_blank" rel="noopener" class="nsWhatsapp" aria-label="Soporte por WhatsApp">
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M17.5 14.4c-.3-.2-1.7-.9-2-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-.3-.2-1.3-.5-2.5-1.6-.9-.8-1.5-1.9-1.7-2.2-.2-.3 0-.5.1-.6.1-.1.3-.4.5-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5C9.6 9 9.1 7.8 8.9 7.3c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.3.3-1 1-1 2.4s1 2.8 1.2 3c.1.2 2 3.2 5 4.4.7.3 1.2.5 1.7.6.7.2 1.3.2 1.8.1.6-.1 1.7-.7 1.9-1.3.2-.6.2-1.2.2-1.3-.1-.1-.3-.2-.6-.4z"></path>
+      <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2zm0 18.1a8.1 8.1 0 0 1-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8.1 8.1 0 1 1 12 20.1z"></path>
+    </svg>
+  </a>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+  <script src="mis-compras.js?v=3"></script>
+</body>
+</html>
