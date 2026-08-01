@@ -189,7 +189,7 @@ function nrInit(){
     return;
   }
 
-  if (!firebase.apps.length) firebase.initializeApp(NR_FB_CONFIG);
+  if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
   nrAuth = firebase.auth();
   nrDb   = firebase.database();
   try { nrStorage = firebase.storage(); } catch(e){ nrStorage = null; }
