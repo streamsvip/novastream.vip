@@ -2,9 +2,10 @@
    CONFIG
 ========================= */
 
-const MC_FB_CONFIG = {
+const firebaseConfig = {
   apiKey: "AIzaSyCwMr1Ie2DmAePzI0X4qsSR5jE70OKbRkA",
   authDomain: "novastream-f3e15.firebaseapp.com",
+  databaseURL: "https://novastream-f3e15-default-rtdb.firebaseio.com",
   projectId: "novastream-f3e15",
   storageBucket: "novastream-f3e15.firebasestorage.app",
   messagingSenderId: "356156093772",
