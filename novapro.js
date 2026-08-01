@@ -53,7 +53,7 @@ const firebaseConfig = {
   measurementId: "G-FVSMQBXNDX"
 };
 
-if (!firebase.apps.length) firebase.initializeApp(NP_FB_CONFIG);
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 
 const auth = firebase.auth();
 const db   = firebase.database();
