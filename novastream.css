@@ -440,7 +440,17 @@ body.nsInvitado .nsModalGuestCta.nsSoloInvitado{ display:block !important; }
 }
 .nsFavBtn svg{ width:13px; height:13px; stroke:#fff; fill:none; stroke-width:2; }
 .nsFavBtn.activo svg{ stroke:var(--violet); fill:var(--violet); }
-
+/* Icono de renovación, en espejo con el botón de favorito */
+.nsRenovableCorner{
+  position:absolute; top:7px; left:7px; z-index:2;
+  width:24px; height:24px; border-radius:8px;
+  background:rgba(11,12,16,.55); backdrop-filter:blur(3px);
+  border:1px solid rgba(255,255,255,.10);
+  display:flex; align-items:center; justify-content:center;
+  font-size:12px; line-height:1; pointer-events:none;
+}
+.nsRenovableCorner.si{ box-shadow:0 0 0 1px rgba(124,92,255,.35) inset; }
+.nsRenovableCorner.no{ box-shadow:0 0 0 1px rgba(255,93,115,.35) inset; }
 .nsCardBody{ padding:12px 12px 14px; display:flex; flex-direction:column; gap:8px; flex:1; }
 .nsCardTitulo{ font-size:13.5px; font-weight:800; line-height:1.3; min-height:34px; }
 .nsCardMeta{ display:flex; align-items:center; justify-content:space-between; font-size:11px; color:var(--text-faint); font-weight:700; }
@@ -538,8 +548,8 @@ body.nsInvitado .nsModalGuestCta.nsSoloInvitado{ display:block !important; }
   cursor:pointer; font-size:14px; z-index:3;
 }
 
-.nsModalGrid{ display:flex; gap:24px; }
-.nsModalImg{ width:220px; min-width:220px; border-radius:var(--radius-m); object-fit:cover; }
+.nsModalGrid{ display:flex; gap:24px; align-items:flex-start; }
+.nsModalImg{ width:220px; min-width:220px; height:220px; border-radius:var(--radius-m); object-fit:cover; }
 .nsModalInfo{ flex:1; min-width:0; }
 .nsModalInfo h2{ margin:0 30px 10px 0; font-size:22px; }
 
@@ -950,7 +960,9 @@ body.nsInvitado .nsModalGuestCta.nsSoloInvitado{ display:block !important; }
   .nsBtnAgregar{ height:26px; font-size:9.5px; padding:0 3px; gap:3px; }
   .nsBtnAgregar.nsBloqueado svg{ width:10px; height:10px; }
   .nsFavBtn{ width:20px; height:20px; }
+  .nsRenovableCorner{ width:20px; height:20px; font-size:10px; }
   .nsFavBtn svg{ width:11px; height:11px; }
+  
 
   .nsCardProveedor{ padding:3px 7px 3px 3px; gap:5px; }
   .nsProveedorCheck{ width:14px; height:14px; }
