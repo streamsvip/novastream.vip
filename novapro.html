@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="novapro.css?v=5" />
+<link rel="stylesheet" href="novapro.css?v=6" />
 </head>
 <body>
 
@@ -231,35 +231,13 @@
               <label>Plataforma (categoría del catálogo)</label>
               <input type="text" id="prodPlataforma" placeholder="Ej. Netflix, Spotify, Canva" list="npListaPlataformas" />
               <datalist id="npListaPlataformas"></datalist>
-              <span class="npFieldHelp">Así se agrupa en el catálogo. Si repites el nombre, no se duplica la categoría.</span>
-            </div>
-
-            <div class="npField">
-              <label>Categoría general</label>
-              <select id="prodCategoria" required>
-                <option value="streaming">Streaming</option>
-                <option value="musica">Música</option>
-                <option value="diseno">Diseño</option>
-                <option value="ia">Inteligencia artificial</option>
-                <option value="licencias">Licencias / claves</option>
-                <option value="descarga">Descarga</option>
-              </select>
+              <span class="npFieldHelp">Selecciona una categoría creada por el administrador. Si todavía no hay ninguna, pídele que la cree desde su panel.</span>
             </div>
 
             <div class="npField">
               <label>Precio (USD)</label>
               <input type="number" id="prodPrecio" min="0" step="0.01" placeholder="Ej. 3.50" required />
               <div class="npFxChip"><span class="npFxDot"></span>Equivale a <strong id="npFxTextoPrecio">S/ 0.00</strong> al tipo de cambio S/ 3.40</div>
-            </div>
-
-            <div class="npField">
-              <label>Tipo de entrega</label>
-              <select id="prodTipoEntrega" required>
-                <option value="cuenta">Cuenta</option>
-                <option value="codigo">Código / licencia</option>
-                <option value="descarga">Descarga</option>
-              </select>
-              <span class="npFieldHelp">Cuenta/Código necesitan stock. Descarga es stock ilimitado.</span>
             </div>
 
             <div class="npField">
@@ -279,6 +257,16 @@
                 <button type="button" class="npToggleBtn" data-reembolso="no">No aplica</button>
               </div>
               <input type="hidden" id="prodAplicaReembolso" value="si" />
+            </div>
+
+            <div class="npField">
+              <label>¿Es renovable?</label>
+              <div class="npToggleGroup" id="npGrupoEsRenovable">
+                <button type="button" class="npToggleBtn on cyan" data-renovable="si">🔁 Renovable</button>
+                <button type="button" class="npToggleBtn" data-renovable="no">🚫 No renovable</button>
+              </div>
+              <span class="npFieldHelp">Se muestra en la tienda. Los productos renovables permiten extender la vigencia cuando el cliente lo solicita.</span>
+              <input type="hidden" id="prodEsRenovable" value="si" />
             </div>
 
             <div class="npField">
@@ -341,7 +329,7 @@
             <table class="npTable">
               <thead>
                 <tr>
-                  <th>Producto</th><th>ID</th><th>Plataforma</th><th>Entrega</th><th>Modo</th>
+                  <th>Producto</th><th>ID</th><th>Plataforma</th><th>Renovable</th><th>Modo</th>
                   <th>Reembolso</th><th>Precio</th><th>Stock</th><th>Estado</th><th>Acciones</th>
                 </tr>
               </thead>
@@ -630,7 +618,7 @@
       <button class="npModalX" onclick="cerrarModalTienda()">✕</button>
     </div>
 
-    <div class="npCard npPanel" style="margin-bottom:14px;">
+    <div class="npCard npPanel" style="margin-bottom:14px;" id="npTiendaFiltrosCard" data-html2canvas-ignore="true">
       <div class="npFormGrid npFormGrid3">
         <div class="npField"><label>Buscar producto</label><input type="text" id="npBuscarTiendaProducto" placeholder="🔎 Nombre del producto..." /></div>
         <div class="npField"><label>Buscar proveedor</label><input type="text" id="npBuscarTiendaProveedor" placeholder="🔎 Nombre del proveedor..." /></div>
@@ -640,6 +628,10 @@
     </div>
 
     <div id="npTiendaGrid" class="npTiendaGrid"><div class="npEmpty">Cargando productos…</div></div>
+
+    <div class="npTiendaCapturaBar" data-html2canvas-ignore="true">
+      <button type="button" class="npBtn npBtnGhost" id="npBtnGuardarCaptura">📸 Guardar captura</button>
+    </div>
   </div>
 </div>
 
@@ -686,6 +678,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 
 <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-<script src="novapro.js?v=5"></script>
+<script src="novapro.js?v=7"></script>
 </body>
 </html>
