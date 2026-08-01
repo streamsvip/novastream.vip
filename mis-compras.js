@@ -1,6 +1,21 @@
 /* =========================================================
-   NOVASTREAM.VIP — mis-compras.js (v3)
+   NOVASTREAM.VIP — mis-compras.js (v4)
    ✅ CONECTADO A FIREBASE · compatible con las reglas RTDB v5
+
+   v4 (esta actualización):
+   - NUEVO: menú de usuario en escritorio (mismo comportamiento
+     que el de catalogo.html): abre/cierra el desplegable, pinta
+     avatar/nombre/correo/saldo y permite cerrar sesión.
+   - FIX: la pantalla "Cargando tus compras..." ya NO se oculta
+     apenas se registra el listener de /compras. Ahora espera a
+     que el PERFIL (mcPerfilListo) Y las COMPRAS (mcComprasListo)
+     ya se hayan pintado al menos una vez. Antes se ocultaba en
+     cuanto llegaba el primer snapshot de compras, sin importar
+     si el saldo/nombre ya habían cargado — por eso se veía
+     "saltar" el saldo después de que la pantalla ya se había
+     ocultado.
+   - Red de seguridad: si algo se cuelga, el loader igual se
+     oculta a los 6s (forzado), para que nunca quede pegado.
 
    ─────────────────────────────────────────────────────────
    DE DÓNDE SALEN LOS DATOS
@@ -93,6 +108,11 @@ let filtroPlataforma = "todos";
 let mcFilaModal = null;
 let mcAccionPendiente = null;   // { tipo:'renovar'|'reembolso', fila }
 
+/* ⭐ NUEVO (v4): banderas para sincronizar el loader con los
+   datos reales, en vez de ocultarlo apenas se registra un listener */
+let mcPerfilListo = false;
+let mcComprasListo = false;
+
 /* =========================
    HELPERS
 ========================= */
@@ -127,6 +147,19 @@ function toast(msg){
   el.classList.add("visible");
   clearTimeout(el._t);
   el._t = setTimeout(() => el.classList.remove("visible"), 2800);
+}
+
+/* =========================================================
+   LOADER "CARGANDO TUS COMPRAS..."   ⭐ FIX (v4)
+   Solo se oculta cuando el PERFIL (saldo/nombre) Y las COMPRAS
+   ya se pintaron al menos una vez. Con forzar=true se ignora
+   la condición (red de seguridad, para que nunca quede colgado).
+========================================================= */
+
+function mcIntentarOcultarBooting(forzar){
+  if (!forzar && (!mcPerfilListo || !mcComprasListo)) return;
+  const el = mcEl("rgBooting");
+  if (el) el.classList.add("off");
 }
 
 /* =========================================================
@@ -168,6 +201,10 @@ function mcInit(){
 
     mcUid = user.uid;
 
+    /* Página protegida: si llegamos hasta aquí, hay sesión válida.
+       Se activa el estado visual (muestra el menú de usuario). */
+    document.body.classList.add("nsAutenticado");
+
     /* Perfil en vivo */
     mcDb.ref("usuarios/" + mcUid).on("value", s => {
       const p = s.val() || {};
@@ -181,20 +218,23 @@ function mcInit(){
         saldoUsd: num(p.saldoUsd)
       };
       pintarPerfil();
+      pintarUserMenu();
+      mcPerfilListo = true;
+      mcIntentarOcultarBooting();
     });
 
     /* Compras: lectura directa permitida */
     mcDb.ref("compras/" + mcUid).on("value", s => {
       mcComprasRaw = s.val() || {};
       reconstruirFilas();
-      const boot = mcEl("rgBooting");
-      if (boot) boot.classList.add("off");
+      mcComprasListo = true;
+      mcIntentarOcultarBooting();
     }, err => {
       console.error(err);
       mcComprasRaw = {};
       reconstruirFilas();
-      const boot = mcEl("rgBooting");
-      if (boot) boot.classList.add("off");
+      mcComprasListo = true;
+      mcIntentarOcultarBooting();
     });
 
     /* Renovaciones propias · query OBLIGATORIA */
@@ -216,6 +256,43 @@ function pintarPerfil(){
   const dn = mcEl("drawerNombre");   if (dn) dn.textContent = mcPerfil.nombre;
   const ds = mcEl("drawerSaldo");    if (ds) ds.textContent = fmt(s) + " · " + fmtPEN(s);
   const da = mcEl("drawerAvatar");   if (da) da.textContent = String(mcPerfil.nombre || "N").trim().charAt(0).toUpperCase();
+}
+
+/* ⭐ NUEVO (v4): pinta el menú de usuario de escritorio
+   (avatar, nombre, correo y saldo), igual que en catalogo.html */
+function pintarUserMenu(){
+  const inicial = String(mcPerfil.nombre || "N").trim().charAt(0).toUpperCase();
+
+  const avatarChip = mcEl("nsUserAvatarChip");
+  const avatarDrop = mcEl("nsUserAvatarDropdown");
+  const nombreChip = mcEl("nsUserNombreChip");
+  const nombreDrop = mcEl("nsUserNombreDropdown");
+  const correoDrop = mcEl("nsUserCorreoDropdown");
+  const saldoDrop  = mcEl("nsUserDropdownSaldoValor");
+
+  if (avatarChip) avatarChip.textContent = inicial;
+  if (avatarDrop) avatarDrop.textContent = inicial;
+  if (nombreChip) nombreChip.textContent = mcPerfil.nombre;
+  if (nombreDrop) nombreDrop.textContent = mcPerfil.nombre;
+  if (correoDrop) correoDrop.textContent = mcPerfil.correo || "";
+  if (saldoDrop)  saldoDrop.textContent  = fmt(mcPerfil.saldoUsd);
+}
+
+/* =========================================================
+   CERRAR SESIÓN (usado por el drawer móvil y el menú de escritorio)
+========================================================= */
+
+async function mcCerrarSesion(){
+  const overlay = mcEl("nsDrawerOverlay");
+  if (overlay) overlay.classList.remove("activo");
+
+  const menuWrap = mcEl("nsUserMenu");
+  const btnMenu = mcEl("btnUserMenu");
+  if (menuWrap) menuWrap.classList.remove("abierto");
+  if (btnMenu) btnMenu.setAttribute("aria-expanded", "false");
+
+  try { if (mcAuth) await mcAuth.signOut(); } catch(err){}
+  window.location.replace(MC_LOGIN_URL);
 }
 
 /* =========================================================
@@ -892,14 +969,41 @@ document.addEventListener("DOMContentLoaded", () => {
     if (overlay) overlay.addEventListener("click", e => { if (e.target.id === "nsDrawerOverlay") overlay.classList.remove("activo"); });
 
     if (salir){
-      salir.addEventListener("click", async e => {
+      salir.addEventListener("click", e => {
         e.preventDefault();
-        if (overlay) overlay.classList.remove("activo");
-        try { if (mcAuth) await mcAuth.signOut(); } catch(err){}
-        window.location.replace(MC_LOGIN_URL);
+        mcCerrarSesion();
       });
     }
   } catch(err){ console.error("Drawer:", err); }
+
+  /* ⭐ NUEVO (v4): menú de usuario en escritorio */
+  try {
+    const btnUserMenu = mcEl("btnUserMenu");
+    const userMenuWrap = mcEl("nsUserMenu");
+
+    if (btnUserMenu && userMenuWrap){
+      btnUserMenu.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const abierto = userMenuWrap.classList.toggle("abierto");
+        btnUserMenu.setAttribute("aria-expanded", abierto ? "true" : "false");
+      });
+
+      document.addEventListener("click", (e) => {
+        if (!userMenuWrap.contains(e.target)){
+          userMenuWrap.classList.remove("abierto");
+          btnUserMenu.setAttribute("aria-expanded", "false");
+        }
+      });
+    }
+
+    const btnCerrarSesionDesktop = mcEl("btnCerrarSesionDesktop");
+    if (btnCerrarSesionDesktop){
+      btnCerrarSesionDesktop.addEventListener("click", (e) => {
+        e.preventDefault();
+        mcCerrarSesion();
+      });
+    }
+  } catch(err){ console.error("Menú de usuario:", err); }
 
   ajustarAlturaNav();
   aplicarVista(vistaActual, false);
@@ -982,8 +1086,16 @@ document.addEventListener("DOMContentLoaded", () => {
       cerrarConfirm();
       const o = mcEl("nsDrawerOverlay");
       if (o) o.classList.remove("activo");
+      const um = mcEl("nsUserMenu");
+      const bm = mcEl("btnUserMenu");
+      if (um) um.classList.remove("abierto");
+      if (bm) bm.setAttribute("aria-expanded", "false");
     }
   });
 
   mcInit();
+
+  /* Red de seguridad: pase lo que pase, el loader nunca se
+     queda colgado en pantalla. */
+  setTimeout(() => mcIntentarOcultarBooting(true), 6000);
 });
