@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <!--
-    NOVASTREAM.VIP — catalogo.html (v5)
+    NOVASTREAM.VIP — catalogo.html (v8)
 
     MODO VISITANTE vs MODO CLIENTE
     El catálogo es público: cualquiera puede ver los productos.
@@ -12,6 +12,17 @@
        body.nsAutenticado → con sesión
     Los elementos marcados con .nsSoloAuth / .nsSoloInvitado
     se muestran u ocultan según ese estado.
+
+    v8: se agregó la pantalla "Verificando tu sesión..." (#nsBooting),
+    igual en espíritu a la de mis-compras.html y recargas.html. Se
+    oculta solo cuando la sesión Y el catálogo ya están pintados
+    (ver novastream.js → nsIntentarOcultarBooting), para que el
+    saldo/nombre no aparezcan "a medias".
+
+    v7: el CSS del menú de usuario y de los badges de entrega
+    se movió a novastream.css (antes vivía en un <style> inline
+    aquí mismo). Las tarjetas ahora solo muestran el badge de
+    tipo de entrega para que se vean menos cargadas.
   -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -24,11 +35,16 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="icon" type="image/png" href="img/logo.png">
-  <link rel="stylesheet" href="novastream.css?v=5">
+  <link rel="stylesheet" href="novastream.css?v=8">
 </head>
 
 <!-- Arranca en estado "cargando" para evitar parpadeos -->
 <body class="nsBody nsSesionCargando">
+
+  <div class="nsBooting" id="nsBooting">
+    <div class="nsBootingRing"></div>
+    <span>Verificando tu sesión...</span>
+  </div>
 
   <!-- ================= NAVBAR SUPERIOR ================= -->
   <header class="nsNav" id="nsNav">
@@ -66,6 +82,34 @@
           <span class="nsSaldoLabel">Saldo</span>
           <span id="saldoUsuario" class="nsSaldoValor">$0.00</span>
           <span id="saldoUsuarioPen" class="nsSaldoValorPen">S/ 0.00</span>
+        </div>
+
+        <!-- Menú de usuario: solo con sesión (escritorio) -->
+        <div class="nsUserMenu nsSoloAuth" id="nsUserMenu">
+          <button type="button" class="nsUserMenuBtn" id="btnUserMenu" aria-haspopup="true" aria-expanded="false">
+            <span class="nsUserAvatar" id="nsUserAvatarChip">N</span>
+            <span class="nsUserNombreChip" id="nsUserNombreChip">Cliente</span>
+            <svg class="nsUserCaret" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+
+          <div class="nsUserDropdown" id="nsUserDropdown">
+            <div class="nsUserDropdownHead">
+              <span class="nsUserAvatar big" id="nsUserAvatarDropdown">N</span>
+              <div>
+                <strong id="nsUserNombreDropdown">Cliente</strong>
+                <span id="nsUserCorreoDropdown"></span>
+              </div>
+            </div>
+
+            <div class="nsUserDropdownSaldo">
+              <span>Saldo</span>
+              <strong id="nsUserDropdownSaldoValor">$0.00</strong>
+            </div>
+
+            <a href="mis-compras.html" class="nsUserDropdownItem">📋 Mis compras</a>
+            <a href="recargas.html" class="nsUserDropdownItem">💳 Recargar saldo</a>
+            <button type="button" class="nsUserDropdownItem nsUserDropdownLogout" id="btnCerrarSesionDesktop">🚪 Cerrar sesión</button>
+          </div>
         </div>
 
         <!-- Botón Ingresar: solo visitante -->
@@ -220,11 +264,7 @@
           &copy; <span id="nsAnioActual">2025</span> <strong>NovaStream</strong>. Todos los derechos reservados.
         </p>
 
-        <a
-          href="https://wa.me/51916252754?text=Hola%20Impulso%20Project%2C%20vi%20su%20trabajo%20en%20NovaStream%20y%20quiero%20informaci%C3%B3n%20sobre%20la%20creaci%C3%B3n%20de%20p%C3%A1ginas%20web%20y%20sistemas%20a%20medida."
-          target="_blank" rel="noopener"
-          class="nsFooterCredito" id="nsFooterCredito"
-          aria-label="Contactar a Impulso Project por WhatsApp">
+        <a href="https://wa.me/51916252754?text=Hola%20Impulso%20Project%2C%20vi%20su%20trabajo%20en%20NovaStream%20y%20quiero%20informaci%C3%B3n%20sobre%20la%20creaci%C3%B3n%20de%20p%C3%A1ginas%20web%20y%20sistemas%20a%20medida." target="_blank" rel="noopener" class="nsFooterCredito" id="nsFooterCredito" aria-label="Contactar a Impulso Project por WhatsApp">
 
           <span class="nsCreditoIcono">
             <svg viewBox="0 0 24 24" fill="currentColor">
@@ -255,6 +295,8 @@
 
         <div class="nsModalInfo">
           <h2 id="modalNombre"></h2>
+
+          <div class="nsModalBadgesFila" id="modalBadgesFila"></div>
 
           <div class="nsModalDesc">
             <h4>Descripción</h4>
@@ -334,10 +376,7 @@
 
   <div id="toastAviso" class="nsToast"></div>
 
-  <a
-    href="https://wa.me/51900000000?text=Hola%2C%20necesito%20ayuda%20con%20NovaStream"
-    target="_blank" rel="noopener"
-    class="nsWhatsapp" aria-label="Soporte por WhatsApp">
+  <a href="https://wa.me/51900000000?text=Hola%2C%20necesito%20ayuda%20con%20NovaStream" target="_blank" rel="noopener" class="nsWhatsapp" aria-label="Soporte por WhatsApp">
     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.2-1.7-.9-2-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-.3-.2-1.3-.5-2.5-1.6-.9-.8-1.5-1.9-1.7-2.2-.2-.3 0-.5.1-.6.1-.1.3-.4.5-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5C9.6 9 9.1 7.8 8.9 7.3c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.3.3-1 1-1 2.4s1 2.8 1.2 3c.1.2 2 3.2 5 4.4.7.3 1.2.5 1.7.6.7.2 1.3.2 1.8.1.6-.1 1.7-.7 1.9-1.3.2-.6.2-1.2.2-1.3-.1-.1-.3-.2-.6-.4z"></path><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2zm0 18.1a8.1 8.1 0 0 1-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8.1 8.1 0 1 1 12 20.1z"></path></svg>
   </a>
 
@@ -345,6 +384,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
-  <script src="novastream.js?v=5"></script>
+  <script src="novastream.js?v=8"></script>
 </body>
 </html>
