@@ -1,7 +1,18 @@
 /* =========================================================
-   NOVASTREAM.VIP — novapro.js (v6)
+   NOVASTREAM.VIP — novapro.js (v7)
    PANEL PROVEEDOR · adaptado a los IDs reales de novapro.html
    y 100% compatible con las reglas RTDB v5.
+
+   ─────────────────────────────────────────────────────────
+   CAMBIOS EN ESTA VERSIÓN (v7)
+   ─────────────────────────────────────────────────────────
+   · Se quitó el campo "Categoría general" del formulario de
+     producto (ya no se guarda ni se usa el campo `categoria`).
+   · El campo "Plataforma" ahora SOLO sugiere las categorías
+     creadas por el administrador en /categorias. Ya no se
+     autocompleta con las plataformas que ya usaron otros
+     productos del catálogo. Si el admin todavía no creó
+     ninguna categoría, el campo no sugiere nada.
 
    ─────────────────────────────────────────────────────────
    MODELO DE NEGOCIO
@@ -31,7 +42,7 @@
    CONFIG
 ========================= */
 
-const NP_FB_CONFIG = {
+const MC_FB_CONFIG = {
   apiKey: "AIzaSyCwMr1Ie2DmAePzI0X4qsSR5jE70OKbRkA",
   authDomain: "novastream-f3e15.firebaseapp.com",
   projectId: "novastream-f3e15",
@@ -40,7 +51,6 @@ const NP_FB_CONFIG = {
   appId: "1:356156093772:web:58fb86ad38d8560fc50be9",
   measurementId: "G-FVSMQBXNDX"
 };
-
 if (!firebase.apps.length) firebase.initializeApp(NP_FB_CONFIG);
 
 const auth = firebase.auth();
@@ -336,7 +346,10 @@ function iniciarPanel(){
     prepararFormSoporte();
   }, () => { npPublico = {}; });
 
-  /* Categorías (lectura pública) → datalist de plataformas */
+  /* Categorías (lectura pública) → datalist de plataformas.
+     Esta es la MISMA lista que crea el administrador desde su
+     panel en /categorias. El proveedor ya no puede escribir
+     plataformas "libres" que no existan ahí. */
   db.ref("categorias").on("value", (s) => {
     npCategorias = s.val() || {};
     renderDatalistPlataformas();
@@ -424,7 +437,7 @@ function sincronizarListenersCuentas(){
    HELPERS DE NEGOCIO
 ========================================================= */
 
-function esIlimitado(p){ return !!p && (p.stockIlimitado === true || p.tipoEntrega === "descarga"); }
+function esIlimitado(p){ return !!p && p.stockIlimitado === true; }
 
 function stockReal(pid){
   const c = npCuentas[pid] || {};
@@ -772,13 +785,16 @@ function generarNuevoIdProducto(){
   setTxt("npProdIdTexto", npNuevoProdId);
 }
 
+/* Solo se muestran las categorías creadas por el administrador
+   en su panel (/categorias). Ya no se agregan automáticamente
+   las plataformas que otros productos hayan usado antes, para
+   evitar que se creen categorías "sueltas" fuera de control. */
 function renderDatalistPlataformas(){
   const dl = $("npListaPlataformas");
   if (!dl) return;
 
   const nombres = new Set();
   Object.values(npCategorias).forEach(c => { if (c && c.nombre) nombres.add(c.nombre); });
-  Object.values(npProductos).forEach(p => { if (p && p.plataforma) nombres.add(p.plataforma); });
 
   dl.innerHTML = Array.from(nombres).sort((a,b)=>a.localeCompare(b))
     .map(n => '<option value="' + esc(n) + '">').join("");
@@ -877,7 +893,7 @@ function duracionElegida(){
   return 0;
 }
 
-/* Toggles genéricos (modo entrega, reembolso, soporte) */
+/* Toggles genéricos (modo entrega, reembolso, renovable, soporte) */
 function conectarToggle(grupoId, dataAttr, hiddenId, onCambio){
   const grupo = $(grupoId);
   if (!grupo || grupo.dataset.listo) return;
@@ -913,13 +929,12 @@ function limpiarFormProducto(){
     const el = $(id); if (el) el.value = "";
   });
 
-  const cat = $("prodCategoria");    if (cat) cat.value = "streaming";
-  const te  = $("prodTipoEntrega");  if (te)  te.value  = "cuenta";
   const dur = $("prodDuracion");     if (dur) dur.value = "30";
   const df  = $("prodDuracionFecha");if (df)  df.value  = "";
 
   setToggle("npGrupoModoEntrega", "modo", "prodModoEntrega", "automatico");
   setToggle("npGrupoReembolso", "reembolso", "prodAplicaReembolso", "si");
+  setToggle("npGrupoEsRenovable", "renovable", "prodEsRenovable", "si");
 
   quitarImagenProducto();
   actualizarDuracion();
@@ -937,11 +952,10 @@ async function guardarProducto(event){
 
   const nombre      = String(($("prodNombre")||{}).value || "").trim();
   const plataforma  = String(($("prodPlataforma")||{}).value || "").trim();
-  const categoria   = String(($("prodCategoria")||{}).value || "streaming");
   const precio      = red(($("prodPrecio")||{}).value);
-  const tipoEntrega = String(($("prodTipoEntrega")||{}).value || "cuenta");
   const modoEntrega = String(($("prodModoEntrega")||{}).value || "automatico");
   const reembolso   = String(($("prodAplicaReembolso")||{}).value || "si");
+  const esRenovable = String(($("prodEsRenovable")||{}).value || "si");
   const descripcion = String(($("prodDescripcion")||{}).value || "").trim();
   const reglas      = String(($("prodReglas")||{}).value || "").trim();
   const dias        = duracionElegida();
@@ -959,23 +973,22 @@ async function guardarProducto(event){
     const editando = !!npEditandoProd;
     const id = editando ? npEditandoProd : npNuevoProdId;
     const ant = editando ? (npProductos[id] || {}) : {};
-    const ilimitado = tipoEntrega === "descarga";
+    const ilimitado = editando ? (ant.stockIlimitado === true) : false;
 
     const data = {
       proveedorId:     npUid,                                    // ⚠ obligatorio por reglas
       proveedorNombre: npPublico.nombre || npPerfil.nombre,
       nombre:          nombre,
       plataforma:      plataforma,
-      categoria:       categoria,
       precioUsd:       precio,
       duracionDias:    ilimitado ? 0 : dias,
       stockIlimitado:  ilimitado,
       descripcion:     descripcion || "Sin descripción disponible.",
       reglas:          reglas,
       imagen:          npImagenProducto || ant.imagen || "",
-      tipoEntrega:     tipoEntrega,
       modoEntrega:     modoEntrega,
       aplicaReembolso: reembolso,
+      esRenovable:     esRenovable === "si",
       activo:          ant.activo !== undefined ? ant.activo !== false : true,
       stock:           ilimitado ? 0 : stockReal(id),
       fechaCreacion:   editando ? (num(ant.fechaCreacion) || Date.now()) : Date.now()
@@ -1007,14 +1020,13 @@ function editarProducto(id){
   setTxt("npProdIdTexto", id);
   $("prodNombre").value      = p.nombre || "";
   $("prodPlataforma").value  = p.plataforma || "";
-  $("prodCategoria").value   = p.categoria || "streaming";
   $("prodPrecio").value      = num(p.precioUsd).toFixed(2);
-  $("prodTipoEntrega").value = p.tipoEntrega || "cuenta";
   $("prodDescripcion").value = p.descripcion || "";
   $("prodReglas").value      = p.reglas || "";
 
   setToggle("npGrupoModoEntrega", "modo", "prodModoEntrega", p.modoEntrega || "automatico");
   setToggle("npGrupoReembolso", "reembolso", "prodAplicaReembolso", p.aplicaReembolso || "si");
+  setToggle("npGrupoEsRenovable", "renovable", "prodEsRenovable", p.esRenovable === false ? "no" : "si");
 
   /* Duración: si coincide con una opción del select la usamos, si no → personalizada */
   const dias = String(num(p.duracionDias));
@@ -1096,12 +1108,13 @@ function renderTablaProductos(){
     const s = ilim ? "∞" : stockReal(id);
     const activo = p.activo !== false;
     const estado = activo ? (ilim || s > 0 ? "Activo" : "Agotado") : "Pausado";
+    const renovable = p.esRenovable === false ? "No" : "Sí";
 
     return '<tr>' +
       '<td class="txt"><strong>' + esc(p.nombre || id) + '</strong></td>' +
       '<td style="font-size:10.5px;">' + esc(id.slice(0,12)) + '…</td>' +
       '<td class="txt">' + esc(p.plataforma || "-") + '</td>' +
-      '<td class="txt">' + esc(p.tipoEntrega || "cuenta") + '</td>' +
+      '<td class="txt">' + renovable + '</td>' +
       '<td class="txt">' + (p.modoEntrega === "manual" ? "Manual" : "Automático") + '</td>' +
       '<td class="txt">' + (p.aplicaReembolso === "no" ? "No" : "Sí") + '</td>' +
       '<td>' + usd(p.precioUsd) + '<br><span style="font-size:10px;opacity:.6;">' + pen(p.precioUsd) + '</span></td>' +
@@ -1824,16 +1837,20 @@ function renderTienda(){
 
   grid.innerHTML = ids.map(id => {
     const p = npTodosProductos[id];
-    const ilim = p.stockIlimitado === true || p.tipoEntrega === "descarga";
+    const ilim = p.stockIlimitado === true;
     const stock = ilim ? "Ilimitado" : num(p.stock);
     const mio = p.proveedorId === npUid;
+    const renovableBadge = p.esRenovable === false
+      ? '<span class="npBadge bad" style="font-size:9px;">No renovable</span>'
+      : '<span class="npBadge ok" style="font-size:9px;">Renovable</span>';
 
     return '<div class="npCard npTiendaCard">' +
       '<div class="npTiendaImg">' +
         (p.imagen ? '<img src="' + esc(p.imagen) + '" alt="" style="width:100%;height:100%;object-fit:cover;">' : "🖼️") +
       '</div>' +
       '<div class="npTiendaBody">' +
-        '<h4>' + esc(p.nombre) + (mio ? ' <span class="npBadge ok" style="font-size:9px;">Tuyo</span>' : "") + '</h4>' +
+        '<h4>' + esc(p.nombre) + (mio ? ' <span class="npBadge info" style="font-size:9px;">Tuyo</span>' : "") + '</h4>' +
+        '<div style="margin:-2px 0 2px;">' + renovableBadge + '</div>' +
         '<div class="npTiendaMeta">' +
           'Plataforma: <strong>' + esc(p.plataforma || "-") + '</strong><br>' +
           'Proveedor: <strong>' + esc(p.proveedorNombre || "NovaStream") + '</strong><br>' +
@@ -1846,6 +1863,45 @@ function renderTienda(){
       '</div>' +
     '</div>';
   }).join("");
+}
+
+/* =========================================================
+   CAPTURA DE LA TIENDA (sin botones ni filtros en la imagen)
+========================================================= */
+
+async function capturarTienda(){
+  const box = document.querySelector("#npModalTienda .npModalBox");
+  if (!box) return;
+
+  if (typeof html2canvas !== "function") {
+    err("No se pudo cargar la herramienta de captura.");
+    return;
+  }
+
+  const btn = $("npBtnGuardarCaptura");
+  if (btn) { btn.disabled = true; btn.textContent = "Generando..."; }
+
+  try {
+    /* html2canvas ignora automáticamente cualquier elemento con
+       data-html2canvas-ignore="true" (botones, filtros, cabecera). */
+    const canvas = await html2canvas(box, {
+      backgroundColor: "#0f1117",
+      useCORS: true,
+      scale: Math.min(2, window.devicePixelRatio || 1.5),
+      ignoreElements: (el) => el.hasAttribute && el.hasAttribute("data-html2canvas-ignore")
+    });
+
+    const link = document.createElement("a");
+    link.download = "novastream-tienda-" + Date.now() + ".png";
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+
+    ok("Captura guardada.");
+  } catch (e) {
+    err("No se pudo generar la captura: " + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "📸 Guardar captura"; }
+  }
 }
 
 /* =========================================================
@@ -1932,6 +1988,7 @@ function prepararFormularios(){
       : "Automático: el cliente recibe el acceso al instante.");
   });
   conectarToggle("npGrupoReembolso", "reembolso", "prodAplicaReembolso");
+  conectarToggle("npGrupoEsRenovable", "renovable", "prodEsRenovable");
   conectarToggle("npGrupoSoporteActivo", "soporte", "npSoporteActivo");
 
   /* --- Imagen --- */
@@ -2015,6 +2072,9 @@ function prepararFormularios(){
     const b = $("npBuscarTiendaProveedor"); if (b) b.value = "";
     renderTienda();
   });
+
+  const btnCaptura = $("npBtnGuardarCaptura");
+  if (btnCaptura) btnCaptura.addEventListener("click", capturarTienda);
 
   /* --- Cerrar modales al hacer clic fuera --- */
   ["npModalSoporte","npModalTienda","npModalVencimientos","npModalEditarCuenta"].forEach(id => {
