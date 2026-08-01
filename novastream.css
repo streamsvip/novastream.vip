@@ -1,5 +1,20 @@
 /* =========================================================
-   NOVASTREAM.VIP — novastream.css (v5)
+   NOVASTREAM.VIP — novastream.css (v8)
+
+   v8 (esta actualización):
+   - NUEVO: pantalla "Verificando tu sesión..." (.nsBooting)
+     para catalogo.html. Vive aquí (y no en su propio archivo)
+     porque catalogo.html solo carga novastream.css.
+
+   v7:
+   - FIX: el menú de usuario de escritorio (nombre + cerrar sesión)
+     tenía la clase .nsSoloAuth pero le faltaba la regla que lo
+     mostrara con sesión iniciada. Por eso nunca se veía aunque
+     el HTML y el JS ya estaban listos. Se agregó la regla que
+     faltaba en la sección "Con sesión".
+   - NUEVO: badge de "Renovable / No renovable" en las tarjetas
+     del catálogo y en el modal de producto (mismo lenguaje visual
+     que los badges de entrega/reembolso).
 
    v5:
    - MODO VISITANTE: el catálogo es público, pero comprar
@@ -70,6 +85,7 @@ body.nsAutenticado .nsFooterCol a.nsSoloAuth{ display:block !important; }
 body.nsAutenticado .nsIconBtn.nsSoloAuth{ display:flex !important; }
 body.nsAutenticado .nsSaldoChip.nsSoloAuth{ display:flex !important; }
 body.nsAutenticado .nsDrawerUser.nsSoloAuth{ display:flex !important; }
+body.nsAutenticado .nsUserMenu.nsSoloAuth{ display:flex !important; } /* ⭐ FIX: faltaba esta regla */
 
 /* ---- Sin sesión ---- */
 body.nsInvitado .nsBtnIngresar.nsSoloInvitado{ display:flex !important; }
@@ -997,3 +1013,273 @@ body.nsInvitado .nsModalGuestCta.nsSoloInvitado{ display:block !important; }
 @media (prefers-reduced-motion:reduce){
   .nsCard, .nsSlide, .nsFooterCredito, .nsWhatsapp, .nsAuthModalBox{ transition:none !important; animation:none !important; }
 }
+/* =========================================================
+   MENÚ DE USUARIO (escritorio) — v7
+   Muestra el nombre de quien inició sesión en el navbar y
+   permite cerrar sesión sin depender del drawer móvil.
+   ========================================================= */
+
+.nsUserMenu{
+  position: relative;
+}
+
+.nsUserMenuBtn{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 10px 0 6px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease;
+  max-width: 190px;
+  font-family: inherit;
+}
+.nsUserMenuBtn:hover{
+  background: var(--panel-2);
+  border-color: var(--line-strong);
+}
+
+.nsUserAvatar{
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12.5px;
+  color: #04060a;
+  background: var(--ribbon);
+  text-transform: uppercase;
+}
+.nsUserAvatar.big{
+  width: 42px;
+  height: 42px;
+  font-size: 16px;
+}
+
+.nsUserNombreChip{
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+}
+
+.nsUserCaret{
+  width: 14px;
+  height: 14px;
+  stroke: var(--text-dim);
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+  transition: transform .18s ease;
+}
+.nsUserMenu.abierto .nsUserCaret{ transform: rotate(180deg); }
+
+.nsUserDropdown{
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 250px;
+  background: var(--bg-1);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-l);
+  box-shadow: 0 20px 44px rgba(0,0,0,.45);
+  padding: 8px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px);
+  transition: opacity .16s ease, transform .16s ease, visibility .16s ease;
+  z-index: 200;
+}
+.nsUserMenu.abierto .nsUserDropdown{
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.nsUserDropdownHead{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 10px 14px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 8px;
+}
+.nsUserDropdownHead > div{ min-width: 0; }
+.nsUserDropdownHead strong{
+  display: block;
+  font-size: 13.5px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nsUserDropdownHead span{
+  display: block;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.nsUserDropdownSaldo{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  margin-bottom: 6px;
+  border-radius: var(--radius-s);
+  background: rgba(33,230,193,.08);
+  border: 1px solid rgba(33,230,193,.20);
+}
+.nsUserDropdownSaldo span{ font-size: 11px; color: var(--text-dim); font-weight: 700; text-transform: uppercase; letter-spacing: .3px; }
+.nsUserDropdownSaldo strong{ font-size: 14px; color: var(--teal); }
+
+.nsUserDropdownItem{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 10px;
+  border-radius: var(--radius-s);
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: inherit;
+  transition: background .14s ease;
+  box-sizing: border-box;
+}
+.nsUserDropdownItem:hover{ background: var(--panel-2); }
+
+.nsUserDropdownLogout{
+  color: #ff8a97;
+  margin-top: 4px;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 10px 10px;
+  padding-top: 12px;
+}
+.nsUserDropdownLogout:hover{ background: rgba(255,93,115,.12); }
+
+@media (max-width: 900px){
+  .nsUserMenu.nsSoloAuth{ display: none !important; }
+}
+
+/* =========================================================
+   BADGE DE TIPO DE ENTREGA — v7
+   Solo en la tarjeta va el de entrega, para no saturar.
+   El detalle de reembolso queda en el modal.
+   ========================================================= */
+
+.nsBadgeEntrega{
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .2px;
+  white-space: nowrap;
+}
+.nsBadgeEntrega.automatico{
+  background: rgba(33,230,193,.14);
+  border: 1px solid rgba(33,230,193,.30);
+  color: #7cf5df;
+}
+.nsBadgeEntrega.manual{
+  background: rgba(240,168,61,.14);
+  border: 1px solid rgba(240,168,61,.32);
+  color: #ffd08a;
+}
+
+.nsBadgeReembolso{
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+  background: rgba(255,255,255,.06);
+  border: 1px solid var(--line-strong);
+  color: var(--text-dim);
+}
+
+/* ⭐ badge de renovable / no renovable, mismo lenguaje
+   visual (pill) que los badges de entrega y reembolso */
+.nsBadgeRenovable{
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.nsBadgeRenovable.si{
+  background: rgba(124,92,255,.14);
+  border: 1px solid rgba(124,92,255,.32);
+  color: #d9d0ff;
+}
+.nsBadgeRenovable.no{
+  background: rgba(255,93,115,.10);
+  border: 1px solid rgba(255,93,115,.28);
+  color: #ffc2c9;
+}
+
+.nsModalBadgesFila{
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 6px 0 14px;
+}
+
+@media (max-width:600px){
+  .nsBadgeEntrega{ font-size: 9px; padding: 3px 7px; }
+  .nsBadgeReembolso{ font-size: 9px; padding: 3px 7px; }
+  .nsBadgeRenovable{ font-size: 9px; padding: 3px 7px; }
+}
+
+/* =========================================================
+   PANTALLA "VERIFICANDO SESIÓN" — v8
+   Vive aquí (y no en su propio archivo) porque catalogo.html
+   solo carga novastream.css. Usa el mismo lenguaje visual que
+   el loader de mis-compras.html / recargas.html.
+   ========================================================= */
+
+.nsBooting{
+  position:fixed; inset:0; z-index:99999;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+  background:#0a0b0f; color:var(--text-dim); font-size:13px; font-weight:700;
+  transition:opacity .3s ease;
+}
+.nsBooting.off{ opacity:0; pointer-events:none; }
+
+.nsBootingRing{
+  width:34px; height:34px; border-radius:50%;
+  border:3px solid rgba(255,255,255,.1);
+  border-top-color:var(--teal);
+  animation:nsBootSpin .8s linear infinite;
+}
+@keyframes nsBootSpin{ to{ transform:rotate(360deg); } }
