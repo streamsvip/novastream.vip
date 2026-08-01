@@ -42,14 +42,14 @@
 ========================= */
 
 const NA_FB_CONFIG = {
-  apiKey: "AIzaSyAZW6nWtyDrhvyvLw0JwP_Mhgoa-Vk3Tl4",
-  authDomain: "nova-stream-13070.firebaseapp.com",
-  databaseURL: "https://nova-stream-13070-default-rtdb.firebaseio.com",
-  projectId: "nova-stream-13070",
-  storageBucket: "nova-stream-13070.firebasestorage.app",
-  messagingSenderId: "248510774791",
-  appId: "1:248510774791:web:354748958103298e1234a2",
-  measurementId: "G-C6DCXQKKHV"
+ const firebaseConfig = {
+  apiKey: "AIzaSyCwMr1Ie2DmAePzI0X4qsSR5jE70OKbRkA",
+  authDomain: "novastream-f3e15.firebaseapp.com",
+  projectId: "novastream-f3e15",
+  storageBucket: "novastream-f3e15.firebasestorage.app",
+  messagingSenderId: "356156093772",
+  appId: "1:356156093772:web:58fb86ad38d8560fc50be9",
+  measurementId: "G-FVSMQBXNDX"
 };
 
 /* ⚠️ RUTAS REALES DEL PROYECTO */
