@@ -41,8 +41,7 @@
    CONFIG
 ========================= */
 
-const NA_FB_CONFIG = {
- const firebaseConfig = {
+const MC_FB_CONFIG = {
   apiKey: "AIzaSyCwMr1Ie2DmAePzI0X4qsSR5jE70OKbRkA",
   authDomain: "novastream-f3e15.firebaseapp.com",
   projectId: "novastream-f3e15",
