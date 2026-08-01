@@ -173,7 +173,7 @@ function mcInit(){
     return;
   }
 
-  if (!firebase.apps.length) firebase.initializeApp(MC_FB_CONFIG);
+  if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
   mcAuth = firebase.auth();
   mcDb   = firebase.database();
 
