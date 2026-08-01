@@ -966,7 +966,7 @@ body.nsInvitado .nsModalGuestCta.nsSoloInvitado{ display:block !important; }
   .nsBtnAgregar{ height:26px; font-size:9.5px; padding:0 3px; gap:3px; }
   .nsBtnAgregar.nsBloqueado svg{ width:10px; height:10px; }
   .nsFavBtn{ width:20px; height:20px; }
-  .nsRenovableCorner{ width:20px; height:20px; font-size:10px; }
+  .nsRenovableCorner{ font-size:9px; padding:3px 7px; gap:3px; }
   .nsFavBtn svg{ width:11px; height:11px; }
   
 
