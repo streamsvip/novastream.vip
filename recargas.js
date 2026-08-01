@@ -1,6 +1,21 @@
 /* =========================================================
-   NOVASTREAM.VIP — recargas.js (v5)
+   NOVASTREAM.VIP — recargas.js (v6)
    ✅ CONECTADO A FIREBASE · compatible con las reglas RTDB v5
+
+   v6 (esta actualización):
+   - NUEVO: menú de usuario en escritorio (mismo comportamiento
+     que el de catalogo.html): abre/cierra el desplegable, pinta
+     avatar/nombre/correo/saldo y permite cerrar sesión.
+   - FIX: la pantalla "Verificando tu sesión..." ya NO se oculta
+     apenas se registra el listener del historial. Antes se
+     ocultaba justo después de llamar a .on(...) sobre /recargas,
+     sin esperar ni el primer snapshot del historial NI que el
+     perfil (saldo/nombre) ya hubiera llegado — por eso el saldo
+     y el nombre podían "aparecer" después de que la pantalla de
+     carga ya se había ido. Ahora espera a que PERFIL
+     (nrPerfilListo) Y HISTORIAL (nrHistorialListo) estén listos.
+   - Red de seguridad: si algo se cuelga, el loader igual se
+     oculta a los 6s (forzado), para que nunca quede pegado.
 
    ─────────────────────────────────────────────────────────
    QUÉ HACE
@@ -35,7 +50,7 @@
    CONFIG
 ========================= */
 
-const NR_FB_CONFIG = {
+const MC_FB_CONFIG = {
   apiKey: "AIzaSyCwMr1Ie2DmAePzI0X4qsSR5jE70OKbRkA",
   authDomain: "novastream-f3e15.firebaseapp.com",
   projectId: "novastream-f3e15",
@@ -97,6 +112,11 @@ let nrEnviando = false;
 let nrArchivo = null;
 let nrRefPerfil = null;
 
+/* ⭐ NUEVO (v6): banderas para sincronizar el loader con los
+   datos reales, en vez de ocultarlo apenas se registra un listener */
+let nrPerfilListo = false;
+let nrHistorialListo = false;
+
 /* =========================================================
    HELPERS
 ========================================================= */
@@ -143,6 +163,19 @@ function soloDecimales(input){
   let v = String(input.value || "").replace(/,/g, ".").replace(/[^0-9.]/g, "");
   v = v.replace(/(\..*)\./g, "$1");
   input.value = v;
+}
+
+/* =========================================================
+   LOADER "VERIFICANDO TU SESIÓN..."   ⭐ FIX (v6)
+   Solo se oculta cuando el PERFIL (saldo/nombre) Y el HISTORIAL
+   ya se pintaron al menos una vez. Con forzar=true se ignora
+   la condición (red de seguridad, para que nunca quede colgado).
+========================================================= */
+
+function nrIntentarOcultarBooting(forzar){
+  if (!forzar && (!nrPerfilListo || !nrHistorialListo)) return;
+  const el = nrEl("rgBooting");
+  if (el) el.classList.add("off");
 }
 
 /* =========================================================
@@ -202,6 +235,10 @@ function nrInit(){
 
     nrUid = user.uid;
 
+    /* Página protegida: si llegamos hasta aquí, hay sesión válida.
+       Se activa el estado visual (muestra el menú de usuario). */
+    document.body.classList.add("nsAutenticado");
+
     /* Perfil en vivo */
     nrRefPerfil = nrDb.ref("usuarios/" + nrUid);
     nrRefPerfil.on("value", (s) => {
@@ -217,6 +254,9 @@ function nrInit(){
         saldoUsd: num(p.saldoUsd)
       };
       pintarPerfil();
+      pintarUserMenu();
+      nrPerfilListo = true;
+      nrIntentarOcultarBooting();
     });
 
     /* Historial propio · query OBLIGATORIA por clienteId */
@@ -224,15 +264,15 @@ function nrInit(){
       .on("value", (s) => {
         nrHistorial = s.val() || {};
         renderHistorial();
+        nrHistorialListo = true;
+        nrIntentarOcultarBooting();
       }, (err) => {
         console.error(err);
         nrHistorial = {};
         renderHistorial();
+        nrHistorialListo = true;
+        nrIntentarOcultarBooting();
       });
-
-    /* Todo listo: se oculta el loader */
-    const boot = nrEl("rgBooting");
-    if (boot) boot.classList.add("off");
   });
 }
 
@@ -244,6 +284,43 @@ function pintarPerfil(){
   const dn = nrEl("drawerNombre");    if (dn) dn.textContent = nrPerfil.nombre;
   const ds = nrEl("drawerSaldo");     if (ds) ds.textContent = fmtUSD(s) + " · " + fmtPEN(usdToPen(s));
   const da = nrEl("drawerAvatar");    if (da) da.textContent = String(nrPerfil.nombre || "N").trim().charAt(0).toUpperCase();
+}
+
+/* ⭐ NUEVO (v6): pinta el menú de usuario de escritorio
+   (avatar, nombre, correo y saldo), igual que en catalogo.html */
+function pintarUserMenu(){
+  const inicial = String(nrPerfil.nombre || "N").trim().charAt(0).toUpperCase();
+
+  const avatarChip = nrEl("nsUserAvatarChip");
+  const avatarDrop = nrEl("nsUserAvatarDropdown");
+  const nombreChip = nrEl("nsUserNombreChip");
+  const nombreDrop = nrEl("nsUserNombreDropdown");
+  const correoDrop = nrEl("nsUserCorreoDropdown");
+  const saldoDrop  = nrEl("nsUserDropdownSaldoValor");
+
+  if (avatarChip) avatarChip.textContent = inicial;
+  if (avatarDrop) avatarDrop.textContent = inicial;
+  if (nombreChip) nombreChip.textContent = nrPerfil.nombre;
+  if (nombreDrop) nombreDrop.textContent = nrPerfil.nombre;
+  if (correoDrop) correoDrop.textContent = nrPerfil.correo || "";
+  if (saldoDrop)  saldoDrop.textContent  = fmtUSD(nrPerfil.saldoUsd);
+}
+
+/* =========================================================
+   CERRAR SESIÓN (usado por el drawer móvil y el menú de escritorio)
+========================================================= */
+
+async function nrCerrarSesion(){
+  const overlay = nrEl("nsDrawerOverlay");
+  if (overlay) overlay.classList.remove("activo");
+
+  const menuWrap = nrEl("nsUserMenu");
+  const btnMenu = nrEl("btnUserMenu");
+  if (menuWrap) menuWrap.classList.remove("abierto");
+  if (btnMenu) btnMenu.setAttribute("aria-expanded", "false");
+
+  try { if (nrAuth) await nrAuth.signOut(); } catch(err){}
+  window.location.replace(NR_LOGIN_URL);
 }
 
 /* =========================================================
@@ -620,11 +697,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (overlay) overlay.addEventListener("click", e => { if (e.target.id === "nsDrawerOverlay") overlay.classList.remove("activo"); });
 
     if (salir){
-      salir.addEventListener("click", async e => {
+      salir.addEventListener("click", e => {
         e.preventDefault();
-        if (overlay) overlay.classList.remove("activo");
-        try { if (nrAuth) await nrAuth.signOut(); } catch(err){}
-        window.location.replace(NR_LOGIN_URL);
+        nrCerrarSesion();
       });
     }
 
@@ -632,6 +707,42 @@ document.addEventListener("DOMContentLoaded", () => {
       if (e.key === "Escape" && overlay) overlay.classList.remove("activo");
     });
   } catch(err){ console.error("Drawer:", err); }
+
+  /* 1b) MENÚ DE USUARIO (escritorio) — aislado, igual que en catalogo.html */
+  try {
+    const btnUserMenu = nrEl("btnUserMenu");
+    const userMenuWrap = nrEl("nsUserMenu");
+
+    if (btnUserMenu && userMenuWrap){
+      btnUserMenu.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const abierto = userMenuWrap.classList.toggle("abierto");
+        btnUserMenu.setAttribute("aria-expanded", abierto ? "true" : "false");
+      });
+
+      document.addEventListener("click", (e) => {
+        if (!userMenuWrap.contains(e.target)){
+          userMenuWrap.classList.remove("abierto");
+          btnUserMenu.setAttribute("aria-expanded", "false");
+        }
+      });
+
+      document.addEventListener("keydown", e => {
+        if (e.key === "Escape"){
+          userMenuWrap.classList.remove("abierto");
+          btnUserMenu.setAttribute("aria-expanded", "false");
+        }
+      });
+    }
+
+    const btnCerrarSesionDesktop = nrEl("btnCerrarSesionDesktop");
+    if (btnCerrarSesionDesktop){
+      btnCerrarSesionDesktop.addEventListener("click", (e) => {
+        e.preventDefault();
+        nrCerrarSesion();
+      });
+    }
+  } catch(err){ console.error("Menú de usuario:", err); }
 
   /* 2) Navbar */
   try { ajustarAlturaNav(); } catch(err){}
@@ -666,4 +777,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* 5) Firebase */
   nrInit();
+
+  /* Red de seguridad: pase lo que pase, el loader nunca se
+     queda colgado en pantalla. */
+  setTimeout(() => nrIntentarOcultarBooting(true), 6000);
 });
