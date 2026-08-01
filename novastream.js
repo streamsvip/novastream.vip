@@ -283,7 +283,7 @@ function nsFbInit(){
   }
 
   try {
-    if (!firebase.apps.length) firebase.initializeApp(NS_FB_CONFIG);
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     nsAuth = firebase.auth();
     nsDb = firebase.database();
     nsFbActivo = true;
