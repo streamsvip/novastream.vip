@@ -545,14 +545,14 @@ function badgeRenovableHTML(item){
   return '<span class="nsBadgeRenovable ' + claseRenovable + '">' + txtRenovable + '</span>';
 }
 
-/* Icono compacto para la esquina de la imagen, en espejo con el
-   botón de favorito (que va en la esquina superior derecha). */
+/* Pill con texto completo en la esquina de la imagen, en espejo
+   con el botón de favorito (esquina superior derecha). */
 function iconoRenovableCorner(item){
   const esRenovable = item.esRenovable !== false;
   const clase = esRenovable ? "si" : "no";
-  const titulo = esRenovable ? "Renovable" : "No renovable";
   const icono = esRenovable ? "🔁" : "⛔";
-  return '<span class="nsRenovableCorner ' + clase + '" title="' + titulo + '">' + icono + '</span>';
+  const texto = esRenovable ? "Renovable" : "No renovable";
+  return '<span class="nsRenovableCorner ' + clase + '">' + icono + ' ' + texto + '</span>';
 }
 
 function renderizarProductos(){
