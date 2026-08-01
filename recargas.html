@@ -2,8 +2,17 @@
 <html lang="es">
 <head>
   <!--
-    NOVASTREAM.VIP — recargas.html (v5)
+    NOVASTREAM.VIP — recargas.html (v6)
     ✅ CONECTADO A FIREBASE (Auth + Database + Storage)
+
+    v6 (esta actualización):
+    - NUEVO: menú de usuario en escritorio (avatar + nombre +
+      saldo + accesos + cerrar sesión), mismo lenguaje visual
+      que el de catalogo.html.
+    - FIX (en recargas.js): la pantalla "Verificando tu sesión..."
+      ya no se oculta apenas se registran los listeners de
+      Firebase; ahora espera a que el PERFIL (saldo/nombre) Y el
+      HISTORIAL ya estén pintados.
 
     · Página protegida: sin sesión → login.html
     · El saldo se lee de usuarios/{uid}/saldoUsd
@@ -22,8 +31,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="icon" type="image/png" href="img/logo.png">
-  <link rel="stylesheet" href="novastream.css?v=5">
-  <link rel="stylesheet" href="recargas.css?v=5">
+  <link rel="stylesheet" href="novastream.css?v=8">
+  <link rel="stylesheet" href="recargas.css?v=6">
 </head>
 
 <body class="nsBody">
@@ -54,6 +63,34 @@
           <span class="nsSaldoLabel">Saldo</span>
           <span id="saldoUsuario" class="nsSaldoValor">$0.00</span>
           <span id="saldoUsuarioPen" class="nsSaldoValorPen">S/ 0.00</span>
+        </div>
+
+        <!-- Menú de usuario (escritorio) — mismo lenguaje visual que catalogo.html -->
+        <div class="nsUserMenu nsSoloAuth" id="nsUserMenu">
+          <button type="button" class="nsUserMenuBtn" id="btnUserMenu" aria-haspopup="true" aria-expanded="false">
+            <span class="nsUserAvatar" id="nsUserAvatarChip">N</span>
+            <span class="nsUserNombreChip" id="nsUserNombreChip">Cliente</span>
+            <svg class="nsUserCaret" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+
+          <div class="nsUserDropdown" id="nsUserDropdown">
+            <div class="nsUserDropdownHead">
+              <span class="nsUserAvatar big" id="nsUserAvatarDropdown">N</span>
+              <div>
+                <strong id="nsUserNombreDropdown">Cliente</strong>
+                <span id="nsUserCorreoDropdown"></span>
+              </div>
+            </div>
+
+            <div class="nsUserDropdownSaldo">
+              <span>Saldo</span>
+              <strong id="nsUserDropdownSaldoValor">$0.00</strong>
+            </div>
+
+            <a href="catalogo.html" class="nsUserDropdownItem">🛍️ Catálogo</a>
+            <a href="mis-compras.html" class="nsUserDropdownItem">📋 Mis compras</a>
+            <button type="button" class="nsUserDropdownItem nsUserDropdownLogout" id="btnCerrarSesionDesktop">🚪 Cerrar sesión</button>
+          </div>
         </div>
 
         <button type="button" class="nsIconBtn nsOnlyMobile" id="btnMenuMovil" aria-label="Menú">
@@ -235,6 +272,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 
-  <script src="recargas.js?v=5"></script>
+  <script src="recargas.js?v=6"></script>
 </body>
 </html>
