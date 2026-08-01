@@ -2,15 +2,14 @@
    CONFIG
 ========================= */
 
-const NS_FB_CONFIG = {
-  apiKey: "AIzaSyAZW6nWtyDrhvyvLw0JwP_Mhgoa-Vk3Tl4",
-  authDomain: "nova-stream-13070.firebaseapp.com",
-  databaseURL: "https://nova-stream-13070-default-rtdb.firebaseio.com",
-  projectId: "nova-stream-13070",
-  storageBucket: "nova-stream-13070.firebasestorage.app",
-  messagingSenderId: "248510774791",
-  appId: "1:248510774791:web:354748958103298e1234a2",
-  measurementId: "G-C6DCXQKKHV"
+const MC_FB_CONFIG = {
+  apiKey: "AIzaSyCwMr1Ie2DmAePzI0X4qsSR5jE70OKbRkA",
+  authDomain: "novastream-f3e15.firebaseapp.com",
+  projectId: "novastream-f3e15",
+  storageBucket: "novastream-f3e15.firebasestorage.app",
+  messagingSenderId: "356156093772",
+  appId: "1:356156093772:web:58fb86ad38d8560fc50be9",
+  measurementId: "G-FVSMQBXNDX"
 };
 
 const NS_LOGIN_URL = "login.html";
@@ -25,6 +24,7 @@ const NS_WHATSAPP_IMPULSO = "51916252754";
 
 let productosCache = {};
 let proveedoresCache = {};
+let categoriasCache = {};   // categorías reales creadas por el admin (/categorias)
 
 let filtroCategoria = "todos";
 let filtroBusqueda = "";
@@ -51,6 +51,18 @@ function escaparHTML(s){
   return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
   }[c]));
+}
+
+/* normaliza texto (minúsculas + sin tildes) para poder
+   comparar "Netflix", "netflix", "NETFLIX", "Nétflix", etc. como
+   la misma categoría, sin importar cómo lo haya escrito el
+   proveedor o el administrador. */
+function normalizarTexto(valor){
+  return String(valor || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
 }
 
 function esInvitado(){ return !nsUid; }
@@ -89,6 +101,21 @@ function toastCarritoAgregado(nombre){
   }, 3200);
 }
 
+/* =========================================================
+   PANTALLA "VERIFICANDO SESIÓN..."   ⭐ NUEVO (v8)
+   Solo se oculta cuando la sesión YA se resolvió (nsSesionListo)
+   Y el catálogo YA se pintó (nsProductosListos) — nunca antes,
+   para que el saldo/nombre/carrito no "salten" a medio cargar.
+   Con forzar=true se ignora la condición (usado en errores y en
+   la red de seguridad, para que el loader nunca se quede colgado).
+========================================================= */
+
+function nsIntentarOcultarBooting(forzar){
+  if (!forzar && (!nsSesionListo || !nsProductosListos)) return;
+  const el = document.getElementById("nsBooting");
+  if (el) el.classList.add("off");
+}
+
 /* =========================
    MODO DE SESIÓN (visitante / cliente)
 ========================= */
@@ -104,7 +131,15 @@ function nsAplicarModoSesion(){
 
   pintarSaldo();
   pintarDrawerUsuario();
+  pintarUserMenu();
   actualizarBadgeCarrito();
+  nsIntentarOcultarBooting();
+
+  /* Si quedó el menú de usuario abierto y se cerró sesión, lo colapsamos */
+  if (esInvitado()) {
+    const menuWrap = document.getElementById("nsUserMenu");
+    if (menuWrap) menuWrap.classList.remove("abierto");
+  }
 
   /* Los botones de las tarjetas cambian según el estado */
   if (nsProductosListos) renderizarProductos();
@@ -136,6 +171,48 @@ function pintarDrawerUsuario(){
   if (nombre) nombre.textContent = nsUsuario.nombre;
   if (saldo) saldo.textContent = fmt(nsUsuario.saldoUsd) + " · " + fmtPEN(nsUsuario.saldoUsd);
   if (avatar) avatar.textContent = String(nsUsuario.nombre || "N").trim().charAt(0).toUpperCase();
+}
+
+/* Menú de usuario en escritorio: nombre, avatar, correo y saldo */
+function pintarUserMenu(){
+  if (esInvitado()) return;
+
+  const inicial = String(nsUsuario.nombre || "N").trim().charAt(0).toUpperCase();
+
+  const avatarChip = document.getElementById("nsUserAvatarChip");
+  const avatarDrop = document.getElementById("nsUserAvatarDropdown");
+  const nombreChip = document.getElementById("nsUserNombreChip");
+  const nombreDrop = document.getElementById("nsUserNombreDropdown");
+  const correoDrop = document.getElementById("nsUserCorreoDropdown");
+  const saldoDrop  = document.getElementById("nsUserDropdownSaldoValor");
+
+  if (avatarChip) avatarChip.textContent = inicial;
+  if (avatarDrop) avatarDrop.textContent = inicial;
+  if (nombreChip) nombreChip.textContent = nsUsuario.nombre;
+  if (nombreDrop) nombreDrop.textContent = nsUsuario.nombre;
+  if (correoDrop) correoDrop.textContent = nsUsuario.correo || "";
+  if (saldoDrop) saldoDrop.textContent = fmt(nsUsuario.saldoUsd);
+}
+
+/* =========================
+   CERRAR SESIÓN (usado por el drawer móvil y el menú de escritorio)
+========================= */
+
+async function cerrarSesionUsuario(){
+  cerrarDrawer();
+
+  const menuWrap = document.getElementById("nsUserMenu");
+  const btnMenu = document.getElementById("btnUserMenu");
+  if (menuWrap) menuWrap.classList.remove("abierto");
+  if (btnMenu) btnMenu.setAttribute("aria-expanded", "false");
+
+  if (nsFbActivo && nsAuth && nsUid) {
+    try { await nsAuth.signOut(); } catch (e) {}
+    setCarrito([]);
+    toast("Sesión cerrada. Sigues viendo el catálogo como invitado.");
+  } else {
+    window.location.href = NS_LOGIN_URL;
+  }
 }
 
 /* =========================
@@ -219,6 +296,7 @@ function nsFbInit(){
   /* El catálogo se carga siempre, con o sin sesión */
   nsEscucharCatalogo();
   nsEscucharProveedores();
+  nsEscucharCategorias();   // categorías reales del admin
 
   nsAuth.onAuthStateChanged((user) => {
 
@@ -267,6 +345,7 @@ function mostrarErrorCarga(msg){
   if (cont) cont.innerHTML = '<div class="nsCargando">' + escaparHTML(msg) + '</div>';
   if (cats) cats.innerHTML = "";
   if (info) info.textContent = "";
+  nsIntentarOcultarBooting(true); // error: no dejar el loader colgado
 }
 
 /* =========================
@@ -301,7 +380,8 @@ function nsEscucharCatalogo(){
         proveedorId: p.proveedorId || "",
         tipoEntrega: p.tipoEntrega || "cuenta",
         modoEntrega: p.modoEntrega || "automatico",
-        aplicaReembolso: p.aplicaReembolso || "si"
+        aplicaReembolso: p.aplicaReembolso || "si",
+        esRenovable: p.esRenovable !== false   // por defecto true salvo que sea explícitamente false
       };
     });
 
@@ -313,6 +393,7 @@ function nsEscucharCatalogo(){
     renderizarProductos();
     renderizarCarrito();
     actualizarBadgeCarrito();
+    nsIntentarOcultarBooting();
   }, (err) => {
     console.error(err);
     mostrarErrorCarga("No se pudo cargar el catálogo.");
@@ -326,15 +407,37 @@ function nsEscucharProveedores(){
   });
 }
 
+/* Escucha en vivo el nodo /categorias que se administra desde el
+   panel admin (novaadmin.html → sección Categorías). Esto es lo
+   que trae el LOGO oficial de cada plataforma (Netflix, Spotify,
+   etc.) para mostrarlo en el catálogo público. */
+function nsEscucharCategorias(){
+  nsDb.ref("categorias").on("value", (snap) => {
+    categoriasCache = snap.val() || {};
+    renderizarCategorias();
+  }, (err) => {
+    console.error("categorias:", err && err.message);
+    categoriasCache = {};
+    renderizarCategorias();
+  });
+}
+
 function limpiarCarritoDeProductosInexistentes(){
   const carrito = getCarrito();
   const limpio = carrito.filter(l => productosCache[l.id]);
   if (limpio.length !== carrito.length) setCarrito(limpio);
 }
 
-/* =========================
+/* =========================================================
    CATEGORÍAS DINÁMICAS
-========================= */
+   Se arman con las categorías REALES creadas por el
+   administrador (nombre + logo oficial subido en su panel),
+   y cada botón agrupa todos los productos cuya "plataforma" haga
+   match con esa categoría (sin importar mayúsculas/tildes). Si un
+   proveedor escribió una plataforma que el admin no ha creado
+   todavía como categoría oficial, igual se muestra (usando la
+   imagen del producto) para que nada quede oculto.
+========================================================= */
 
 function renderizarCategorias(){
   const cont = document.getElementById("categoriasBox");
@@ -345,26 +448,40 @@ function renderizarCategorias(){
     return;
   }
 
-  const vistas = new Map();
+  /* Mapa clave-normalizada → { nombre real a mostrar, imagen } */
+  const mapaCategorias = new Map();
 
-  Object.keys(productosCache).forEach(id => {
-    const item = productosCache[id];
-    if (!vistas.has(item.plataforma)) vistas.set(item.plataforma, item.imagen);
+  /* 1º: categorías oficiales creadas por el admin, con su logo */
+  Object.values(categoriasCache || {}).forEach(cat => {
+    if (!cat || !cat.nombre) return;
+    const key = normalizarTexto(cat.nombre);
+    if (!key) return;
+    mapaCategorias.set(key, { nombre: cat.nombre, imagen: cat.imagen || "" });
   });
 
-  if (!vistas.size) { cont.innerHTML = ""; return; }
+  /* 2º: se completa con plataformas de productos que aún no tengan
+     una categoría oficial creada (para no ocultar nada) */
+  Object.keys(productosCache).forEach(id => {
+    const item = productosCache[id];
+    const key = normalizarTexto(item.plataforma);
+    if (!key || mapaCategorias.has(key)) return;
+    mapaCategorias.set(key, { nombre: item.plataforma, imagen: item.imagen });
+  });
+
+  if (!mapaCategorias.size) { cont.innerHTML = ""; return; }
 
   let html = `<button type="button" class="nsCatBtn${filtroCategoria === "todos" ? " activo" : ""}" data-categoria="todos">Todos</button>`;
 
-  Array.from(vistas.keys()).sort((a,b) => a.localeCompare(b)).forEach(plat => {
-    const activo = filtroCategoria === plat ? " activo" : "";
-    const img = vistas.get(plat) || "";
-    html += `
-      <button type="button" class="nsCatBtn nsCatBtnFoto${activo}" data-categoria="${escaparHTML(plat)}">
-        <span class="nsCatAvatar"><img src="${escaparHTML(img)}" alt="${escaparHTML(plat)}" onerror="this.style.opacity=0"></span>
-        <span>${escaparHTML(plat)}</span>
-      </button>`;
-  });
+  Array.from(mapaCategorias.values())
+    .sort((a, b) => a.nombre.localeCompare(b.nombre))
+    .forEach(cat => {
+      const activo = normalizarTexto(filtroCategoria) === normalizarTexto(cat.nombre) ? " activo" : "";
+      html += `
+        <button type="button" class="nsCatBtn nsCatBtnFoto${activo}" data-categoria="${escaparHTML(cat.nombre)}">
+          <span class="nsCatAvatar"><img src="${escaparHTML(cat.imagen)}" alt="${escaparHTML(cat.nombre)}" onerror="this.style.opacity=0"></span>
+          <span>${escaparHTML(cat.nombre)}</span>
+        </button>`;
+    });
 
   cont.innerHTML = html;
 
@@ -383,7 +500,10 @@ function renderizarCategorias(){
 ========================= */
 
 function productoCoincide(id, item){
-  const cat = filtroCategoria === "todos" || item.plataforma === filtroCategoria;
+  /* comparación de categoría normalizada (sin
+     mayúsculas/tildes) para que "Netflix" agrupe todos los
+     productos de esa plataforma sin importar cómo se escribieron. */
+  const cat = filtroCategoria === "todos" || normalizarTexto(item.plataforma) === normalizarTexto(filtroCategoria);
 
   const q = (filtroBusqueda || "").toLowerCase().trim();
   const busq = !q
@@ -393,6 +513,27 @@ function productoCoincide(id, item){
 
   const fav = !filtroFavoritosActivo || esFavorito(id);
   return cat && busq && fav;
+}
+
+/* Genera el HTML de los badges de entrega/reembolso/renovación según
+   lo que configuró el proveedor en su panel (modoEntrega /
+   aplicaReembolso / esRenovable) */
+function badgesEntregaHTML(item){
+  const esManual = item.modoEntrega === "manual";
+  const claseEntrega = esManual ? "manual" : "automatico";
+  const txtEntrega = esManual ? "🕒 Entrega manual" : "⚡ Entrega automática";
+  const txtReembolso = item.aplicaReembolso === "no" ? "🚫 Sin reembolso" : "✅ Con reembolso";
+
+  /* badge de renovable / no renovable */
+  const esRenovable = item.esRenovable !== false;
+  const claseRenovable = esRenovable ? "si" : "no";
+  const txtRenovable = esRenovable ? "🔁 Renovable" : "⛔ No renovable";
+
+  return (
+    '<span class="nsBadgeEntrega ' + claseEntrega + '">' + txtEntrega + '</span>' +
+    '<span class="nsBadgeReembolso">' + txtReembolso + '</span>' +
+    '<span class="nsBadgeRenovable ' + claseRenovable + '">' + txtRenovable + '</span>'
+  );
 }
 
 function renderizarProductos(){
@@ -449,7 +590,6 @@ function renderizarProductos(){
     const stockTxt = ilimitado ? "Ilimitado" : String(item.stock);
     const fav = esFavorito(id);
     const metaIzq = ilimitado ? "Entrega digital" : (item.duracionDias + " días");
-    const modoTxt = item.modoEntrega === "manual" ? "Entrega manual" : "Entrega automática";
 
     /* El botón de acción cambia según el estado de sesión */
     let botonAccion;
@@ -485,9 +625,8 @@ function renderizarProductos(){
             <span>${escaparHTML(metaIzq)}</span>
             <span class="nsCardStock">Stock: ${escaparHTML(stockTxt)}</span>
           </div>
-          <div class="nsCardMeta" style="opacity:.7; font-size:10.5px;">
-            <span>${escaparHTML(modoTxt)}</span>
-            <span>${item.aplicaReembolso === "no" ? "Sin reembolso" : "Con reembolso"}</span>
+          <div class="nsBadgesFila">
+            ${badgesEntregaHTML(item)}
           </div>
           <div class="nsCardPrecio">
             <span class="nsCardPrecioUsd">${fmt(item.precio)}</span>
@@ -543,12 +682,18 @@ function abrirModal(id){
   document.getElementById("modalImagen").src = item.imagen || "";
   document.getElementById("modalImagen").alt = item.nombre;
 
+  const badgesBox = document.getElementById("modalBadgesFila");
+  if (badgesBox) badgesBox.innerHTML = badgesEntregaHTML(item);
+
   const dur = item.stockIlimitado ? "Entrega digital" : (item.duracionDias + " días de vigencia");
+  const modoTxt = item.modoEntrega === "manual" ? "Manual" : "Automática";
+
   document.getElementById("modalDescripcion").innerText =
     (item.descripcion || "") +
     "\n\nProveedor: " + item.proveedor +
     "\nPrecio: " + fmt(item.precio) + " (" + fmtPEN(item.precio) + ")" +
-    "\nDuración: " + dur;
+    "\nDuración: " + dur +
+    "\nTipo de entrega: " + modoTxt;
 
   const lista = document.getElementById("listaReglas");
   let reglasHtml = "";
@@ -566,6 +711,9 @@ function abrirModal(id){
     (item.aplicaReembolso === "no"
       ? "<li>Este producto <strong>no aplica reembolso</strong>.</li>"
       : "<li>Puedes solicitar reembolso dentro del plazo permitido.</li>") +
+    (item.esRenovable === false
+      ? "<li>Este producto <strong>no admite renovación</strong> una vez vencido.</li>"
+      : "<li>Puedes solicitar la renovación de tu acceso antes o al vencer.</li>") +
     "<li>Reporta cualquier problema por soporte para atención inmediata.</li>";
 
   lista.innerHTML = reglasHtml;
@@ -900,7 +1048,7 @@ async function procesarPago(){
       items: detalleCompra
     };
 
-    /* 2f. ⭐ EL COBRO VA AQUÍ MISMO. Todo o nada. */
+    /* 2f. EL COBRO VA AQUÍ MISMO. Todo o nada. */
     updates["usuarios/" + nsUid + "/saldoUsd"] = Number((saldoReal - total).toFixed(2));
 
     const movCli = nsDb.ref("movimientosSaldo/" + nsUid).push().key;
@@ -952,6 +1100,9 @@ function mostrarResumenEntrega(items, total){
 
   document.getElementById("modalNombre").innerText = "✅ Compra completada";
   document.getElementById("modalImagen").src = items[0] ? items[0].imagen : "";
+
+  const badgesBox = document.getElementById("modalBadgesFila");
+  if (badgesBox) badgesBox.innerHTML = "";
 
   document.getElementById("modalDescripcion").innerText =
     "Pagaste " + fmt(total) + " (" + fmtPEN(total) + ").\n" +
@@ -1194,25 +1345,48 @@ document.addEventListener("DOMContentLoaded", () => {
   const drawerOverlay = document.getElementById("nsDrawerOverlay");
   if (drawerOverlay) drawerOverlay.addEventListener("click", e => { if (e.target.id === "nsDrawerOverlay") cerrarDrawer(); });
 
-  /* Cerrar sesión */
-  const linkSalir = document.getElementById("linkSalirDrawer");
-  if (linkSalir) {
-    linkSalir.addEventListener("click", async e => {
-      e.preventDefault();
-      cerrarDrawer();
+  /* Menú de usuario en escritorio (nombre + cerrar sesión) */
+  const btnUserMenu = document.getElementById("btnUserMenu");
+  const userMenuWrap = document.getElementById("nsUserMenu");
 
-      if (nsFbActivo && nsAuth && nsUid) {
-        try { await nsAuth.signOut(); } catch (err) {}
-        setCarrito([]);
-        toast("Sesión cerrada. Sigues viendo el catálogo como invitado.");
-      } else {
-        window.location.href = NS_LOGIN_URL;
+  if (btnUserMenu && userMenuWrap) {
+    btnUserMenu.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const abierto = userMenuWrap.classList.toggle("abierto");
+      btnUserMenu.setAttribute("aria-expanded", abierto ? "true" : "false");
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!userMenuWrap.contains(e.target)) {
+        userMenuWrap.classList.remove("abierto");
+        btnUserMenu.setAttribute("aria-expanded", "false");
       }
     });
   }
 
+  const btnCerrarSesionDesktop = document.getElementById("btnCerrarSesionDesktop");
+  if (btnCerrarSesionDesktop) {
+    btnCerrarSesionDesktop.addEventListener("click", (e) => {
+      e.preventDefault();
+      cerrarSesionUsuario();
+    });
+  }
+
+  /* Cerrar sesión (drawer móvil) */
+  const linkSalir = document.getElementById("linkSalirDrawer");
+  if (linkSalir) {
+    linkSalir.addEventListener("click", e => {
+      e.preventDefault();
+      cerrarSesionUsuario();
+    });
+  }
+
   document.addEventListener("keydown", e => {
-    if (e.key === "Escape") { cerrarModal(); cerrarModalAuth(); cerrarCarrito(); cerrarDrawer(); }
+    if (e.key === "Escape") {
+      cerrarModal(); cerrarModalAuth(); cerrarCarrito(); cerrarDrawer();
+      if (userMenuWrap) userMenuWrap.classList.remove("abierto");
+      if (btnUserMenu) btnUserMenu.setAttribute("aria-expanded", "false");
+    }
   });
 
   /* Conectar Firebase */
@@ -1221,4 +1395,8 @@ document.addEventListener("DOMContentLoaded", () => {
   /* Red de seguridad: si Firebase tarda, se muestra el modo invitado
      para que el visitante nunca vea la interfaz "a medias". */
   setTimeout(() => { if (!nsSesionListo) nsAplicarModoSesion(); }, 3500);
+
+  /* Segunda red de seguridad: pase lo que pase, el loader "Verificando
+     tu sesión..." nunca se queda colgado en pantalla. */
+  setTimeout(() => nsIntentarOcultarBooting(true), 6000);
 });
