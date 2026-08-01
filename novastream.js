@@ -47,7 +47,19 @@ let nsRefUsuario = null;      // referencia activa al perfil (para desuscribir)
 
 function fmt(v){ return "$" + Number(v || 0).toFixed(2); }
 function fmtPEN(v){ return "S/ " + (Number(v || 0) * TIPO_CAMBIO).toFixed(2); }
+function fmt(v){ return "$" + Number(v || 0).toFixed(2); }
+function fmtPEN(v){ return "S/ " + (Number(v || 0) * TIPO_CAMBIO).toFixed(2); }
 
+/* 365 → "1 año", 30 → "1 mes", 90 → "3 meses"... si no calza
+   exacto en años/meses, se muestra en días. */
+function formatDuracion(dias){
+  const d = Number(dias || 0);
+  if (d <= 0) return "Entrega digital";
+  if (d >= 3650) return "Acceso permanente";
+  if (d % 365 === 0) { const y = d / 365; return y + (y === 1 ? " año" : " años"); }
+  if (d % 30 === 0)  { const m = d / 30;  return m + (m === 1 ? " mes" : " meses"); }
+  return d + " días";
+}
 function escaparHTML(s){
   return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
@@ -519,22 +531,28 @@ function productoCoincide(id, item){
 /* Genera el HTML de los badges de entrega/reembolso/renovación según
    lo que configuró el proveedor en su panel (modoEntrega /
    aplicaReembolso / esRenovable) */
-function badgesEntregaHTML(item){
+function badgeEntregaHTML(item){
   const esManual = item.modoEntrega === "manual";
   const claseEntrega = esManual ? "manual" : "automatico";
   const txtEntrega = esManual ? "🕒 Entrega manual" : "⚡ Entrega automática";
-  const txtReembolso = item.aplicaReembolso === "no" ? "🚫 Sin reembolso" : "✅ Con reembolso";
+  return '<span class="nsBadgeEntrega ' + claseEntrega + '">' + txtEntrega + '</span>';
+}
 
-  /* badge de renovable / no renovable */
+function badgeRenovableHTML(item){
   const esRenovable = item.esRenovable !== false;
   const claseRenovable = esRenovable ? "si" : "no";
   const txtRenovable = esRenovable ? "🔁 Renovable" : "⛔ No renovable";
+  return '<span class="nsBadgeRenovable ' + claseRenovable + '">' + txtRenovable + '</span>';
+}
 
-  return (
-    '<span class="nsBadgeEntrega ' + claseEntrega + '">' + txtEntrega + '</span>' +
-    '<span class="nsBadgeReembolso">' + txtReembolso + '</span>' +
-    '<span class="nsBadgeRenovable ' + claseRenovable + '">' + txtRenovable + '</span>'
-  );
+/* Icono compacto para la esquina de la imagen, en espejo con el
+   botón de favorito (que va en la esquina superior derecha). */
+function iconoRenovableCorner(item){
+  const esRenovable = item.esRenovable !== false;
+  const clase = esRenovable ? "si" : "no";
+  const titulo = esRenovable ? "Renovable" : "No renovable";
+  const icono = esRenovable ? "🔁" : "⛔";
+  return '<span class="nsRenovableCorner ' + clase + '" title="' + titulo + '">' + icono + '</span>';
 }
 
 function renderizarProductos(){
@@ -590,7 +608,7 @@ function renderizarProductos(){
     const agotado = !ilimitado && Number(item.stock||0) <= 0;
     const stockTxt = ilimitado ? "Ilimitado" : String(item.stock);
     const fav = esFavorito(id);
-    const metaIzq = ilimitado ? "Entrega digital" : (item.duracionDias + " días");
+    const metaIzq = ilimitado ? "Entrega digital" : formatDuracion(item.duracionDias);
 
     /* El botón de acción cambia según el estado de sesión */
     let botonAccion;
@@ -609,8 +627,9 @@ function renderizarProductos(){
     html += `
       <div class="nsCard" data-id="${escaparHTML(id)}">
         <div class="nsCardImgWrap">
-          <img class="nsCardImg" src="${escaparHTML(item.imagen)}" alt="${escaparHTML(item.nombre)}" onerror="this.style.opacity=0">
-          <button type="button" class="nsFavBtn${fav?" activo":""}" data-id="${escaparHTML(id)}" aria-label="Favorito">
+  <img class="nsCardImg" src="${escaparHTML(item.imagen)}" alt="${escaparHTML(item.nombre)}" onerror="this.style.opacity=0">
+  ${iconoRenovableCorner(item)}
+  <button type="button" class="nsFavBtn${fav?" activo":""}" data-id="${escaparHTML(id)}" aria-label="Favorito">
             <svg viewBox="0 0 24 24"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9 12 2"></polygon></svg>
           </button>
         </div>
@@ -627,8 +646,8 @@ function renderizarProductos(){
             <span class="nsCardStock">Stock: ${escaparHTML(stockTxt)}</span>
           </div>
           <div class="nsBadgesFila">
-            ${badgesEntregaHTML(item)}
-          </div>
+  ${badgeEntregaHTML(item)}
+</div>
           <div class="nsCardPrecio">
             <span class="nsCardPrecioUsd">${fmt(item.precio)}</span>
             <span class="nsCardPrecioPen">${fmtPEN(item.precio)}</span>
@@ -684,17 +703,9 @@ function abrirModal(id){
   document.getElementById("modalImagen").alt = item.nombre;
 
   const badgesBox = document.getElementById("modalBadgesFila");
-  if (badgesBox) badgesBox.innerHTML = badgesEntregaHTML(item);
+  if (badgesBox) badgesBox.innerHTML = badgeEntregaHTML(item) + badgeRenovableHTML(item);
 
-  const dur = item.stockIlimitado ? "Entrega digital" : (item.duracionDias + " días de vigencia");
-  const modoTxt = item.modoEntrega === "manual" ? "Manual" : "Automática";
-
-  document.getElementById("modalDescripcion").innerText =
-    (item.descripcion || "") +
-    "\n\nProveedor: " + item.proveedor +
-    "\nPrecio: " + fmt(item.precio) + " (" + fmtPEN(item.precio) + ")" +
-    "\nDuración: " + dur +
-    "\nTipo de entrega: " + modoTxt;
+  document.getElementById("modalDescripcion").innerText = item.descripcion || "Sin descripción disponible.";
 
   const lista = document.getElementById("listaReglas");
   let reglasHtml = "";
@@ -709,9 +720,6 @@ function abrirModal(id){
   reglasHtml +=
     "<li>Uso exclusivo para el comprador salvo que se indique lo contrario.</li>" +
     "<li>No compartir credenciales fuera de lo permitido.</li>" +
-    (item.aplicaReembolso === "no"
-      ? "<li>Este producto <strong>no aplica reembolso</strong>.</li>"
-      : "<li>Puedes solicitar reembolso dentro del plazo permitido.</li>") +
     (item.esRenovable === false
       ? "<li>Este producto <strong>no admite renovación</strong> una vez vencido.</li>"
       : "<li>Puedes solicitar la renovación de tu acceso antes o al vencer.</li>") +
