@@ -2,8 +2,20 @@
 <html lang="es">
 <head>
   <!--
-    NOVASTREAM.VIP — mis-compras.html (v3)
+    NOVASTREAM.VIP — mis-compras.html (v4)
     ✅ CONECTADO A FIREBASE (Auth + Database)
+
+    v4 (esta actualización):
+    - NUEVO: menú de usuario en escritorio (avatar + nombre +
+      saldo + accesos + cerrar sesión), mismo lenguaje visual
+      que el de catalogo.html. Vive dentro de .nsSoloAuth y se
+      muestra cuando el body recibe la clase .nsAutenticado
+      (se agrega desde mis-compras.js una vez que la sesión
+      quedó verificada).
+    - FIX: la pantalla "Cargando tus compras..." ya no se oculta
+      apenas se registran los listeners de Firebase; ahora espera
+      a que el PERFIL (saldo/nombre) Y las COMPRAS ya estén
+      pintados, para que nada aparezca "a medias".
 
     · Página protegida: sin sesión → login.html
     · Las compras se leen de compras/{uid} (lectura directa)
@@ -20,8 +32,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="icon" type="image/png" href="img/logo.png">
-  <link rel="stylesheet" href="novastream.css?v=5">
-  <link rel="stylesheet" href="mis-compras.css?v=3">
+  <link rel="stylesheet" href="novastream.css?v=8">
+  <link rel="stylesheet" href="mis-compras.css?v=4">
 </head>
 
 <body class="nsBody">
@@ -51,6 +63,34 @@
           <span class="nsSaldoLabel">Saldo</span>
           <span id="saldoUsuario" class="nsSaldoValor">$0.00</span>
           <span id="saldoUsuarioPen" class="nsSaldoValorPen">S/ 0.00</span>
+        </div>
+
+        <!-- Menú de usuario (escritorio) — mismo lenguaje visual que catalogo.html -->
+        <div class="nsUserMenu nsSoloAuth" id="nsUserMenu">
+          <button type="button" class="nsUserMenuBtn" id="btnUserMenu" aria-haspopup="true" aria-expanded="false">
+            <span class="nsUserAvatar" id="nsUserAvatarChip">N</span>
+            <span class="nsUserNombreChip" id="nsUserNombreChip">Cliente</span>
+            <svg class="nsUserCaret" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+
+          <div class="nsUserDropdown" id="nsUserDropdown">
+            <div class="nsUserDropdownHead">
+              <span class="nsUserAvatar big" id="nsUserAvatarDropdown">N</span>
+              <div>
+                <strong id="nsUserNombreDropdown">Cliente</strong>
+                <span id="nsUserCorreoDropdown"></span>
+              </div>
+            </div>
+
+            <div class="nsUserDropdownSaldo">
+              <span>Saldo</span>
+              <strong id="nsUserDropdownSaldoValor">$0.00</strong>
+            </div>
+
+            <a href="catalogo.html" class="nsUserDropdownItem">🛍️ Catálogo</a>
+            <a href="recargas.html" class="nsUserDropdownItem">💳 Recargar saldo</a>
+            <button type="button" class="nsUserDropdownItem nsUserDropdownLogout" id="btnCerrarSesionDesktop">🚪 Cerrar sesión</button>
+          </div>
         </div>
 
         <button type="button" class="nsIconBtn nsOnlyMobile" id="btnMenuMovil" aria-label="Menú">
@@ -242,6 +282,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
-  <script src="mis-compras.js?v=3"></script>
+  <script src="mis-compras.js?v=4"></script>
 </body>
 </html>
