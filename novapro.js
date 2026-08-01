@@ -1846,12 +1846,12 @@ function renderTienda(){
       ? '<span class="npBadge bad" style="font-size:9px;">No renovable</span>'
       : '<span class="npBadge ok" style="font-size:9px;">Renovable</span>';
 
-    return '<div class="npCard npTiendaCard">' +
+    return '<div class="npCard npTiendaCard" data-id="' + esc(id) + '">' +
       '<div class="npTiendaImg">' +
         (p.imagen ? '<img src="' + esc(p.imagen) + '" alt="" style="width:100%;height:100%;object-fit:cover;">' : "🖼️") +
       '</div>' +
       '<div class="npTiendaBody">' +
-        '<h4>' + esc(p.nombre) + (mio ? ' <span class="npBadge info" style="font-size:9px;">Tuyo</span>' : "") + '</h4>' +
+        '<h4>' + esc(p.nombre) + (mio ? ' <span class="npBadge info" style="font-size:9px;" data-html2canvas-ignore="true">Tuyo</span>' : "") + '</h4>' +
         '<div style="margin:-2px 0 2px;">' + renovableBadge + '</div>' +
         '<div class="npTiendaMeta">' +
           'Plataforma: <strong>' + esc(p.plataforma || "-") + '</strong><br>' +
@@ -1862,39 +1862,42 @@ function renderTienda(){
         '<div class="npTiendaPrecio">' +
           '<strong>' + usd(p.precioUsd) + '</strong><span>' + pen(p.precioUsd) + '</span>' +
         '</div>' +
+        '<button type="button" class="npBtnMini edit npTiendaCapturaBtn" style="width:100%;margin-top:2px;" ' +
+          'data-html2canvas-ignore="true" onclick="capturarProductoTienda(\'' + escJS(id) + '\')">📸 Captura de este producto</button>' +
       '</div>' +
     '</div>';
   }).join("");
 }
 
-/* =========================================================
-   CAPTURA DE LA TIENDA (sin botones ni filtros en la imagen)
-========================================================= */
-
-async function capturarTienda(){
-  const box = document.querySelector("#npModalTienda .npModalBox");
-  if (!box) return;
+/* Captura SOLO la tarjeta del producto indicado (no toda la tienda).
+   El botón de captura y el badge "Tuyo" llevan data-html2canvas-ignore
+   para no salir en la imagen final. */
+async function capturarProductoTienda(id){
+  const card = document.querySelector('.npTiendaCard[data-id="' + id + '"]');
+  if (!card) { err("No se encontró la tarjeta del producto."); return; }
 
   if (typeof html2canvas !== "function") {
     err("No se pudo cargar la herramienta de captura.");
     return;
   }
 
-  const btn = $("npBtnGuardarCaptura");
+  const btn = card.querySelector(".npTiendaCapturaBtn");
+  const textoOriginal = btn ? btn.textContent : "";
   if (btn) { btn.disabled = true; btn.textContent = "Generando..."; }
 
   try {
-    /* html2canvas ignora automáticamente cualquier elemento con
-       data-html2canvas-ignore="true" (botones, filtros, cabecera). */
-    const canvas = await html2canvas(box, {
+    const canvas = await html2canvas(card, {
       backgroundColor: "#0f1117",
       useCORS: true,
       scale: Math.min(2, window.devicePixelRatio || 1.5),
       ignoreElements: (el) => el.hasAttribute && el.hasAttribute("data-html2canvas-ignore")
     });
 
+    const nombreArchivo = ((npTodosProductos[id] || {}).nombre || "producto")
+      .toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
+
     const link = document.createElement("a");
-    link.download = "novastream-tienda-" + Date.now() + ".png";
+    link.download = "novastream-" + nombreArchivo + "-" + Date.now() + ".png";
     link.href = canvas.toDataURL("image/png");
     link.click();
 
@@ -1902,10 +1905,9 @@ async function capturarTienda(){
   } catch (e) {
     err("No se pudo generar la captura: " + e.message);
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = "📸 Guardar captura"; }
+    if (btn) { btn.disabled = false; btn.textContent = textoOriginal || "📸 Captura de este producto"; }
   }
 }
-
 /* =========================================================
    SUBPANELES (Productos / Cuentas)
 ========================================================= */
@@ -2075,9 +2077,6 @@ function prepararFormularios(){
     renderTienda();
   });
 
-  const btnCaptura = $("npBtnGuardarCaptura");
-  if (btnCaptura) btnCaptura.addEventListener("click", capturarTienda);
-
   /* --- Cerrar modales al hacer clic fuera --- */
   ["npModalSoporte","npModalTienda","npModalVencimientos","npModalEditarCuenta"].forEach(id => {
     const m = $(id);
@@ -2119,3 +2118,4 @@ window.cancelarRetiro        = cancelarRetiro;
 window.resolverRenovacion    = resolverRenovacion;
 window.marcarRenovo          = marcarRenovo;
 window.aplicarClaveVencimiento = aplicarClaveVencimiento;
+window.capturarProductoTienda  = capturarProductoTienda;
