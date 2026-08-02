@@ -47,8 +47,6 @@ let nsRefUsuario = null;      // referencia activa al perfil (para desuscribir)
 
 function fmt(v){ return "$" + Number(v || 0).toFixed(2); }
 function fmtPEN(v){ return "S/ " + (Number(v || 0) * TIPO_CAMBIO).toFixed(2); }
-function fmt(v){ return "$" + Number(v || 0).toFixed(2); }
-function fmtPEN(v){ return "S/ " + (Number(v || 0) * TIPO_CAMBIO).toFixed(2); }
 
 /* 365 → "1 año", 30 → "1 mes", 90 → "3 meses"... si no calza
    exacto en años/meses, se muestra en días. */
@@ -428,7 +426,7 @@ function nsEscucharCategorias(){
   nsDb.ref("categorias").on("value", (snap) => {
     categoriasCache = snap.val() || {};
     renderizarCategorias();
-  }, (err) => {
+    }, (err) => {
     console.error("categorias:", err && err.message);
     categoriasCache = {};
     renderizarCategorias();
@@ -463,7 +461,6 @@ function renderizarCategorias(){
 
   const mapaCategorias = new Map();
 
-  /* 1º: categorías oficiales del admin, ahora también guardamos su "orden" */
   Object.values(categoriasCache || {}).forEach(cat => {
     if (!cat || !cat.nombre) return;
     const key = normalizarTexto(cat.nombre);
@@ -471,16 +468,15 @@ function renderizarCategorias(){
     mapaCategorias.set(key, {
       nombre: cat.nombre,
       imagen: cat.imagen || "",
-      orden: Number(cat.orden) || null   // ⭐ NUEVO
+      orden: Number(cat.orden) || null
     });
   });
 
-  /* 2º: plataformas "sueltas" que aún no tienen categoría oficial */
   Object.keys(productosCache).forEach(id => {
     const item = productosCache[id];
     const key = normalizarTexto(item.plataforma);
     if (!key || mapaCategorias.has(key)) return;
-    mapaCategorias.set(key, { nombre: item.plataforma, imagen: item.imagen, orden: null }); // ⭐ NUEVO
+    mapaCategorias.set(key, { nombre: item.plataforma, imagen: item.imagen, orden: null });
   });
 
   if (!mapaCategorias.size) { cont.innerHTML = ""; return; }
@@ -488,7 +484,7 @@ function renderizarCategorias(){
   let html = `<button type="button" class="nsCatBtn${filtroCategoria === "todos" ? " activo" : ""}" data-categoria="todos">Todos</button>`;
 
   Array.from(mapaCategorias.values())
-    .sort((a, b) => {                          // ⭐ CAMBIO: ya no es .localeCompare puro
+    .sort((a, b) => {
       const oa = a.orden || 9999;
       const ob = b.orden || 9999;
       if (oa !== ob) return oa - ob;
@@ -505,6 +501,8 @@ function renderizarCategorias(){
 
   cont.innerHTML = html;
 
+  nsInicializarFlechasCategorias();   // ⭐ AQUÍ VA, justo después de pintar el HTML
+
   cont.querySelectorAll(".nsCatBtn").forEach(btn => {
     btn.addEventListener("click", function(){
       filtroCategoria = this.dataset.categoria;
@@ -514,6 +512,44 @@ function renderizarCategorias(){
     });
   });
 }
+
+function actualizarFlechasCategorias(){
+  const cont = document.getElementById("categoriasBox");
+  const wrap = document.getElementById("categoriasWrap");
+  const btnL = document.getElementById("catArrowLeft");
+  const btnR = document.getElementById("catArrowRight");
+  if (!cont || !wrap || !btnL || !btnR) return;
+
+  const desbordado = cont.scrollWidth > cont.clientWidth + 4;
+  wrap.classList.toggle("nsSinDesborde", !desbordado);
+
+  const alInicio = cont.scrollLeft <= 4;
+  const alFinal = cont.scrollLeft >= cont.scrollWidth - cont.clientWidth - 4;
+
+  wrap.classList.toggle("at-start", alInicio);
+  wrap.classList.toggle("at-end", alFinal);
+
+  btnL.disabled = alInicio;
+  btnR.disabled = alFinal;
+}
+
+function nsInicializarFlechasCategorias(){
+  const cont = document.getElementById("categoriasBox");
+  const btnL = document.getElementById("catArrowLeft");
+  const btnR = document.getElementById("catArrowRight");
+  if (!cont || !btnL || !btnR) return;
+
+  if (!cont.dataset.flechasOk) {
+    cont.addEventListener("scroll", actualizarFlechasCategorias);
+    btnL.addEventListener("click", () => cont.scrollBy({ left: -240, behavior: "smooth" }));
+    btnR.addEventListener("click", () => cont.scrollBy({ left: 240, behavior: "smooth" }));
+    window.addEventListener("resize", actualizarFlechasCategorias);
+    cont.dataset.flechasOk = "1";
+  }
+
+  actualizarFlechasCategorias();
+}
+
 /* =========================
    RENDER PRODUCTOS
 ========================= */
