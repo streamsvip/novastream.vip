@@ -1,68 +1,3 @@
-/* =========================================================
-   NOVASTREAM.VIP — mis-compras.js (v4)
-   ✅ CONECTADO A FIREBASE · compatible con las reglas RTDB v5
-
-   v4 (esta actualización):
-   - NUEVO: menú de usuario en escritorio (mismo comportamiento
-     que el de catalogo.html): abre/cierra el desplegable, pinta
-     avatar/nombre/correo/saldo y permite cerrar sesión.
-   - FIX: la pantalla "Cargando tus compras..." ya NO se oculta
-     apenas se registra el listener de /compras. Ahora espera a
-     que el PERFIL (mcPerfilListo) Y las COMPRAS (mcComprasListo)
-     ya se hayan pintado al menos una vez. Antes se ocultaba en
-     cuanto llegaba el primer snapshot de compras, sin importar
-     si el saldo/nombre ya habían cargado — por eso se veía
-     "saltar" el saldo después de que la pantalla ya se había
-     ocultado.
-   - Red de seguridad: si algo se cuelga, el loader igual se
-     oculta a los 6s (forzado), para que nunca quede pegado.
-
-   ─────────────────────────────────────────────────────────
-   DE DÓNDE SALEN LOS DATOS
-   ─────────────────────────────────────────────────────────
-   compras/{uid}/{compraId} = {
-     totalUsd, fecha, estado,
-     items: [ { productoId, productoNombre, plataforma, proveedor,
-                proveedorId, imagen, cantidad, precioUnitarioUsd,
-                duracionDias, reglas, aplicaReembolso,
-                accesos: [ { cuentaId, correo, clave, perfil, pin } ] } ]
-   }
-
-   Cada ACCESO se muestra como una fila independiente, porque cada
-   cuenta entregada tiene su propia vigencia y su propio ciclo de
-   renovación / reembolso.
-
-   ─────────────────────────────────────────────────────────
-   CÓMO SE CALCULA LA VIGENCIA
-   ─────────────────────────────────────────────────────────
-   El cliente NO puede leer /cuentas (solo las disponibles), así
-   que la fecha de vencimiento se deduce de datos que sí puede ver:
-
-     vence = compra.fecha
-           + duracionDias
-           + (suma de duracionDias de las renovaciones ACEPTADAS
-              de ese mismo cuentaId)
-
-   ─────────────────────────────────────────────────────────
-   RENOVACIÓN — cómo funciona y por qué
-   ─────────────────────────────────────────────────────────
-   Las reglas NO permiten que el proveedor mueva el saldo del
-   cliente. Por eso el cobro ocurre en el momento de solicitar:
-     · Se descuenta el saldo del cliente
-     · Se acredita al proveedor
-     · Se crea renovaciones/{id} en estado "pendiente"
-   El proveedor la acepta desde su panel. Si la cancela, el
-   administrador devuelve el saldo desde su panel (queda visible
-   en la lista de renovaciones canceladas).
-
-   ─────────────────────────────────────────────────────────
-   REEMBOLSO
-   ─────────────────────────────────────────────────────────
-   Solo se CREA la solicitud en estado "pendiente". El dinero lo
-   devuelve el administrador tras revisarla. El cliente nunca
-   puede aprobar su propio reembolso.
-   ========================================================= */
-
 /* =========================
    CONFIG
 ========================= */
@@ -109,7 +44,7 @@ let filtroPlataforma = "todos";
 let mcFilaModal = null;
 let mcAccionPendiente = null;   // { tipo:'renovar'|'reembolso', fila }
 
-/* ⭐ NUEVO (v4): banderas para sincronizar el loader con los
+/* banderas para sincronizar el loader con los
    datos reales, en vez de ocultarlo apenas se registra un listener */
 let mcPerfilListo = false;
 let mcComprasListo = false;
@@ -151,7 +86,7 @@ function toast(msg){
 }
 
 /* =========================================================
-   LOADER "CARGANDO TUS COMPRAS..."   ⭐ FIX (v4)
+   LOADER "CARGANDO TUS COMPRAS..."
    Solo se oculta cuando el PERFIL (saldo/nombre) Y las COMPRAS
    ya se pintaron al menos una vez. Con forzar=true se ignora
    la condición (red de seguridad, para que nunca quede colgado).
@@ -259,7 +194,7 @@ function pintarPerfil(){
   const da = mcEl("drawerAvatar");   if (da) da.textContent = String(mcPerfil.nombre || "N").trim().charAt(0).toUpperCase();
 }
 
-/* ⭐ NUEVO (v4): pinta el menú de usuario de escritorio
+/* Pinta el menú de usuario de escritorio
    (avatar, nombre, correo y saldo), igual que en catalogo.html */
 function pintarUserMenu(){
   const inicial = String(mcPerfil.nombre || "N").trim().charAt(0).toUpperCase();
@@ -539,6 +474,8 @@ function renderCompras(){
   cont.querySelectorAll(".mcBtnVer").forEach(b => b.addEventListener("click", () => abrirModal(b.dataset.k)));
   cont.querySelectorAll(".mcBtnRenovar.activo").forEach(b => b.addEventListener("click", () => pedirRenovacion(b.dataset.k)));
   cont.querySelectorAll(".mcBtnSoporte").forEach(b => b.addEventListener("click", () => soporte(b.dataset.k)));
+  /* ⭐ NUEVO (v5): botón de reembolso directo en cada fila */
+  cont.querySelectorAll(".mcBtnReembolsoFila").forEach(b => b.addEventListener("click", () => pedirReembolsoDesdeFila(b.dataset.k)));
 }
 
 function claveFila(f){ return f.compraId + "|" + f.iIdx + "|" + f.aIdx; }
@@ -560,6 +497,7 @@ function plantillaTarjetas(lista){
     const e = obtenerEstado(f);
     const k = claveFila(f);
     const rn = puedeRenovar(f, e);
+    const re = puedeReembolsar(f);
 
     return '<div class="mcCard ' + e + '">' +
       '<div class="mcCardTop">' +
@@ -586,6 +524,7 @@ function plantillaTarjetas(lista){
           '<button type="button" class="mcBtnVer" data-k="' + esc(k) + '">👁 Ver cuenta</button>' +
           '<button type="button" class="mcBtnRenovar ' + (rn ? "activo" : "") + '" data-k="' + esc(k) + '" ' + (rn ? "" : "disabled") + '>🔄 Renovar</button>' +
           '<button type="button" class="mcBtnSoporte" data-k="' + esc(k) + '" title="Soporte">🎧</button>' +
+          '<button type="button" class="mcBtnSoporte mcBtnReembolsoFila" data-k="' + esc(k) + '" title="Reembolso"' + (re ? "" : " disabled") + '>↩️</button>' +
         '</div>' +
       '</div>' +
     '</div>';
@@ -597,6 +536,7 @@ function plantillaCompacta(lista){
     const e = obtenerEstado(f);
     const k = claveFila(f);
     const rn = puedeRenovar(f, e);
+    const re = puedeReembolsar(f);
 
     return '<div class="mcCompactRow ' + e + '">' +
       '<div class="mcCompactServicio">' +
@@ -615,6 +555,7 @@ function plantillaCompacta(lista){
         '<button type="button" class="mcBtnVer" data-k="' + esc(k) + '">👁 Ver</button>' +
         '<button type="button" class="mcBtnRenovar ' + (rn ? "activo" : "") + '" data-k="' + esc(k) + '" ' + (rn ? "" : "disabled") + '>🔄 Renovar</button>' +
         '<button type="button" class="mcBtnSoporte" data-k="' + esc(k) + '" title="Soporte">🎧</button>' +
+        '<button type="button" class="mcBtnSoporte mcBtnReembolsoFila" data-k="' + esc(k) + '" title="Reembolso"' + (re ? "" : " disabled") + '>↩️</button>' +
       '</div>' +
     '</div>';
   }).join("");
@@ -716,12 +657,17 @@ function clienteModoVista(nombre){
   bg.style.display = "none";
 }
 
+/* ⭐ FIX (v5): antes usaba style.display = "" para "mostrar" el
+   input/botón, pero el CSS los define con display:none por
+   regla de clase/ID, así que "" no los sobreescribe y nunca
+   aparecían. Ahora se fuerza el display correcto. */
 function clienteModoEdicion(){
   mcEl("mcModalClienteTexto").style.display = "none";
   mcEl("mcBtnEditarCliente").style.display = "none";
   const i = mcEl("mcModalClienteInput");
-  i.style.display = "";
-  mcEl("mcBtnGuardarCliente").style.display = "";
+  i.style.display = "block";
+  const bg = mcEl("mcBtnGuardarCliente");
+  bg.style.display = "inline-block";
   i.focus();
 }
 
@@ -883,6 +829,31 @@ function pedirReembolso(){
   });
 }
 
+/* ⭐ NUEVO (v5): permite pedir el reembolso directo desde el
+   botón ↩️ de cada fila del listado, sin tener que abrir antes
+   el modal "Ver cuenta". Reutiliza la misma validación
+   (puedeReembolsar) y el mismo flujo (pedirReembolso) que ya
+   usa el modal, solo que primero fija mcFilaModal con la fila
+   de la lista sobre la que se hizo clic. */
+function pedirReembolsoDesdeFila(k){
+  const f = buscarFila(k);
+  if (!f) return;
+
+  if (!puedeReembolsar(f)){
+    if (f.reembolso){
+      toast("Ya existe una solicitud de reembolso para este acceso.");
+    } else if (f.aplicaReembolso === "no"){
+      toast("Este producto no admite reembolso.");
+    } else {
+      toast("El plazo de reembolso (24 h) ya venció.");
+    }
+    return;
+  }
+
+  mcFilaModal = f;
+  pedirReembolso();
+}
+
 async function ejecutarReembolso(f, motivo){
   if (!motivo || motivo.trim().length < 8){
     toast("Explica el motivo con un poco más de detalle (mínimo 8 caracteres).");
@@ -977,7 +948,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   } catch(err){ console.error("Drawer:", err); }
 
-  /* ⭐ NUEVO (v4): menú de usuario en escritorio */
+  /* Menú de usuario en escritorio */
   try {
     const btnUserMenu = mcEl("btnUserMenu");
     const userMenuWrap = mcEl("nsUserMenu");
