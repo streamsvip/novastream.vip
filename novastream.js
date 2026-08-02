@@ -461,24 +461,26 @@ function renderizarCategorias(){
     return;
   }
 
-  /* Mapa clave-normalizada → { nombre real a mostrar, imagen } */
   const mapaCategorias = new Map();
 
-  /* 1º: categorías oficiales creadas por el admin, con su logo */
+  /* 1º: categorías oficiales del admin, ahora también guardamos su "orden" */
   Object.values(categoriasCache || {}).forEach(cat => {
     if (!cat || !cat.nombre) return;
     const key = normalizarTexto(cat.nombre);
     if (!key) return;
-    mapaCategorias.set(key, { nombre: cat.nombre, imagen: cat.imagen || "" });
+    mapaCategorias.set(key, {
+      nombre: cat.nombre,
+      imagen: cat.imagen || "",
+      orden: Number(cat.orden) || null   // ⭐ NUEVO
+    });
   });
 
-  /* 2º: se completa con plataformas de productos que aún no tengan
-     una categoría oficial creada (para no ocultar nada) */
+  /* 2º: plataformas "sueltas" que aún no tienen categoría oficial */
   Object.keys(productosCache).forEach(id => {
     const item = productosCache[id];
     const key = normalizarTexto(item.plataforma);
     if (!key || mapaCategorias.has(key)) return;
-    mapaCategorias.set(key, { nombre: item.plataforma, imagen: item.imagen });
+    mapaCategorias.set(key, { nombre: item.plataforma, imagen: item.imagen, orden: null }); // ⭐ NUEVO
   });
 
   if (!mapaCategorias.size) { cont.innerHTML = ""; return; }
@@ -486,7 +488,12 @@ function renderizarCategorias(){
   let html = `<button type="button" class="nsCatBtn${filtroCategoria === "todos" ? " activo" : ""}" data-categoria="todos">Todos</button>`;
 
   Array.from(mapaCategorias.values())
-    .sort((a, b) => a.nombre.localeCompare(b.nombre))
+    .sort((a, b) => {                          // ⭐ CAMBIO: ya no es .localeCompare puro
+      const oa = a.orden || 9999;
+      const ob = b.orden || 9999;
+      if (oa !== ob) return oa - ob;
+      return a.nombre.localeCompare(b.nombre);
+    })
     .forEach(cat => {
       const activo = normalizarTexto(filtroCategoria) === normalizarTexto(cat.nombre) ? " activo" : "";
       html += `
@@ -507,7 +514,6 @@ function renderizarCategorias(){
     });
   });
 }
-
 /* =========================
    RENDER PRODUCTOS
 ========================= */
