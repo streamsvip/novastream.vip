@@ -473,7 +473,7 @@ function renderCompras(){
 
   cont.querySelectorAll(".mcBtnVer").forEach(b => b.addEventListener("click", () => abrirModal(b.dataset.k)));
   cont.querySelectorAll(".mcBtnRenovar.activo").forEach(b => b.addEventListener("click", () => pedirRenovacion(b.dataset.k)));
-  cont.querySelectorAll(".mcBtnSoporte").forEach(b => b.addEventListener("click", () => soporte(b.dataset.k)));
+  cont.querySelectorAll(".mcBtnSoporte:not(.mcBtnReembolsoFila)").forEach(b => b.addEventListener("click", () => soporte(b.dataset.k)));
   /* ⭐ NUEVO (v5): botón de reembolso directo en cada fila */
   cont.querySelectorAll(".mcBtnReembolsoFila").forEach(b => b.addEventListener("click", () => pedirReembolsoDesdeFila(b.dataset.k)));
 }
