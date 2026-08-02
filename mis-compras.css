@@ -1,688 +1,724 @@
 .mcMain{ max-width:1400px; margin:0 auto; padding:20px 20px 60px; }
 
-/* =========================================================
-   HERO
-   ========================================================= */
-
-.mcHero{
-  position:relative;
-  padding:34px 30px;
-  border-radius:var(--radius-l);
-  margin-bottom:20px;
-  overflow:hidden;
-  background:
-    radial-gradient(circle at 12% 10%, rgba(33,230,193,.10), transparent 26%),
-    radial-gradient(circle at 92% 90%, rgba(124,92,255,.12), transparent 30%),
-    var(--panel);
-  border:1px solid var(--line);
-}
-
-.mcHero::before{
-  content:"";
-  position:absolute; top:0; left:0; right:0; height:3px;
-  background:var(--ribbon);
-}
-
-.mcHeroBadge{
-  display:inline-block;
-  padding:5px 12px;
-  border-radius:999px;
-  background:rgba(33,230,193,.10);
-  border:1px solid rgba(33,230,193,.28);
-  color:var(--teal);
-  font-size:11px; font-weight:800; letter-spacing:.6px;
-  margin-bottom:12px;
-}
-
-.mcHero h1{
-  margin:0 0 8px;
-  font-family:var(--font-display);
-  font-size:32px;
-  letter-spacing:-.5px;
-}
-
-.mcHero p{
-  margin:0;
-  max-width:560px;
-  color:var(--text-dim);
-  font-size:14px;
-  line-height:1.6;
-}
-
-/* =========================================================
-   TOOLBAR (búsqueda + estado)
-   ========================================================= */
-
-.mcToolbar{
-  display:flex;
-  gap:10px;
-  margin-bottom:14px;
-  flex-wrap:wrap;
-}
-
-.mcSearchBox{
-  flex:1;
-  min-width:220px;
-  display:flex;
-  align-items:center;
-  gap:10px;
-  height:44px;
-  padding:0 14px;
-  border-radius:999px;
-  background:var(--panel);
-  border:1px solid var(--line);
-}
-
-.mcSearchBox:focus-within{ border-color:var(--teal); }
-
-.mcSearchBox svg{ width:16px; height:16px; flex-shrink:0; stroke:var(--text-dim); fill:none; stroke-width:2; }
-
-.mcSearchBox input{
-  flex:1; min-width:0; border:none; outline:none; background:transparent;
-  color:var(--text); font-size:14px;
-}
-
-.mcSearchBox input::placeholder{ color:var(--text-faint); }
-
-.mcSelect{
-  height:44px;
-  padding:0 14px;
-  border-radius:999px;
-  background:var(--panel);
-  border:1px solid var(--line);
-  color:var(--text);
-  font-size:13px;
-  font-weight:700;
-  min-width:170px;
-}
-
-/* =========================================================
-   SWITCH DE VISTA (compacto / tarjetas)
-   ========================================================= */
-
-.mcVistaSwitch{
-  display:flex;
-  align-items:center;
-  gap:4px;
-  padding:4px;
-  border-radius:999px;
-  background:var(--panel);
-  border:1px solid var(--line);
-  flex-shrink:0;
-}
-
-.mcVistaBtn{
-  display:flex; align-items:center; gap:7px;
-  height:36px; padding:0 14px;
-  border-radius:999px;
-  border:none;
-  background:transparent;
-  color:var(--text-dim);
-  font-size:12.5px; font-weight:800;
-  cursor:pointer;
-  transition:.18s ease;
-}
-
-.mcVistaBtn svg{ width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2; flex-shrink:0; }
-
-.mcVistaBtn:hover{ color:var(--text); }
-
-.mcVistaBtn.activo{
-  color:#04060a;
-  background:var(--ribbon);
-}
-
-/* =========================================================
-   FILTRO POR PLATAFORMA (chips con avatar, igual espíritu que catálogo)
-   ========================================================= */
-
-.mcPlataformas{
-  display:flex; flex-wrap:wrap; gap:8px;
-  margin-bottom:14px;
-}
-
-.mcPlatBtn{
-  display:flex; align-items:center; gap:8px;
-  height:36px; padding:0 14px 0 6px;
-  border-radius:999px;
-  border:1px solid var(--line);
-  background:var(--panel);
-  color:var(--text-dim);
-  font-size:12.5px; font-weight:700;
-  cursor:pointer;
-  transition:.18s ease;
-}
-
-.mcPlatBtn:hover{ border-color:var(--line-strong); color:var(--text); }
-
-.mcPlatBtn.activo{
-  color:#04060a;
-  background:var(--ribbon);
-  border-color:transparent;
-}
-
-.mcPlatAvatar{
-  width:24px; height:24px; border-radius:50%; overflow:hidden;
-  flex-shrink:0; background:#0e0f14; border:1px solid var(--line);
-}
-
-.mcPlatAvatar img{ width:100%; height:100%; object-fit:cover; }
-
-.mcResultadoInfo{
-  font-size:12px; font-weight:600; color:var(--text-faint);
-  margin-bottom:16px;
-}
-
-/* =========================================================
-   LISTADO DE COMPRAS — contenedor común a ambos modos
-   ========================================================= */
-
-.mcListado{ width:100%; }
-
-/* ---- Modo tarjetas (diseño original, sin cambios) ---- */
-
-.mcListado.vista-tarjetas{
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
-  gap:14px;
-}
-
-.mcCard{
-  position:relative;
-  display:flex; flex-direction:column;
-  border-radius:var(--radius-m);
-  overflow:hidden;
-  background:var(--panel);
-  border:1px solid var(--line);
-  transition:border-color .18s ease, transform .18s ease;
-}
-
-.mcCard::before{
-  content:""; display:block; height:3px; width:100%;
-  background:var(--ribbon);
-}
-
-.mcCard.expirada::before{ background:linear-gradient(90deg,#6b6e80,#3a3c46); }
-.mcCard.porVencer::before{ background:linear-gradient(90deg,#ffb300,#ff7a59); }
-
-.mcCard:hover{ border-color:var(--line-strong); transform:translateY(-2px); }
-
-.mcCardTop{
-  display:flex; align-items:center; gap:12px;
-  padding:14px 14px 10px;
-}
-
-.mcCardAvatar{
-  width:44px; height:44px; border-radius:12px; overflow:hidden;
-  flex-shrink:0; background:#0e0f14; border:1px solid var(--line);
-}
-
-.mcCardAvatar img{ width:100%; height:100%; object-fit:cover; }
-
-.mcCardTitulo{ font-size:14px; font-weight:800; line-height:1.3; }
-.mcCardSub{ font-size:11px; color:var(--text-faint); font-weight:700; margin-top:2px; }
-.mcCardCliente{ font-size:11px; color:var(--violet); font-weight:700; margin-top:2px; }
-
-.mcBadge{
-  display:inline-flex; align-items:center; gap:5px;
-  padding:3px 9px;
-  border-radius:999px;
-  font-size:10px; font-weight:800; letter-spacing:.3px; text-transform:uppercase;
-  background:rgba(33,230,193,.10);
-  color:var(--teal);
-  border:1px solid rgba(33,230,193,.24);
-  margin-left:auto;
-  flex-shrink:0;
-  white-space:nowrap;
-}
-
-.mcBadge.porVencer{
-  background:rgba(255,179,0,.12); color:#ffb300; border-color:rgba(255,179,0,.28);
-}
-
-.mcBadge.expirada{
-  background:rgba(255,255,255,.05); color:var(--text-faint); border-color:var(--line);
-}
-
-.mcCardBody{ padding:0 14px 14px; display:flex; flex-direction:column; gap:10px; }
-
-.mcCardRow{
-  display:flex; align-items:center; justify-content:space-between;
-  font-size:12px; color:var(--text-dim); font-weight:700;
-}
-
-.mcCardRow strong{ color:var(--text); font-weight:800; }
-
-.mcPrecio{ display:flex; flex-direction:column; align-items:flex-end; gap:1px; }
-.mcPrecioUsd{ font-family:var(--font-display); font-size:15px; font-weight:700; color:var(--teal); }
-.mcPrecioPen{ font-size:10.5px; color:var(--text-faint); font-weight:700; }
-
-.mcTiempoBox{
-  display:flex; align-items:center; justify-content:space-between;
-  padding:9px 12px;
-  border-radius:var(--radius-s);
-  background:rgba(33,230,193,.06);
-  border:1px solid rgba(33,230,193,.16);
-}
-
-.mcTiempoBox.porVencer{ background:rgba(255,179,0,.08); border-color:rgba(255,179,0,.20); }
-.mcTiempoBox.expirada{ background:rgba(255,255,255,.03); border-color:var(--line); }
-
-.mcTiempoLabel{ font-size:10px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; color:var(--text-faint); }
-.mcTiempoValor{ font-family:monospace; font-size:13px; font-weight:800; color:var(--teal); }
-.mcTiempoValor.porVencer{ color:#ffb300; }
-.mcTiempoValor.expirada{ color:var(--text-faint); font-family:var(--font-body); }
-
-.mcCardBtns{ display:flex; gap:6px; margin-top:2px; flex-wrap:wrap; }
-
-.mcBtnVer{
-  flex:1; height:36px; border-radius:var(--radius-s);
-  border:1px solid var(--line-strong);
-  background:var(--panel-2);
-  color:var(--text);
-  font-size:12px; font-weight:800;
-  cursor:pointer;
-  transition:.18s ease;
-}
-
-.mcBtnVer:hover{ background:var(--ribbon); color:#04060a; border-color:transparent; }
-
-.mcBtnRenovar{
-  flex:1; height:36px; border-radius:var(--radius-s);
-  border:1px solid var(--line);
-  background:var(--panel-2);
-  color:var(--text-faint);
-  font-size:12px; font-weight:800;
-  cursor:not-allowed;
-}
-
-.mcBtnRenovar.activo{
-  color:#04060a;
-  background:linear-gradient(90deg,#ffb300,#ff7a59);
-  border-color:transparent;
-  cursor:pointer;
-}
-
-.mcBtnSoporte{
-  width:36px; height:36px; flex-shrink:0;
-  border-radius:var(--radius-s);
-  border:1px solid var(--line);
-  background:var(--panel-2);
-  color:var(--text-dim);
-  display:flex; align-items:center; justify-content:center;
-  cursor:pointer;
-  font-size:14px;
-}
-
-.mcBtnSoporte:hover{ border-color:var(--line-strong); color:var(--text); }
-
-/* ⭐ NUEVO (v3): estado deshabilitado, usado por el botón de
-   reembolso (↩️) en la lista cuando ese acceso ya no admite
-   reembolso (fuera de plazo, ya solicitado, o no aplica). */
-.mcBtnSoporte:disabled{
-  opacity:.4;
-  cursor:not-allowed;
-}
-
-.mcBtnSoporte:disabled:hover{
-  border-color:var(--line);
-  color:var(--text-dim);
-}
-
-/* =========================================================
-   MODO COMPACTO — tabla profesional
-   (misma tabla en escritorio y en celular: en celular hace
-   scroll horizontal en vez de apretarse o volverse tarjetas)
-   ========================================================= */
-
-.mcListado.vista-compacto{
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-}
-
-.mcCompactScrollHint::before{
-  content:"⇠ Desliza para ver todos los datos ⇢";
-}
-
-.mcCompactScrollHint{
-  display:none;
-  font-size:11px;
-  font-weight:700;
-  color:var(--text-faint);
-  text-align:center;
-  margin-bottom:8px;
-}
-
-.mcCompactWrap{
-  width:100%;
-  overflow-x:auto;
-  -webkit-overflow-scrolling:touch;
-  scrollbar-width:thin;
-}
-
-.mcCompactWrap::-webkit-scrollbar{ height:6px; }
-.mcCompactWrap::-webkit-scrollbar-track{ background:rgba(255,255,255,.03); border-radius:999px; }
-.mcCompactWrap::-webkit-scrollbar-thumb{ background:var(--ribbon); border-radius:999px; }
-
-.mcCompactHead,
-.mcCompactRow{
-  min-width:900px;
-  display:grid;
-  grid-template-columns:2.3fr .95fr 1fr 1fr 1.25fr 1.7fr;
-  gap:12px;
-  align-items:center;
-}
-
-.mcCompactHead{
-  padding:0 14px 10px;
-  color:var(--text-faint);
-  font-size:10.5px;
-  font-weight:800;
-  text-transform:uppercase;
-  letter-spacing:.6px;
-}
-
-.mcCompactBody{
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-}
-
-.mcCompactRow{
-  padding:11px 14px;
-  border-radius:var(--radius-m);
-  background:var(--panel);
-  border:1px solid var(--line);
-  transition:border-color .18s ease, transform .18s ease;
-}
-
-.mcCompactRow:hover{ border-color:var(--line-strong); transform:translateY(-1px); }
-
-.mcCompactRow.porVencer{ border-left:3px solid #ffb300; }
-.mcCompactRow.expirada{ border-left:3px solid var(--text-faint); opacity:.82; }
-.mcCompactRow.activa{ border-left:3px solid var(--teal); }
-
-.mcCompactServicio{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  min-width:0;
-}
-
-.mcCompactAvatar{
-  width:34px; height:34px; border-radius:9px; overflow:hidden;
-  flex-shrink:0; background:#0e0f14; border:1px solid var(--line);
-}
-
-.mcCompactAvatar img{ width:100%; height:100%; object-fit:cover; }
-
-.mcCompactServicioTexto{ min-width:0; }
-
-.mcCompactNombre{
-  font-size:13px; font-weight:800; color:var(--text);
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-}
-
-.mcCompactFecha{
-  font-size:10.5px; font-weight:700; color:var(--text-faint);
-  margin-top:1px;
-}
-
-.mcCompactCell{ font-size:12.5px; font-weight:700; color:var(--text-dim); min-width:0; }
-.mcCompactCell strong{ color:var(--text); font-weight:800; }
-
-.mcCompactPrecio{ display:flex; flex-direction:column; gap:1px; }
-.mcCompactPrecio .usd{ font-size:13px; font-weight:800; color:var(--teal); }
-.mcCompactPrecio .pen{ font-size:10px; font-weight:700; color:var(--text-faint); }
-
-.mcCompactTiempo{
-  font-family:monospace;
-  font-size:12px; font-weight:800;
-  color:var(--teal);
-  white-space:nowrap;
-}
-
-.mcCompactTiempo.porVencer{ color:#ffb300; }
-.mcCompactTiempo.expirada{ color:var(--text-faint); font-family:var(--font-body); }
-
-.mcCompactAcciones{
-  display:flex;
-  align-items:center;
-  justify-content:flex-end;
-  gap:6px;
-  flex-wrap:nowrap;
-}
-
-.mcCompactAcciones .mcBtnVer,
-.mcCompactAcciones .mcBtnRenovar{
-  flex:none;
-  height:32px;
-  padding:0 12px;
-  font-size:11px;
-  white-space:nowrap;
-}
-
-.mcCompactAcciones .mcBtnSoporte{
-  width:32px; height:32px; font-size:12px;
-}
-
-/* =========================================================
-   MODAL VER CUENTA (extiende .nsModal / .nsModalBox de novastream.css)
-   ========================================================= */
-
-.mcModalBox{ max-width:520px; }
-
-.mcModalHead{
-  display:flex; align-items:center; gap:14px;
-  margin-bottom:16px;
-  padding-right:26px;
-}
-
-.mcModalAvatar{
-  width:52px; height:52px; border-radius:14px; object-fit:cover;
-  border:1px solid var(--line); flex-shrink:0;
-}
-
-.mcModalHead h2{ margin:0 0 6px; font-size:19px; }
-
-.mcModalGrid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-
-.mcDato{
-  padding:12px; border-radius:var(--radius-s);
-  background:var(--panel-2); border:1px solid var(--line);
-}
-
-.mcDato.full{ grid-column:1/-1; }
-
-.mcDatoLabel{
-  display:block; font-size:10px; font-weight:800; letter-spacing:.5px;
-  text-transform:uppercase; color:var(--text-faint); margin-bottom:6px;
-}
-
-.mcDatoValor{ font-size:13.5px; font-weight:700; color:var(--text); word-break:break-word; line-height:1.5; }
-
-.mcCopiable{ display:flex; align-items:center; gap:10px; justify-content:space-between; }
-
-.mcBtnCopiar{
-  flex-shrink:0; height:30px; padding:0 12px;
-  border-radius:8px; border:1px solid var(--line-strong);
-  background:var(--panel); color:var(--text-dim);
-  font-size:11px; font-weight:800; cursor:pointer;
-}
-
-.mcBtnCopiar:hover{ color:var(--text); border-color:var(--teal); }
-
-/* =========================================================
-   CLIENTE (registrar / editar) — dentro del modal Ver cuenta
-   ========================================================= */
-
-.mcClienteBox{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  flex-wrap:wrap;
-}
-
-.mcClienteInput{
-  display:none;
-  flex:1;
-  min-width:140px;
-  height:34px;
-  padding:0 12px;
-  border-radius:8px;
-  border:1px solid var(--line-strong);
-  background:var(--panel);
-  color:var(--text);
-  font-size:13px;
-}
-
-.mcClienteInput:focus{ outline:none; border-color:var(--teal); }
-
-#mcBtnGuardarCliente{ display:none; }
-
-.mcBtnCopiarTodo{
-  width:100%; height:44px; margin-top:14px;
-  border:none; border-radius:var(--radius-s);
-  background:var(--ribbon); color:#04060a;
-  font-size:13px; font-weight:800; cursor:pointer;
-}
-
-/* =========================================================
-   CONFIRMACIÓN (renovar)
-   ========================================================= */
-
-.mcConfirmOverlay{
-  display:none; position:fixed; inset:0; z-index:10001;
-  align-items:center; justify-content:center; padding:16px;
-  background:rgba(4,5,8,.78); backdrop-filter:blur(6px);
-}
-
-.mcConfirmOverlay.show{ display:flex; }
-
-.mcConfirmCard{
-  width:100%; max-width:380px;
-  background:var(--bg-1); border:1px solid var(--line);
-  border-radius:var(--radius-l);
-  padding:24px; text-align:center;
-}
-
-.mcConfirmIcono{ font-size:30px; margin-bottom:10px; }
-.mcConfirmCard h3{ margin:0 0 8px; font-size:17px; }
-.mcConfirmCard p{ margin:0 0 18px; font-size:13px; color:var(--text-dim); line-height:1.5; }
-
-.mcConfirmActions{ display:flex; gap:10px; }
-
-.mcBtnGhost, .mcBtnPrimary{
-  flex:1; height:42px; border-radius:var(--radius-s);
-  font-size:13px; font-weight:800; cursor:pointer; border:none;
-}
-
-.mcBtnGhost{ background:var(--panel-2); color:var(--text-dim); border:1px solid var(--line); }
-.mcBtnPrimary{ background:var(--ribbon); color:#04060a; }
-
-/* =========================================================
-   RESPONSIVE
-   ========================================================= */
-
-@media (max-width:768px){
-  /* El switch sigue disponible en celular: el usuario puede elegir
-     compacto si lo prefiere. Sigue siendo tabla horizontal —
-     nunca se convierte en tarjetas — con más ancho por columna
-     para que los datos no se amontonen, y scroll lateral. */
-
-  .mcCompactScrollHint{ display:block; }
+  /* =========================================================
+    HERO
+    ========================================================= */
+
+  .mcHero{
+    position:relative;
+    padding:34px 30px;
+    border-radius:var(--radius-l);
+    margin-bottom:20px;
+    overflow:hidden;
+    background:
+      radial-gradient(circle at 12% 10%, rgba(33,230,193,.10), transparent 26%),
+      radial-gradient(circle at 92% 90%, rgba(124,92,255,.12), transparent 30%),
+      var(--panel);
+    border:1px solid var(--line);
+  }
+
+  .mcHero::before{
+    content:"";
+    position:absolute; top:0; left:0; right:0; height:3px;
+    background:var(--ribbon);
+  }
+
+  .mcHeroBadge{
+    display:inline-block;
+    padding:5px 12px;
+    border-radius:999px;
+    background:rgba(33,230,193,.10);
+    border:1px solid rgba(33,230,193,.28);
+    color:var(--teal);
+    font-size:11px; font-weight:800; letter-spacing:.6px;
+    margin-bottom:12px;
+  }
+
+  .mcHero h1{
+    margin:0 0 8px;
+    font-family:var(--font-display);
+    font-size:32px;
+    letter-spacing:-.5px;
+  }
+
+  .mcHero p{
+    margin:0;
+    max-width:560px;
+    color:var(--text-dim);
+    font-size:14px;
+    line-height:1.6;
+  }
+
+  /* =========================================================
+    TOOLBAR (búsqueda + estado)
+    ========================================================= */
+
+  .mcToolbar{
+    display:flex;
+    gap:10px;
+    margin-bottom:14px;
+    flex-wrap:wrap;
+  }
+
+  .mcSearchBox{
+    flex:1;
+    min-width:220px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    height:44px;
+    padding:0 14px;
+    border-radius:999px;
+    background:var(--panel);
+    border:1px solid var(--line);
+  }
+
+  .mcSearchBox:focus-within{ border-color:var(--teal); }
+
+  .mcSearchBox svg{ width:16px; height:16px; flex-shrink:0; stroke:var(--text-dim); fill:none; stroke-width:2; }
+
+  .mcSearchBox input{
+    flex:1; min-width:0; border:none; outline:none; background:transparent;
+    color:var(--text); font-size:14px;
+  }
+
+  .mcSearchBox input::placeholder{ color:var(--text-faint); }
+
+  .mcSelect{
+    height:44px;
+    padding:0 14px;
+    border-radius:999px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    color:var(--text);
+    font-size:13px;
+    font-weight:700;
+    min-width:170px;
+  }
+
+  /* =========================================================
+    SWITCH DE VISTA (compacto / tarjetas)
+    ========================================================= */
+
+  .mcVistaSwitch{
+    display:flex;
+    align-items:center;
+    gap:4px;
+    padding:4px;
+    border-radius:999px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    flex-shrink:0;
+  }
+
+  .mcVistaBtn{
+    display:flex; align-items:center; gap:7px;
+    height:36px; padding:0 14px;
+    border-radius:999px;
+    border:none;
+    background:transparent;
+    color:var(--text-dim);
+    font-size:12.5px; font-weight:800;
+    cursor:pointer;
+    transition:.18s ease;
+  }
+
+  .mcVistaBtn svg{ width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2; flex-shrink:0; }
+
+  .mcVistaBtn:hover{ color:var(--text); }
+
+  .mcVistaBtn.activo{
+    color:#04060a;
+    background:var(--ribbon);
+  }
+
+  /* =========================================================
+    FILTRO POR PLATAFORMA (chips con avatar, igual espíritu que catálogo)
+    ========================================================= */
+
+  .mcPlataformas{
+    display:flex; flex-wrap:wrap; gap:8px;
+    margin-bottom:14px;
+  }
+
+  .mcPlatBtn{
+    display:flex; align-items:center; gap:8px;
+    height:36px; padding:0 14px 0 6px;
+    border-radius:999px;
+    border:1px solid var(--line);
+    background:var(--panel);
+    color:var(--text-dim);
+    font-size:12.5px; font-weight:700;
+    cursor:pointer;
+    transition:.18s ease;
+  }
+
+  .mcPlatBtn:hover{ border-color:var(--line-strong); color:var(--text); }
+
+  .mcPlatBtn.activo{
+    color:#04060a;
+    background:var(--ribbon);
+    border-color:transparent;
+  }
+
+  .mcPlatAvatar{
+    width:24px; height:24px; border-radius:50%; overflow:hidden;
+    flex-shrink:0; background:#0e0f14; border:1px solid var(--line);
+  }
+
+  .mcPlatAvatar img{ width:100%; height:100%; object-fit:cover; }
+
+  .mcResultadoInfo{
+    font-size:12px; font-weight:600; color:var(--text-faint);
+    margin-bottom:16px;
+  }
+
+  /* =========================================================
+    LISTADO DE COMPRAS — contenedor común a ambos modos
+    ========================================================= */
+
+  .mcListado{ width:100%; }
+
+  /* ---- Modo tarjetas (diseño original, sin cambios) ---- */
+
+  .mcListado.vista-tarjetas{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+    gap:14px;
+  }
+
+  .mcCard{
+    position:relative;
+    display:flex; flex-direction:column;
+    border-radius:var(--radius-m);
+    overflow:hidden;
+    background:var(--panel);
+    border:1px solid var(--line);
+    transition:border-color .18s ease, transform .18s ease;
+  }
+
+  .mcCard::before{
+    content:""; display:block; height:3px; width:100%;
+    background:var(--ribbon);
+  }
+
+  .mcCard.expirada::before{ background:linear-gradient(90deg,#6b6e80,#3a3c46); }
+  .mcCard.porVencer::before{ background:linear-gradient(90deg,#ffb300,#ff7a59); }
+
+  .mcCard:hover{ border-color:var(--line-strong); transform:translateY(-2px); }
+
+  .mcCardTop{
+    display:flex; align-items:center; gap:12px;
+    padding:14px 14px 10px;
+  }
+
+  .mcCardAvatar{
+    width:44px; height:44px; border-radius:12px; overflow:hidden;
+    flex-shrink:0; background:#0e0f14; border:1px solid var(--line);
+  }
+
+  .mcCardAvatar img{ width:100%; height:100%; object-fit:cover; }
+
+  .mcCardTitulo{ font-size:14px; font-weight:800; line-height:1.3; }
+  .mcCardSub{ font-size:11px; color:var(--text-faint); font-weight:700; margin-top:2px; }
+  .mcCardCliente{ font-size:11px; color:var(--violet); font-weight:700; margin-top:2px; }
+
+  .mcBadge{
+    display:inline-flex; align-items:center; gap:5px;
+    padding:3px 9px;
+    border-radius:999px;
+    font-size:10px; font-weight:800; letter-spacing:.3px; text-transform:uppercase;
+    background:rgba(33,230,193,.10);
+    color:var(--teal);
+    border:1px solid rgba(33,230,193,.24);
+    margin-left:auto;
+    flex-shrink:0;
+    white-space:nowrap;
+  }
+
+  .mcBadge.porVencer{
+    background:rgba(255,179,0,.12); color:#ffb300; border-color:rgba(255,179,0,.28);
+  }
+
+  .mcBadge.expirada{
+    background:rgba(255,255,255,.05); color:var(--text-faint); border-color:var(--line);
+  }
+
+  .mcCardBody{ padding:0 14px 14px; display:flex; flex-direction:column; gap:10px; }
+
+  .mcCardRow{
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:12px; color:var(--text-dim); font-weight:700;
+  }
+
+  .mcCardRow strong{ color:var(--text); font-weight:800; }
+
+  .mcPrecio{ display:flex; flex-direction:column; align-items:flex-end; gap:1px; }
+  .mcPrecioUsd{ font-family:var(--font-display); font-size:15px; font-weight:700; color:var(--teal); }
+  .mcPrecioPen{ font-size:10.5px; color:var(--text-faint); font-weight:700; }
+
+  .mcTiempoBox{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:9px 12px;
+    border-radius:var(--radius-s);
+    background:rgba(33,230,193,.06);
+    border:1px solid rgba(33,230,193,.16);
+  }
+
+  .mcTiempoBox.porVencer{ background:rgba(255,179,0,.08); border-color:rgba(255,179,0,.20); }
+  .mcTiempoBox.expirada{ background:rgba(255,255,255,.03); border-color:var(--line); }
+
+  .mcTiempoLabel{ font-size:10px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; color:var(--text-faint); }
+  .mcTiempoValor{ font-family:monospace; font-size:13px; font-weight:800; color:var(--teal); }
+  .mcTiempoValor.porVencer{ color:#ffb300; }
+  .mcTiempoValor.expirada{ color:var(--text-faint); font-family:var(--font-body); }
+
+  .mcCardBtns{ display:flex; gap:6px; margin-top:2px; flex-wrap:wrap; }
+
+  .mcBtnVer{
+    flex:1; height:36px; border-radius:var(--radius-s);
+    border:1px solid var(--line-strong);
+    background:var(--panel-2);
+    color:var(--text);
+    font-size:12px; font-weight:800;
+    cursor:pointer;
+    transition:.18s ease;
+  }
+
+  .mcBtnVer:hover{ background:var(--ribbon); color:#04060a; border-color:transparent; }
+
+  .mcBtnRenovar{
+    flex:1; height:36px; border-radius:var(--radius-s);
+    border:1px solid var(--line);
+    background:var(--panel-2);
+    color:var(--text-faint);
+    font-size:12px; font-weight:800;
+    cursor:not-allowed;
+  }
+
+  .mcBtnRenovar.activo{
+    color:#04060a;
+    background:linear-gradient(90deg,#ffb300,#ff7a59);
+    border-color:transparent;
+    cursor:pointer;
+  }
+
+  .mcBtnSoporte{
+    width:36px; height:36px; flex-shrink:0;
+    border-radius:var(--radius-s);
+    border:1px solid var(--line);
+    background:var(--panel-2);
+    color:var(--text-dim);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    font-size:14px;
+  }
+
+  .mcBtnSoporte:hover{ border-color:var(--line-strong); color:var(--text); }
+
+  /* ⭐ NUEVO (v3): estado deshabilitado, usado por el botón de
+    reembolso (↩️) en la lista cuando ese acceso ya no admite
+    reembolso (fuera de plazo, ya solicitado, o no aplica). */
+  .mcBtnSoporte:disabled{
+    opacity:.4;
+    cursor:not-allowed;
+  }
+
+  .mcBtnSoporte:disabled:hover{
+    border-color:var(--line);
+    color:var(--text-dim);
+  }
+
+  /* =========================================================
+    MODO COMPACTO — tabla profesional
+    (misma tabla en escritorio y en celular: en celular hace
+    scroll horizontal en vez de apretarse o volverse tarjetas)
+    ========================================================= */
+
+  .mcListado.vista-compacto{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+
+  .mcCompactScrollHint::before{
+    content:"⇠ Desliza para ver todos los datos ⇢";
+  }
+
+  .mcCompactScrollHint{
+    display:none;
+    font-size:11px;
+    font-weight:700;
+    color:var(--text-faint);
+    text-align:center;
+    margin-bottom:8px;
+  }
+
+  .mcCompactWrap{
+    width:100%;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:thin;
+  }
+
+  .mcCompactWrap::-webkit-scrollbar{ height:6px; }
+  .mcCompactWrap::-webkit-scrollbar-track{ background:rgba(255,255,255,.03); border-radius:999px; }
+  .mcCompactWrap::-webkit-scrollbar-thumb{ background:var(--ribbon); border-radius:999px; }
 
   .mcCompactHead,
   .mcCompactRow{
-    min-width:880px;
-    grid-template-columns:2fr 1.2fr 1fr 1fr 1.3fr 1.7fr;
-    gap:18px;
+    min-width:900px;
+    display:grid;
+    grid-template-columns:2.3fr .95fr 1fr 1fr 1.25fr 1.7fr;
+    gap:12px;
+    align-items:center;
   }
 
-  .mcCompactRow{ padding:13px 16px; }
-  .mcCompactHead{ padding:0 16px 10px; }
+  .mcCompactHead{
+    padding:0 14px 10px;
+    color:var(--text-faint);
+    font-size:10.5px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:.6px;
+  }
 
-  .mcCompactNombre{ font-size:13.5px; }
-  .mcCompactCell{ font-size:13px; }
-  .mcCompactTiempo{ font-size:12.5px; }
+  .mcCompactBody{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
 
-  /* El badge de estado (ej. "POR VENCER") es el texto más largo
-     de su columna; se achica un poco para que respire dentro de
-     su columna y no quede pegado a la columna de precio. */
-  .mcCompactCell .mcBadge{
-    font-size:9.5px;
-    padding:3px 8px;
-    letter-spacing:.2px;
+  .mcCompactRow{
+    padding:11px 14px;
+    border-radius:var(--radius-m);
+    background:var(--panel);
+    border:1px solid var(--line);
+    transition:border-color .18s ease, transform .18s ease;
+  }
+
+  .mcCompactRow:hover{ border-color:var(--line-strong); transform:translateY(-1px); }
+
+  .mcCompactRow.porVencer{ border-left:3px solid #ffb300; }
+  .mcCompactRow.expirada{ border-left:3px solid var(--text-faint); opacity:.82; }
+  .mcCompactRow.activa{ border-left:3px solid var(--teal); }
+
+  .mcCompactServicio{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    min-width:0;
+  }
+
+  .mcCompactAvatar{
+    width:34px; height:34px; border-radius:9px; overflow:hidden;
+    flex-shrink:0; background:#0e0f14; border:1px solid var(--line);
+  }
+
+  .mcCompactAvatar img{ width:100%; height:100%; object-fit:cover; }
+
+  .mcCompactServicioTexto{ min-width:0; }
+
+  .mcCompactNombre{
+    font-size:13px; font-weight:800; color:var(--text);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+
+  .mcCompactFecha{
+    font-size:10.5px; font-weight:700; color:var(--text-faint);
+    margin-top:1px;
+  }
+
+  .mcCompactCell{ font-size:12.5px; font-weight:700; color:var(--text-dim); min-width:0; }
+  .mcCompactCell strong{ color:var(--text); font-weight:800; }
+
+  .mcCompactPrecio{ display:flex; flex-direction:column; gap:1px; }
+  .mcCompactPrecio .usd{ font-size:13px; font-weight:800; color:var(--teal); }
+  .mcCompactPrecio .pen{ font-size:10px; font-weight:700; color:var(--text-faint); }
+
+  .mcCompactTiempo{
+    font-family:monospace;
+    font-size:12px; font-weight:800;
+    color:var(--teal);
     white-space:nowrap;
   }
-}
 
-@media (max-width:600px){
-  .mcMain{ padding:16px 14px 44px; }
-  .mcHero{ padding:26px 18px; }
-  .mcHero h1{ font-size:24px; }
-  .mcListado.vista-tarjetas{ grid-template-columns:1fr; }
-  .mcModalGrid{ grid-template-columns:1fr; }
-  .mcToolbar{ flex-direction:column; align-items:stretch; }
-  .mcSelect{ width:100%; }
-  .mcVistaSwitch{ width:100%; justify-content:center; }
-}
-/* ===== v3 · Loader, resumen, chips de reembolso, motivo ===== */
+  .mcCompactTiempo.porVencer{ color:#ffb300; }
+  .mcCompactTiempo.expirada{ color:var(--text-faint); font-family:var(--font-body); }
 
-.rgBooting{
-  position:fixed; inset:0; z-index:99999;
-  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
-  background:#0a0b0f; color:var(--text-dim); font-size:13px; font-weight:700;
-  transition:opacity .3s ease;
-}
-.rgBooting.off{ opacity:0; pointer-events:none; }
+  .mcCompactAcciones{
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:6px;
+    flex-wrap:nowrap;
+  }
 
-.rgBootingRing{
-  width:34px; height:34px; border-radius:50%;
-  border:3px solid rgba(255,255,255,.1);
-  border-top-color:var(--teal);
-  animation:mcSpin .8s linear infinite;
-}
-@keyframes mcSpin{ to{ transform:rotate(360deg); } }
+  .mcCompactAcciones .mcBtnVer,
+  .mcCompactAcciones .mcBtnRenovar{
+    flex:none;
+    height:32px;
+    padding:0 12px;
+    font-size:11px;
+    white-space:nowrap;
+  }
 
-.mcResumen{
-  display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
-  gap:10px; margin-bottom:16px;
-}
-.mcResumenItem{
-  padding:13px 15px; border-radius:var(--radius-m);
-  background:var(--panel); border:1px solid var(--line);
-  display:flex; flex-direction:column; gap:3px;
-}
-.mcResumenItem span{ font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:var(--text-faint); }
-.mcResumenItem strong{ font-size:19px; font-weight:800; color:var(--text); }
+  .mcCompactAcciones .mcBtnSoporte{
+    width:32px; height:32px; font-size:12px;
+  }
 
-.mcChipReemb{
-  display:inline-block; margin-top:4px;
-  padding:2px 8px; border-radius:999px;
-  font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.3px;
-}
-.mcChipReemb.pendiente{ background:rgba(255,179,0,.14); color:#ffb300; }
-.mcChipReemb.aprobado{ background:rgba(33,230,193,.14); color:var(--teal); }
-.mcChipReemb.rechazado{ background:rgba(255,93,115,.14); color:#ff8082; }
+  /* =========================================================
+    MODAL VER CUENTA (extiende .nsModal / .nsModalBox de novastream.css)
+    ========================================================= */
 
-.mcModalAcciones{ display:flex; gap:8px; margin-top:10px; }
-.mcModalAcciones .mcBtnGhost{ height:38px; font-size:12px; }
-.mcModalAcciones .mcBtnGhost:disabled{ opacity:.45; cursor:not-allowed; }
+  .mcModalBox{ max-width:520px; }
 
-.mcConfirmCampo{ display:none; text-align:left; margin-bottom:16px; }
-.mcConfirmCampo label{
-  display:block; margin-bottom:6px;
-  font-size:10.5px; font-weight:800; text-transform:uppercase;
-  letter-spacing:.4px; color:var(--text-faint);
-}
-.mcConfirmCampo textarea{
-  width:100%; padding:10px 12px; border-radius:var(--radius-s);
-  background:var(--panel-2); border:1px solid var(--line);
-  color:var(--text); font-size:13px; font-family:var(--font-body);
-  resize:vertical; outline:none;
-}
-.mcConfirmCampo textarea:focus{ border-color:var(--teal); }
+  .mcModalHead{
+    display:flex; align-items:center; gap:14px;
+    margin-bottom:16px;
+    padding-right:26px;
+  }
 
-.nsSaldoValorPen{ display:block; font-size:10px; color:var(--text-faint); font-weight:700; }
+  .mcModalAvatar{
+    width:52px; height:52px; border-radius:14px; object-fit:cover;
+    border:1px solid var(--line); flex-shrink:0;
+  }
+
+  .mcModalHead h2{ margin:0 0 6px; font-size:19px; }
+
+  .mcModalGrid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+  .mcDato{
+    padding:12px; border-radius:var(--radius-s);
+    background:var(--panel-2); border:1px solid var(--line);
+  }
+
+  .mcDato.full{ grid-column:1/-1; }
+
+  .mcDatoLabel{
+    display:block; font-size:10px; font-weight:800; letter-spacing:.5px;
+    text-transform:uppercase; color:var(--text-faint); margin-bottom:6px;
+  }
+
+  .mcDatoValor{ font-size:13.5px; font-weight:700; color:var(--text); word-break:break-word; line-height:1.5; }
+
+  .mcCopiable{ display:flex; align-items:center; gap:10px; justify-content:space-between; }
+
+  .mcBtnCopiar{
+    flex-shrink:0; height:30px; padding:0 12px;
+    border-radius:8px; border:1px solid var(--line-strong);
+    background:var(--panel); color:var(--text-dim);
+    font-size:11px; font-weight:800; cursor:pointer;
+  }
+
+  .mcBtnCopiar:hover{ color:var(--text); border-color:var(--teal); }
+
+  /* =========================================================
+    CLIENTE (registrar / editar) — dentro del modal Ver cuenta
+    ========================================================= */
+
+  .mcClienteBox{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+
+  .mcClienteInput{
+    display:none;
+    flex:1;
+    min-width:140px;
+    height:34px;
+    padding:0 12px;
+    border-radius:8px;
+    border:1px solid var(--line-strong);
+    background:var(--panel);
+    color:var(--text);
+    font-size:13px;
+  }
+
+  .mcClienteInput:focus{ outline:none; border-color:var(--teal); }
+
+  #mcBtnGuardarCliente{ display:none; }
+
+  .mcBtnCopiarTodo{
+    width:100%; height:44px; margin-top:14px;
+    border:none; border-radius:var(--radius-s);
+    background:var(--ribbon); color:#04060a;
+    font-size:13px; font-weight:800; cursor:pointer;
+  }
+
+  /* =========================================================
+    CONFIRMACIÓN (renovar)
+    ========================================================= */
+
+  .mcConfirmOverlay{
+    display:none; position:fixed; inset:0; z-index:10001;
+    align-items:center; justify-content:center; padding:16px;
+    background:rgba(4,5,8,.78); backdrop-filter:blur(6px);
+  }
+
+  .mcConfirmOverlay.show{ display:flex; }
+
+  .mcConfirmCard{
+    width:100%; max-width:380px;
+    background:var(--bg-1); border:1px solid var(--line);
+    border-radius:var(--radius-l);
+    padding:24px; text-align:center;
+  }
+
+  .mcConfirmIcono{ font-size:30px; margin-bottom:10px; }
+  .mcConfirmCard h3{ margin:0 0 8px; font-size:17px; }
+  .mcConfirmCard p{ margin:0 0 18px; font-size:13px; color:var(--text-dim); line-height:1.5; }
+
+  .mcConfirmActions{ display:flex; gap:10px; }
+
+  .mcBtnGhost, .mcBtnPrimary{
+    flex:1; height:42px; border-radius:var(--radius-s);
+    font-size:13px; font-weight:800; cursor:pointer; border:none;
+  }
+
+  .mcBtnGhost{ background:var(--panel-2); color:var(--text-dim); border:1px solid var(--line); }
+  .mcBtnPrimary{ background:var(--ribbon); color:#04060a; }
+
+  /* =========================================================
+    RESPONSIVE
+    ========================================================= */
+
+  @media (max-width:768px){
+    /* El switch sigue disponible en celular: el usuario puede elegir
+      compacto si lo prefiere. Sigue siendo tabla horizontal —
+      nunca se convierte en tarjetas — con más ancho por columna
+      para que los datos no se amontonen, y scroll lateral. */
+
+    .mcCompactScrollHint{ display:block; }
+
+    .mcCompactHead,
+    .mcCompactRow{
+      min-width:880px;
+      grid-template-columns:2fr 1.2fr 1fr 1fr 1.3fr 1.7fr;
+      gap:18px;
+    }
+
+    .mcCompactRow{ padding:13px 16px; }
+    .mcCompactHead{ padding:0 16px 10px; }
+
+    .mcCompactNombre{ font-size:13.5px; }
+    .mcCompactCell{ font-size:13px; }
+    .mcCompactTiempo{ font-size:12.5px; }
+
+    /* El badge de estado (ej. "POR VENCER") es el texto más largo
+      de su columna; se achica un poco para que respire dentro de
+      su columna y no quede pegado a la columna de precio. */
+    .mcCompactCell .mcBadge{
+      font-size:9.5px;
+      padding:3px 8px;
+      letter-spacing:.2px;
+      white-space:nowrap;
+    }
+  }
+
+  @media (max-width:600px){
+    .mcMain{ padding:16px 14px 44px; }
+    .mcHero{ padding:26px 18px; }
+    .mcHero h1{ font-size:24px; }
+    .mcListado.vista-tarjetas{ grid-template-columns:1fr; }
+    .mcModalGrid{ grid-template-columns:1fr; }
+    .mcToolbar{ flex-direction:column; align-items:stretch; }
+    .mcSelect{ width:100%; }
+    .mcVistaSwitch{ width:100%; justify-content:center; }
+  }
+  /* ===== v3 · Loader, resumen, chips de reembolso, motivo ===== */
+
+  .rgBooting{
+    position:fixed; inset:0; z-index:99999;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+    background:#0a0b0f; color:var(--text-dim); font-size:13px; font-weight:700;
+    transition:opacity .3s ease;
+  }
+  .rgBooting.off{ opacity:0; pointer-events:none; }
+
+  .rgBootingRing{
+    width:34px; height:34px; border-radius:50%;
+    border:3px solid rgba(255,255,255,.1);
+    border-top-color:var(--teal);
+    animation:mcSpin .8s linear infinite;
+  }
+  @keyframes mcSpin{ to{ transform:rotate(360deg); } }
+
+  .mcResumen{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+    gap:10px; margin-bottom:16px;
+  }
+  .mcResumenItem{
+    padding:13px 15px; border-radius:var(--radius-m);
+    background:var(--panel); border:1px solid var(--line);
+    display:flex; flex-direction:column; gap:3px;
+  }
+  .mcResumenItem span{ font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:var(--text-faint); }
+  .mcResumenItem strong{ font-size:19px; font-weight:800; color:var(--text); }
+
+  .mcChipReemb{
+    display:inline-block; margin-top:4px;
+    padding:2px 8px; border-radius:999px;
+    font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.3px;
+  }
+  .mcChipReemb.pendiente{ background:rgba(255,179,0,.14); color:#ffb300; }
+  .mcChipReemb.aprobado{ background:rgba(33,230,193,.14); color:var(--teal); }
+  .mcChipReemb.rechazado{ background:rgba(255,93,115,.14); color:#ff8082; }
+
+  .mcModalAcciones{ display:flex; gap:8px; margin-top:10px; }
+  .mcModalAcciones .mcBtnGhost{ height:38px; font-size:12px; }
+  .mcModalAcciones .mcBtnGhost:disabled{ opacity:.45; cursor:not-allowed; }
+
+  .mcConfirmCampo{ display:none; text-align:left; margin-bottom:16px; }
+  .mcConfirmCampo label{
+    display:block; margin-bottom:6px;
+    font-size:10.5px; font-weight:800; text-transform:uppercase;
+    letter-spacing:.4px; color:var(--text-faint);   
+  }
+  .mcConfirmCampo textarea{
+    width:100%; padding:10px 12px; border-radius:var(--radius-s);
+    background:var(--panel-2); border:1px solid var(--line);
+    color:var(--text); font-size:13px; font-family:var(--font-body);
+    resize:vertical; outline:none;
+  }
+  .mcConfirmCampo textarea:focus{ border-color:var(--teal); }
+
+  /* ⭐ FIX (corrección de este pedido): el JS ya agrega la clase
+     ".error" al textarea del motivo y la clase ".show" al mensaje
+     de aviso #mcConfirmMotivoError cuando el motivo tiene menos de
+     8 caracteres (ver mcConfirmAceptar en mis-compras.js), pero
+     estas dos clases nunca estaban definidas en el CSS. Sin esto,
+     el textarea nunca se marcaba en rojo y el mensaje de ayuda no
+     tenía un estado "oculto por defecto / visible con .show"
+     confiable. Se agrega acá para que el aviso funcione como se
+     espera: el modal se queda abierto, el campo se pone en rojo y
+     aparece el texto de ayuda debajo. */
+  .mcConfirmCampo textarea.error{
+    border-color:#ff5d73;
+    background:rgba(255,93,115,.06);
+  }
+
+  .mcConfirmMotivoError{
+    display:none;
+    margin-top:8px;
+    font-size:11px;
+    font-weight:700;
+    line-height:1.4;
+    color:#ff8082;
+  }
+  .mcConfirmMotivoError.show{ display:block; }
+
+  /* =========================================================
+    NOTA DEL CLIENTE — modo edición
+    (los IDs ya existían en el HTML/JS; faltaban sus reglas de
+    layout específicas más allá del display:none/flex genérico
+    de arriba, para que "Registrar"/"Guardar" se vean prolijos
+    en la misma fila que el input cuando están visibles)
+    ========================================================= */
+
+  #mcModalClienteInput.mcClienteInput{ display:none; }
+  #mcBtnGuardarCliente.mcBtnCopiar{ display:none; }
+
+  .nsSaldoValorPen{ display:block; font-size:10px; color:var(--text-faint); font-weight:700; }
