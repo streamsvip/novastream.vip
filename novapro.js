@@ -1,43 +1,3 @@
-/* =========================================================
-   NOVASTREAM.VIP — novapro.js (v7)
-   PANEL PROVEEDOR · adaptado a los IDs reales de novapro.html
-   y 100% compatible con las reglas RTDB v5.
-
-   ─────────────────────────────────────────────────────────
-   CAMBIOS EN ESTA VERSIÓN (v7)
-   ─────────────────────────────────────────────────────────
-   · Se quitó el campo "Categoría general" del formulario de
-     producto (ya no se guarda ni se usa el campo `categoria`).
-   · El campo "Plataforma" ahora SOLO sugiere las categorías
-     creadas por el administrador en /categorias. Ya no se
-     autocompleta con las plataformas que ya usaron otros
-     productos del catálogo. Si el admin todavía no creó
-     ninguna categoría, el campo no sugiere nada.
-
-   ─────────────────────────────────────────────────────────
-   MODELO DE NEGOCIO
-   ─────────────────────────────────────────────────────────
-   · Cada venta acredita el 100% del precio al proveedor.
-   · La plataforma NO cobra nada en la venta.
-   · La comisión del 20% se cobra SOLO al retirar:
-         Solicitas $100 → comisión $20 → recibes $80
-   · Retención: las ventas de las últimas 24 h todavía no son
-     retirables (protección ante reembolsos).
-
-   ─────────────────────────────────────────────────────────
-   LO QUE CONDICIONA ESTE ARCHIVO (reglas)
-   ─────────────────────────────────────────────────────────
-   · El proveedor NO puede leer nodos completos. Todas las
-     lecturas globales usan .orderByChild('proveedorId')
-     .equalTo(uid). Leer el nodo entero = permission_denied.
-   · El proveedor NO puede modificar su propio saldoUsd:
-     solo el admin lo mueve al aprobar recargas o retiros.
-   · Los reembolsos son SOLO LECTURA: los resuelve el admin.
-   · /cuentas se lee producto por producto (nunca completo).
-   · Las imágenes se guardan comprimidas en la base (dataURL),
-     así el flujo nunca depende de las reglas de Storage.
-========================================================= */
-
 /* =========================
    CONFIG
 ========================= */
@@ -792,14 +752,55 @@ function generarNuevoIdProducto(){
    las plataformas que otros productos hayan usado antes, para
    evitar que se creen categorías "sueltas" fuera de control. */
 function renderDatalistPlataformas(){
-  const dl = $("npListaPlataformas");
-  if (!dl) return;
+  const sel = $("prodPlataformaSelect");
+  if (!sel) return;
 
-  const nombres = new Set();
-  Object.values(npCategorias).forEach(c => { if (c && c.nombre) nombres.add(c.nombre); });
+  const cats = Object.values(npCategorias || {})
+    .filter(c => c && c.nombre)
+    .sort((a,b) => {
+      const oa = Number(a.orden) || 9999;
+      const ob = Number(b.orden) || 9999;
+      if (oa !== ob) return oa - ob;
+      return norm(a.nombre).localeCompare(norm(b.nombre));
+    });
 
-  dl.innerHTML = Array.from(nombres).sort((a,b)=>a.localeCompare(b))
-    .map(n => '<option value="' + esc(n) + '">').join("");
+  const actual = String((($("prodPlataforma")||{}).value) || "");
+
+  sel.innerHTML = '<option value="">Selecciona una categoría...</option>' +
+    cats.map(c => '<option value="' + esc(c.nombre) + '">' + esc(c.nombre) + '</option>').join("") +
+    '<option value="__nueva__">➕ Escribir una nueva categoría</option>';
+
+  /* Si el producto en edición usa una plataforma que ya es categoría
+     oficial, la seleccionamos sola; si no, abrimos el modo "nueva". */
+  if (actual) {
+    const existe = cats.some(c => norm(c.nombre) === norm(actual));
+    sel.value = existe ? actual : "__nueva__";
+    togglePlataformaInput(sel.value === "__nueva__");
+  }
+}
+
+function togglePlataformaInput(mostrar){
+  const inp = $("prodPlataforma");
+  if (inp) inp.style.display = mostrar ? "" : "none";
+}
+
+function conectarSelectPlataforma(){
+  const sel = $("prodPlataformaSelect");
+  const inp = $("prodPlataforma");
+  if (!sel || !inp || sel.dataset.listo) return;
+
+  sel.addEventListener("change", () => {
+    if (sel.value === "__nueva__") {
+      togglePlataformaInput(true);
+      inp.value = "";
+      inp.focus();
+    } else {
+      togglePlataformaInput(false);
+      inp.value = sel.value;
+    }
+  });
+
+  sel.dataset.listo = "1";
 }
 
 function comprimirImagen(file, lado){
@@ -931,6 +932,10 @@ function limpiarFormProducto(){
     const el = $(id); if (el) el.value = "";
   });
 
+  const selPlat = $("prodPlataformaSelect");
+  if (selPlat) selPlat.value = "";
+  togglePlataformaInput(false);
+
   const dur = $("prodDuracion");     if (dur) dur.value = "30";
   const df  = $("prodDuracionFecha");if (df)  df.value  = "";
 
@@ -1022,6 +1027,7 @@ function editarProducto(id){
   setTxt("npProdIdTexto", id);
   $("prodNombre").value      = p.nombre || "";
   $("prodPlataforma").value  = p.plataforma || "";
+  renderDatalistPlataformas();
   $("prodPrecio").value      = num(p.precioUsd).toFixed(2);
   $("prodDescripcion").value = p.descripcion || "";
   $("prodReglas").value      = p.reglas || "";
@@ -1994,7 +2000,15 @@ function prepararFormularios(){
   conectarToggle("npGrupoReembolso", "reembolso", "prodAplicaReembolso");
   conectarToggle("npGrupoEsRenovable", "renovable", "prodEsRenovable");
   conectarToggle("npGrupoSoporteActivo", "soporte", "npSoporteActivo");
-
+  conectarToggle("npGrupoModoEntrega", "modo", "prodModoEntrega", (v) => {
+  setTxt("npModoEntregaHelp", v === "manual"
+    ? "Manual: tú entregas el acceso al cliente por soporte."
+    : "Automático: el cliente recibe el acceso al instante.");
+});
+conectarToggle("npGrupoReembolso", "reembolso", "prodAplicaReembolso");
+conectarToggle("npGrupoEsRenovable", "renovable", "prodEsRenovable");
+conectarToggle("npGrupoSoporteActivo", "soporte", "npSoporteActivo");
+conectarSelectPlataforma();   // ⭐ AGREGAR ESTA LÍNEA
   /* --- Imagen --- */
   const btnImg = $("npBtnSubirImagen");
   const inpImg = $("prodImagenArchivo");
