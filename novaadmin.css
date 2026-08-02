@@ -1,10 +1,11 @@
 /* =========================================================
    NOVASTREAM.VIP · PANEL ADMINISTRADOR (novaadmin.css)
-   v3 — Alineado al modelo real de negocio:
-        · Todo en USD con equivalente en soles.
-        · La ganancia de la plataforma es la COMISIÓN DE RETIRO (20%).
-        · El admin no carga stock: solo modera.
-        · Categorías con subida de imagen (no URL).
+   v4 — Se agregan:
+        · Modal profesional de confirmación / prompt
+          (reemplaza los confirm()/prompt() nativos del navegador).
+        · Modal de comprobante (imagen del voucher dentro del panel,
+          ya no abre una pestaña nueva).
+        · Estilos de las flechas de orden de categorías.
    ========================================================= */
 
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
@@ -597,6 +598,7 @@ table.nvaTable{ width:100%; border-collapse:collapse; min-width:900px; }
 .nvaCompLink{
   display:inline-flex; align-items:center; gap:5px;
   color:var(--teal); text-decoration:none; font-size:12px; font-weight:700;
+  border:none; background:transparent; cursor:pointer; padding:0;
 }
 .nvaCompLink:hover{ color:var(--violet); text-decoration:underline; }
 .nvaCompLink.disabled{ color:var(--muted-2); pointer-events:none; text-decoration:none; }
@@ -645,7 +647,7 @@ table.nvaTable{ width:100%; border-collapse:collapse; min-width:900px; }
 }
 .nvaCatField input:focus{ border-color:var(--teal); box-shadow:0 0 0 3px var(--teal-soft); }
 
-.nvaCatGrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; }
+.nvaCatGrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; }
 
 .nvaCatCard{
   display:flex; flex-direction:column; align-items:center; gap:9px;
@@ -672,6 +674,33 @@ table.nvaTable{ width:100%; border-collapse:collapse; min-width:900px; }
   transition:.16s ease; display:flex; align-items:center; justify-content:center;
 }
 .nvaCatCardDel:hover{ background:rgba(242,73,92,.28); }
+
+/* ---- NUEVO: burbuja de posición + fila de flechas de orden ---- */
+
+.nvaCatCardOrden{
+  position:absolute; top:8px; left:8px; min-width:22px; height:22px; padding:0 6px;
+  border-radius:999px; display:flex; align-items:center; justify-content:center;
+  background:var(--ribbon); color:#04060a; font-family:var(--font-mono);
+  font-size:11px; font-weight:800; box-shadow:0 4px 10px rgba(0,0,0,.28);
+}
+
+.nvaCatCardMoveRow{
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  margin-top:2px; padding-top:9px; width:100%; border-top:1px dashed var(--line-soft);
+}
+
+.nvaCatMoveBtn{
+  width:28px; height:28px; border-radius:8px; border:1px solid var(--line-strong);
+  background:var(--panel-4); color:var(--text); font-size:12px; font-weight:800;
+  cursor:pointer; transition:.16s ease; display:flex; align-items:center; justify-content:center;
+}
+.nvaCatMoveBtn:hover{ background:var(--ribbon); color:#04060a; border-color:transparent; }
+.nvaCatMoveBtn:disabled{ opacity:.35; cursor:not-allowed; }
+.nvaCatMoveBtn:disabled:hover{ background:var(--panel-4); color:var(--text); }
+
+.nvaCatMoveLabel{
+  font-size:9.5px; font-weight:800; letter-spacing:.6px; text-transform:uppercase; color:var(--muted-2);
+}
 
 /* =========================
    USUARIOS
@@ -732,6 +761,107 @@ table.nvaTable{ width:100%; border-collapse:collapse; min-width:900px; }
 }
 body.nvaSideOpen .nvaOverlay{ display:block; }
 
+/* =========================================================
+   MODAL DE CONFIRMACIÓN / PROMPT PROFESIONAL
+   (nvaConfirmar / nvaPrompt en novaadmin.js)
+========================================================= */
+
+.nvaConfirmOverlay{
+  display:none; position:fixed; inset:0; z-index:10060;
+  align-items:center; justify-content:center; padding:18px;
+  background:rgba(4,5,8,.72); backdrop-filter:blur(3px);
+}
+.nvaConfirmOverlay.show{ display:flex; animation:nvaReveal .18s ease; }
+
+.nvaConfirmBox{
+  width:100%; max-width:440px;
+  background:linear-gradient(180deg,var(--panel-2),var(--panel));
+  border:1px solid var(--line); border-radius:var(--r-l);
+  padding:22px; box-shadow:0 26px 60px rgba(0,0,0,.5); position:relative; overflow:hidden;
+}
+.nvaConfirmBox::before{
+  content:""; position:absolute; top:0; left:0; right:0; height:3px; background:var(--ribbon);
+}
+
+.nvaConfirmHead{ display:flex; gap:13px; align-items:flex-start; margin-bottom:16px; }
+.nvaConfirmIcon{
+  width:42px; height:42px; border-radius:13px; flex:0 0 auto;
+  display:flex; align-items:center; justify-content:center; font-size:19px;
+  background:var(--ribbon); color:#04060a; box-shadow:0 10px 22px rgba(33,230,193,.18);
+}
+.nvaConfirmText h3{ font-size:16.5px; margin-bottom:5px; }
+.nvaConfirmText p{ font-size:12.8px; color:var(--muted); line-height:1.6; white-space:pre-line; }
+
+.nvaConfirmPromptWrap{ margin-bottom:16px; }
+.nvaConfirmPromptInput{
+  width:100%; height:44px; padding:0 13px; border-radius:var(--r-s);
+  border:1px solid var(--line-strong); background:var(--panel-3); color:var(--text);
+  font-size:13.5px; outline:none; transition:.16s ease;
+}
+.nvaConfirmPromptInput:focus{ border-color:var(--teal); box-shadow:0 0 0 3px var(--teal-soft); }
+
+.nvaConfirmActions{ display:flex; justify-content:flex-end; gap:10px; }
+.nvaConfirmActions .nvaBtnMini{ height:40px; padding:0 18px; }
+
+/* =========================================================
+   MODAL DE COMPROBANTE (imagen del voucher dentro del panel)
+========================================================= */
+
+.nvaComprobanteModal{
+  display:none; position:fixed; inset:0; z-index:10055;
+  align-items:center; justify-content:center; padding:18px;
+  background:rgba(4,5,8,.78); backdrop-filter:blur(3px);
+}
+.nvaComprobanteModal.show{ display:flex; animation:nvaReveal .2s ease; }
+
+.nvaComprobanteBox{
+  width:100%; max-width:520px; max-height:88vh;
+  display:flex; flex-direction:column;
+  background:linear-gradient(180deg,var(--panel-2),var(--panel));
+  border:1px solid var(--line); border-radius:var(--r-l);
+  box-shadow:0 26px 60px rgba(0,0,0,.5); overflow:hidden;
+}
+
+.nvaComprobanteHead{
+  display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+  padding:18px 20px; border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg, rgba(255,255,255,.02), transparent);
+}
+.nvaComprobanteHead h3{ font-size:16px; margin-bottom:3px; }
+.nvaComprobanteHead p{ font-size:11.8px; color:var(--muted-2); line-height:1.5; }
+
+.nvaModalCerrarBtn{
+  width:34px; height:34px; border:none; border-radius:9px; flex:0 0 auto;
+  background:var(--panel-4); color:var(--text); font-size:15px; cursor:pointer; transition:.16s ease;
+}
+.nvaModalCerrarBtn:hover{ background:rgba(242,73,92,.2); color:#ff9aa6; }
+
+.nvaComprobanteBody{
+  position:relative; flex:1; min-height:260px; max-height:60vh;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--bg-1); overflow:auto; padding:14px;
+}
+.nvaComprobanteImg{
+  max-width:100%; max-height:56vh; border-radius:var(--r-s);
+  display:none; box-shadow:0 10px 26px rgba(0,0,0,.35);
+}
+
+.nvaComprobanteLoader{
+  display:flex; flex-direction:column; align-items:center; gap:12px;
+  color:var(--muted); font-size:12.5px; font-weight:700;
+}
+.nvaComprobanteSpinner{
+  width:34px; height:34px; border-radius:50%;
+  border:3px solid rgba(255,255,255,.12); border-top-color:var(--teal);
+  animation:nvaSpin .8s linear infinite;
+}
+@keyframes nvaSpin{ to{ transform:rotate(360deg); } }
+
+.nvaComprobanteFoot{
+  display:flex; justify-content:flex-end; gap:10px;
+  padding:14px 20px; border-top:1px solid var(--line);
+}
+
 /* =========================
    RESPONSIVE
 ========================= */
@@ -765,9 +895,12 @@ body.nvaSideOpen .nvaOverlay{ display:block; }
   .nvaSoonIcon{ font-size:36px; }
   .nvaSoon h4{ font-size:17px; }
   table.nvaTable{ min-width:820px; }
+  .nvaComprobanteBox{ max-height:92vh; }
+  .nvaComprobanteBody{ max-height:50vh; min-height:200px; }
 }
 
 @media (max-width:420px){
   .nvaGrid{ grid-template-columns:1fr 1fr; gap:10px; }
   .nvaStatsRow{ grid-template-columns:1fr; }
+  .nvaCatGrid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
