@@ -701,7 +701,15 @@ function abrirConfirm(opts){
   mcEl("mcConfirmAceptar").textContent = opts.aceptar || "Confirmar";
 
   const campo = mcEl("mcConfirmCampo");
-  campo.style.display = opts.pedirMotivo ? "" : "none";
+  /* ⭐ FIX: display:"" no sobreescribe el display:none que trae
+     la clase .mcConfirmCampo desde el CSS, así que el campo de
+     motivo (y su mensaje de error, que vive adentro) se quedaban
+     invisibles SIEMPRE, incluso con pedirMotivo:true. Sin poder
+     ver ni escribir el motivo, la validación de "mínimo 8
+     caracteres" fallaba siempre y el botón "Confirmar" parecía
+     no responder. Se fuerza "block" explícitamente para que sí
+     se muestre. */
+  campo.style.display = opts.pedirMotivo ? "block" : "none";
 
   /* ⭐ FIX: se limpia también el estado de error de intentos
      anteriores, para que el modal se vea "fresco" cada vez que
