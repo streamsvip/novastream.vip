@@ -1,11 +1,3 @@
-/* =========================================================
-   NOVASTREAM.VIP — mis-compras.css (v2)
-   Extiende novastream.css (variables :root ya definidas ahí).
-   No redefine nsNav / nsDrawer / nsModal / nsToast / nsWhatsapp:
-   esos ya viven en novastream.css y se comportan igual que en
-   catalogo.html y recargas.html.
-   ========================================================= */
-
 .mcMain{ max-width:1400px; margin:0 auto; padding:20px 20px 60px; }
 
 /* =========================================================
@@ -281,7 +273,7 @@
 .mcTiempoValor.porVencer{ color:#ffb300; }
 .mcTiempoValor.expirada{ color:var(--text-faint); font-family:var(--font-body); }
 
-.mcCardBtns{ display:flex; gap:6px; margin-top:2px; }
+.mcCardBtns{ display:flex; gap:6px; margin-top:2px; flex-wrap:wrap; }
 
 .mcBtnVer{
   flex:1; height:36px; border-radius:var(--radius-s);
@@ -324,6 +316,19 @@
 
 .mcBtnSoporte:hover{ border-color:var(--line-strong); color:var(--text); }
 
+/* ⭐ NUEVO (v3): estado deshabilitado, usado por el botón de
+   reembolso (↩️) en la lista cuando ese acceso ya no admite
+   reembolso (fuera de plazo, ya solicitado, o no aplica). */
+.mcBtnSoporte:disabled{
+  opacity:.4;
+  cursor:not-allowed;
+}
+
+.mcBtnSoporte:disabled:hover{
+  border-color:var(--line);
+  color:var(--text-dim);
+}
+
 /* =========================================================
    MODO COMPACTO — tabla profesional
    (misma tabla en escritorio y en celular: en celular hace
@@ -362,9 +367,9 @@
 
 .mcCompactHead,
 .mcCompactRow{
-  min-width:860px;
+  min-width:900px;
   display:grid;
-  grid-template-columns:2.3fr .95fr 1fr 1fr 1.25fr 1.5fr;
+  grid-template-columns:2.3fr .95fr 1fr 1fr 1.25fr 1.7fr;
   gap:12px;
   align-items:center;
 }
@@ -590,8 +595,8 @@
 
   .mcCompactHead,
   .mcCompactRow{
-    min-width:840px;
-    grid-template-columns:2fr 1.2fr 1fr 1fr 1.3fr 1.5fr;
+    min-width:880px;
+    grid-template-columns:2fr 1.2fr 1fr 1fr 1.3fr 1.7fr;
     gap:18px;
   }
 
