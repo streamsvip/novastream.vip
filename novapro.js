@@ -1,3 +1,52 @@
+/* =========================================================
+   NOVASTREAM.VIP — novapro.js (v7)
+   PANEL PROVEEDOR · adaptado a los IDs reales de novapro.html
+   y 100% compatible con las reglas RTDB v5.
+
+   ─────────────────────────────────────────────────────────
+   CAMBIOS EN ESTA VERSIÓN (v7)
+   ─────────────────────────────────────────────────────────
+   · Se quitó el campo "Categoría general" del formulario de
+     producto (ya no se guarda ni se usa el campo `categoria`).
+   · El campo "Plataforma" ahora SOLO sugiere las categorías
+     creadas por el administrador en /categorias. Ya no se
+     autocompleta con las plataformas que ya usaron otros
+     productos del catálogo. Si el admin todavía no creó
+     ninguna categoría, el campo no sugiere nada.
+
+   ─────────────────────────────────────────────────────────
+   MODELO DE NEGOCIO
+   ─────────────────────────────────────────────────────────
+   · Cada venta acredita el 100% del precio al proveedor.
+   · La plataforma NO cobra nada en la venta.
+   · La comisión del 20% se cobra SOLO al retirar:
+         Solicitas $100 → comisión $20 → recibes $80
+   · Retención: las ventas de las últimas 24 h todavía no son
+     retirables (protección ante reembolsos).
+
+   ─────────────────────────────────────────────────────────
+   LO QUE CONDICIONA ESTE ARCHIVO (reglas)
+   ─────────────────────────────────────────────────────────
+   · El proveedor NO puede leer nodos completos. Todas las
+     lecturas globales usan .orderByChild('proveedorId')
+     .equalTo(uid). Leer el nodo entero = permission_denied.
+   · El proveedor NO puede modificar su propio saldoUsd:
+     solo el admin lo mueve al aprobar recargas o retiros.
+   · Los reembolsos: el proveedor puede ACEPTAR o RECHAZAR la
+     solicitud (cambiar su estado y dejar un motivo de rechazo),
+     pero el AJUSTE DE SALDO real (descontarle al proveedor y
+     devolverle al cliente) lo sigue haciendo el admin — el
+     proveedor nunca escribe saldoUsd directamente. Ver
+     resolverReembolso() más abajo. Esto requiere que las reglas
+     de /reembolsos/{id} permitan al proveedor dueño (proveedorId
+     === auth.uid) actualizar SOLO estado/motivoRechazo/
+     fechaResolucion/resueltoPor mientras estado actual sea
+     "pendiente".
+   · /cuentas se lee producto por producto (nunca completo).
+   · Las imágenes se guardan comprimidas en la base (dataURL),
+     así el flujo nunca depende de las reglas de Storage.
+========================================================= */
+
 /* =========================
    CONFIG
 ========================= */
@@ -355,7 +404,8 @@ function iniciarPanel(){
     renderMovimientos();
   }, () => { npMovimientos = {}; renderMovimientos(); });
 
-  /* Reembolsos que me afectan (SOLO LECTURA) */
+  /* Reembolsos que me afectan (el proveedor ACEPTA/RECHAZA;
+     el ajuste de saldo lo termina de aplicar el admin) */
   db.ref("reembolsos").orderByChild("proveedorId").equalTo(npUid).on("value", (s) => {
     npReembolsos = s.val() || {};
     renderReembolsos();
@@ -1635,7 +1685,20 @@ function renderTablaRetiros(){
 }
 
 /* =========================================================
-   REEMBOLSOS (solo lectura · los resuelve el admin)
+   REEMBOLSOS
+   El proveedor ve el motivo del cliente y puede ACEPTAR o
+   RECHAZAR (con su propio motivo). El ajuste de saldo real
+   (descontar al proveedor / devolver al cliente) lo termina
+   de aplicar el administrador — el proveedor nunca escribe
+   saldoUsd directamente.
+
+   ⚠️ IMPORTANTE: para que resolverReembolso() funcione hace
+   falta que las reglas de Firebase permitan, en
+   /reembolsos/{id}, que el proveedor dueño (proveedorId ===
+   auth.uid) actualice SOLO estado/motivoRechazo/
+   fechaResolucion/resueltoPor mientras el estado actual sea
+   "pendiente". Si las reglas actuales dicen que reembolsos es
+   de solo lectura para el proveedor, hay que ampliarlas.
 ========================================================= */
 
 function renderReembolsos(){
@@ -1653,6 +1716,17 @@ function renderReembolsos(){
     const r = npReembolsos[id];
     const estado = estadoDe(r.estado);
 
+    const acciones = estado === "pendiente"
+      ? '<div class="npVencAplicarRow" style="grid-template-columns:1fr;margin-top:10px;">' +
+          '<textarea class="npMiniInput" id="reembRechazoMotivo_' + esc(id) + '" rows="2" ' +
+            'placeholder="Motivo del rechazo (solo si vas a rechazar, mínimo 8 caracteres)"></textarea>' +
+        '</div>' +
+        '<div class="npVencAplicarRow" style="grid-template-columns:1fr 1fr;margin-top:8px;">' +
+          '<button class="npBtn npBtnCyan" onclick="resolverReembolso(\'' + escJS(id) + '\',\'aprobado\')">✓ Aceptar reembolso</button>' +
+          '<button class="npBtn npBtnGhost" onclick="resolverReembolso(\'' + escJS(id) + '\',\'rechazado\')">✕ Rechazar</button>' +
+        '</div>'
+      : '';
+
     return '<div class="npVencGrupo">' +
       '<div class="npVencGrupoHead">' +
         '<div>' +
@@ -1667,14 +1741,59 @@ function renderReembolsos(){
       '<div class="npNotice" style="margin-top:8px;">' +
         '<strong>Motivo del cliente:</strong> ' + esc(r.motivo || "Sin especificar") +
         (estado === "pendiente"
-          ? '<br><br>⏳ El administrador está revisando esta solicitud. Si la aprueba, el monto se descontará de tu saldo.'
+          ? '<br><br>⏳ Revisa el motivo y decide si aceptas o rechazas esta solicitud.'
           : (estado === "aprobado"
-              ? '<br><br>↩️ Reembolso aprobado. El monto ya fue descontado de tu saldo.'
-              : '<br><br>✓ Reembolso rechazado. Tu saldo no se modificó.')) +
-        (r.motivoRechazo ? '<br><span style="color:#ffb8c1;">Nota del admin: ' + esc(r.motivoRechazo) + '</span>' : "") +
+              ? '<br><br>↩️ Reembolso aceptado. El administrador aplicará el ajuste de saldo correspondiente.'
+              : '<br><br>✓ Reembolso rechazado. El cliente verá el motivo que escribiste.')) +
+        (r.motivoRechazo ? '<br><span style="color:#ffb8c1;">Motivo del rechazo: ' + esc(r.motivoRechazo) + '</span>' : "") +
       '</div>' +
+      acciones +
     '</div>';
   }).join("");
+}
+
+async function resolverReembolso(id, nuevoEstado){
+  const r = npReembolsos[id];
+  if (!r || estadoDe(r.estado) !== "pendiente") return;
+
+  const aceptar = nuevoEstado === "aprobado";
+  const inputMotivo = $("reembRechazoMotivo_" + id);
+  const motivoRechazo = inputMotivo ? String(inputMotivo.value || "").trim().slice(0, 380) : "";
+
+  /* Si va a rechazar, también se le pide un motivo mínimo — igual
+     que al cliente cuando solicita el reembolso — para que quede
+     registrado por qué se rechazó. */
+  if (!aceptar && motivoRechazo.length < 8) {
+    avisa("Escribe el motivo del rechazo con un poco más de detalle (mínimo 8 caracteres).");
+    if (inputMotivo) inputMotivo.focus();
+    return;
+  }
+
+  const seguro = await confirmar(
+    aceptar ? "Aceptar reembolso" : "Rechazar reembolso",
+    aceptar
+      ? "Confirmas que el reembolso de " + usd(r.montoUsd) + " a " + (r.clienteNombre || "el cliente") +
+        " procede. El administrador hará el ajuste de saldo correspondiente."
+      : "El reembolso quedará marcado como rechazado y el cliente verá el motivo que escribiste.",
+    aceptar ? "✓" : "✕"
+  );
+  if (!seguro) return;
+
+  const updates = {
+    estado: nuevoEstado,
+    fechaResolucion: Date.now(),
+    resueltoPor: "proveedor"
+  };
+  if (!aceptar) updates.motivoRechazo = motivoRechazo;
+
+  try {
+    await db.ref("reembolsos/" + id).update(updates);
+    ok(aceptar
+      ? "Reembolso aceptado. Queda pendiente el ajuste de saldo por parte del administrador."
+      : "Reembolso rechazado.");
+  } catch (e) {
+    err("No se pudo procesar: " + e.message + " (revisa que las reglas de Firebase permitan esta actualización)");
+  }
 }
 
 /* =========================================================
@@ -2130,6 +2249,7 @@ window.eliminarProducto      = eliminarProducto;
 window.eliminarCuenta        = eliminarCuenta;
 window.cancelarRetiro        = cancelarRetiro;
 window.resolverRenovacion    = resolverRenovacion;
+window.resolverReembolso     = resolverReembolso;
 window.marcarRenovo          = marcarRenovo;
 window.aplicarClaveVencimiento = aplicarClaveVencimiento;
 window.capturarProductoTienda  = capturarProductoTienda;
