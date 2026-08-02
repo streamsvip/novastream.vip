@@ -1,29 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <!--
-    NOVASTREAM.VIP — catalogo.html (v8)
-
-    MODO VISITANTE vs MODO CLIENTE
-    El catálogo es público: cualquiera puede ver los productos.
-    Pero comprar requiere cuenta. El estado se maneja con dos
-    clases en el <body> que pone novastream.js:
-       body.nsInvitado    → sin sesión
-       body.nsAutenticado → con sesión
-    Los elementos marcados con .nsSoloAuth / .nsSoloInvitado
-    se muestran u ocultan según ese estado.
-
-    v8: se agregó la pantalla "Verificando tu sesión..." (#nsBooting),
-    igual en espíritu a la de mis-compras.html y recargas.html. Se
-    oculta solo cuando la sesión Y el catálogo ya están pintados
-    (ver novastream.js → nsIntentarOcultarBooting), para que el
-    saldo/nombre no aparezcan "a medias".
-
-    v7: el CSS del menú de usuario y de los badges de entrega
-    se movió a novastream.css (antes vivía en un <style> inline
-    aquí mismo). Las tarjetas ahora solo muestran el badge de
-    tipo de entrega para que se vean menos cargadas.
-  -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NovaStream · Catálogo</title>
@@ -196,9 +173,19 @@
       </div>
     </div>
 
-    <section class="nsCategorias" id="categoriasBox">
-      <div class="nsCargando">Cargando categorías...</div>
-    </section>
+    <div class="nsCategoriasWrap" id="categoriasWrap">
+      <button type="button" class="nsCatArrow nsCatArrowLeft" id="catArrowLeft" aria-label="Ver categorías anteriores">
+        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </button>
+
+      <section class="nsCategorias" id="categoriasBox">
+        <div class="nsCargando">Cargando categorías...</div>
+      </section>
+
+      <button type="button" class="nsCatArrow nsCatArrowRight" id="catArrowRight" aria-label="Ver más categorías">
+        <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </button>
+    </div>
 
     <div class="nsResultadoInfo" id="resultadoFiltroInfo">Conectando con el catálogo...</div>
 
