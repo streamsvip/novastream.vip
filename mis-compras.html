@@ -1,28 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <!--
-    NOVASTREAM.VIP — mis-compras.html (v4)
-    ✅ CONECTADO A FIREBASE (Auth + Database)
-
-    v4 (esta actualización):
-    - NUEVO: menú de usuario en escritorio (avatar + nombre +
-      saldo + accesos + cerrar sesión), mismo lenguaje visual
-      que el de catalogo.html. Vive dentro de .nsSoloAuth y se
-      muestra cuando el body recibe la clase .nsAutenticado
-      (se agrega desde mis-compras.js una vez que la sesión
-      quedó verificada).
-    - FIX: la pantalla "Cargando tus compras..." ya no se oculta
-      apenas se registran los listeners de Firebase; ahora espera
-      a que el PERFIL (saldo/nombre) Y las COMPRAS ya estén
-      pintados, para que nada aparezca "a medias".
-
-    · Página protegida: sin sesión → login.html
-    · Las compras se leen de compras/{uid} (lectura directa)
-    · Cada acceso se muestra como una fila independiente
-    · La vigencia se calcula: fecha de compra + duración + renovaciones aceptadas
-    · Reembolsos y renovaciones se crean en estado "pendiente"
-  -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NovaStream · Mis compras</title>
@@ -33,7 +11,7 @@
 
   <link rel="icon" type="image/png" href="img/logo.png">
   <link rel="stylesheet" href="novastream.css?v=8">
-  <link rel="stylesheet" href="mis-compras.css?v=4">
+  <link rel="stylesheet" href="mis-compras.css?v=5">
 </head>
 
 <body class="nsBody">
@@ -260,6 +238,7 @@
       <div class="mcConfirmCampo" id="mcConfirmCampo">
         <label for="mcConfirmMotivo">Motivo</label>
         <textarea id="mcConfirmMotivo" rows="3" maxlength="380" placeholder="Explica brevemente el problema..."></textarea>
+        <span class="mcConfirmMotivoError" id="mcConfirmMotivoError">Escribe un poco más de detalle (mínimo 8 caracteres) para poder enviar la solicitud.</span>
       </div>
 
       <div class="mcConfirmActions">
