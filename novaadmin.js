@@ -1,44 +1,23 @@
 /* =========================================================
-   NOVASTREAM.VIP — novaadmin.js (v4)
+   NOVASTREAM.VIP — novaadmin.js (v5)
    Panel Administrador
 
    ─────────────────────────────────────────────────────────
-   ⚠️ CAMBIO IMPORTANTE EN ESTA VERSIÓN
+   NOVEDADES DE ESTA VERSIÓN (v5)
    ─────────────────────────────────────────────────────────
-   Se ELIMINÓ la lista ADMIN_EMAILS. Causaba un bug grave:
-   el JavaScript te dejaba entrar por tu correo, pero las
-   reglas de Firebase solo miran usuarios/{uid}/rol === 'admin'.
-   Resultado: veías el panel pero TODAS las tablas salían
-   vacías, porque cada lectura era rechazada en silencio.
+   1) ORDEN DE CATEGORÍAS: cada categoría tiene un campo "orden"
+      (1, 2, 3...) editable desde este panel con flechas ◀ ▶.
+      Ese orden es exactamente el que se usa en el catálogo
+      público para pintar los botones de izquierda a derecha.
 
-   Ahora el único requisito es el real:
-        usuarios/{tuUid}/rol === "admin"
+   2) MODALES PROFESIONALES: se reemplazaron TODOS los
+      window.confirm()/window.prompt() nativos del navegador
+      por un modal propio (nvaConfirmar / nvaPrompt) con el
+      mismo estilo visual del resto del panel.
 
-   ── PRIMER ADMIN ──
-   Firebase Console → Realtime Database → usuarios/{tuUid}
-   y pon el campo   rol: "admin"
-   (La consola omite las reglas, así que sí te deja.)
-
-   ── MÁS ADMINS ──
-   Desde este panel: Clientes → botón "👑 Admin".
-   Como ya eres admin, las reglas te lo permiten.
-
-   ─────────────────────────────────────────────────────────
-   MODELO DE NEGOCIO
-   ─────────────────────────────────────────────────────────
-   1. El cliente recarga saldo  → usuarios/{uid}/saldoUsd
-   2. El cliente compra         → el 100% del precio va al
-                                  proveedor. Comisión de venta = 0.
-   3. El proveedor pide retiro  → AQUÍ la plataforma cobra 20%.
-                                  Se descuenta el monto COMPLETO del
-                                  saldo del proveedor, se le paga el
-                                  80% neto y el 20% es la ganancia.
-
-   Por eso en el resumen:
-     · "Volumen"  = dinero movido en ventas (no es ganancia).
-     · "Comisión" = 20% de ese volumen → ganancia devengada.
-     · "Comisión cobrada" = 20% de los retiros ya aprobados
-       (lo que efectivamente entró a caja).
+   3) COMPROBANTE EN MODAL: el botón "Ver comprobante" de
+      Recargas ya no abre una pestaña nueva; abre un modal con
+      la imagen del voucher dentro del mismo panel.
    ========================================================= */
 
 /* =========================
@@ -276,7 +255,9 @@ function mostrarToast(texto, esError = false) {
 
   const item = document.createElement("div");
   item.className = "nvaToastItem" + (esError ? " err" : "");
-  item.textContent = texto;
+  item.innerHTML =
+    '<span class="nvaToastIcon">' + (esError ? "✕" : "✓") + '</span>' +
+    '<span class="nvaToastTexto">' + escaparHTML(texto) + '</span>';
 
   stack.appendChild(item);
   requestAnimationFrame(() => item.classList.add("show"));
@@ -299,10 +280,126 @@ function mostrarMensajeEn(id, texto, esError = false) {
 }
 
 /* =========================================================
+   MODAL DE CONFIRMACIÓN / PROMPT PROFESIONAL
+   Reemplaza TODOS los window.confirm() y window.prompt()
+   nativos del navegador por un modal propio, consistente con
+   el resto del panel. Ambas funciones devuelven una Promise:
+     - nvaConfirmar(...)  → resuelve true / false
+     - nvaPrompt(...)     → resuelve string (puede ser "") / null si se cancela
+========================================================= */
+
+function nvaConfirmar(titulo, mensaje, icono) {
+  return new Promise((resolve) => {
+    const ov = document.getElementById("nvaConfirmOverlay");
+    if (!ov) { resolve(window.confirm(titulo + "\n\n" + mensaje)); return; }
+
+    document.getElementById("nvaConfirmIcon").textContent = icono || "?";
+    document.getElementById("nvaConfirmTitle").textContent = titulo;
+    document.getElementById("nvaConfirmMessage").textContent = mensaje;
+
+    const wrap = document.getElementById("nvaConfirmPromptWrap");
+    if (wrap) wrap.style.display = "none";
+
+    const btnOk = document.getElementById("nvaConfirmAccept");
+    const btnNo = document.getElementById("nvaConfirmCancel");
+
+    /* Se clonan los botones para eliminar listeners de usos anteriores */
+    const nOk = btnOk.cloneNode(true);
+    const nNo = btnNo.cloneNode(true);
+    btnOk.parentNode.replaceChild(nOk, btnOk);
+    btnNo.parentNode.replaceChild(nNo, btnNo);
+    nOk.textContent = "Aceptar";
+    nNo.textContent = "Cancelar";
+
+    const cerrar = (r) => { ov.classList.remove("show"); resolve(r); };
+    nOk.addEventListener("click", () => cerrar(true));
+    nNo.addEventListener("click", () => cerrar(false));
+
+    ov.classList.add("show");
+  });
+}
+
+function nvaPrompt(titulo, mensaje, placeholder) {
+  return new Promise((resolve) => {
+    const ov = document.getElementById("nvaConfirmOverlay");
+    if (!ov) { resolve(window.prompt(titulo + "\n" + mensaje, "")); return; }
+
+    document.getElementById("nvaConfirmIcon").textContent = "✎";
+    document.getElementById("nvaConfirmTitle").textContent = titulo;
+    document.getElementById("nvaConfirmMessage").textContent = mensaje;
+
+    const wrap = document.getElementById("nvaConfirmPromptWrap");
+    const input = document.getElementById("nvaConfirmPromptInput");
+    if (wrap) wrap.style.display = "";
+    if (input) { input.value = ""; input.placeholder = placeholder || ""; }
+
+    const btnOk = document.getElementById("nvaConfirmAccept");
+    const btnNo = document.getElementById("nvaConfirmCancel");
+
+    const nOk = btnOk.cloneNode(true);
+    const nNo = btnNo.cloneNode(true);
+    btnOk.parentNode.replaceChild(nOk, btnOk);
+    btnNo.parentNode.replaceChild(nNo, btnNo);
+    nOk.textContent = "Confirmar";
+    nNo.textContent = "Cancelar";
+
+    const cerrar = (r) => { ov.classList.remove("show"); resolve(r); };
+    nOk.addEventListener("click", () => cerrar(input ? input.value.trim() : ""));
+    nNo.addEventListener("click", () => cerrar(null));
+
+    if (input) {
+      input.addEventListener("keydown", function onKey(e) {
+        if (e.key === "Enter") { cerrar(input.value.trim()); input.removeEventListener("keydown", onKey); }
+      });
+    }
+
+    ov.classList.add("show");
+    setTimeout(() => { if (input) input.focus(); }, 60);
+  });
+}
+
+/* =========================================================
+   MODAL DE COMPROBANTE (imagen del voucher)
+   Se abre dentro del mismo panel en vez de navegar a un link.
+========================================================= */
+
+function verComprobante(url) {
+  const modal = document.getElementById("nvaComprobanteModal");
+  const img = document.getElementById("nvaComprobanteImg");
+  const link = document.getElementById("nvaComprobanteAbrirLink");
+  const loader = document.getElementById("nvaComprobanteLoader");
+
+  if (!modal || !img) { window.open(url, "_blank", "noopener"); return; }
+
+  if (loader) loader.style.display = "flex";
+  img.style.display = "none";
+  img.src = url;
+  if (link) link.href = url;
+
+  modal.classList.add("show");
+}
+
+function cerrarComprobante() {
+  const modal = document.getElementById("nvaComprobanteModal");
+  const img = document.getElementById("nvaComprobanteImg");
+  if (modal) modal.classList.remove("show");
+  if (img) img.src = "";
+}
+
+function nvaComprobanteImgLista() {
+  const loader = document.getElementById("nvaComprobanteLoader");
+  const img = document.getElementById("nvaComprobanteImg");
+  if (loader) loader.style.display = "none";
+  if (img) img.style.display = "block";
+}
+
+function nvaComprobanteImgError() {
+  const loader = document.getElementById("nvaComprobanteLoader");
+  if (loader) loader.innerHTML = "⚠️ No se pudo cargar la imagen. Usa «Abrir en pestaña nueva».";
+}
+
+/* =========================================================
    AVISO DE PERMISOS
-   Antes los errores se tragaban en silencio y las tablas
-   quedaban vacías sin explicación. Ahora se muestra un
-   banner con la solución exacta.
 ========================================================= */
 
 function avisarSinPermisos(nodo, error) {
@@ -385,8 +482,6 @@ function setLoading(estado) {
   loginBtn.textContent = estado ? "Ingresando..." : "Iniciar sesión";
 }
 
-/* Verificación REAL: el único criterio válido es el rol en la base.
-   Es exactamente lo mismo que evalúan las reglas de Firebase. */
 async function esAdminAutorizado(user) {
   if (!user) return false;
   try {
@@ -461,8 +556,6 @@ auth.onAuthStateChanged(async (user) => {
   const autorizado = await esAdminAutorizado(user);
 
   if (!autorizado) {
-    /* Se muestra el panel igual, pero con el banner explicativo:
-       así entiendes qué pasa en vez de ver tablas vacías. */
     loginSection.classList.add("hidden");
     panelSection.classList.remove("hidden");
     adminInfo.textContent = user.email + " · SIN PERMISOS";
@@ -704,7 +797,6 @@ function renderDashboard() {
 
   setTxt("topProductoMes", topClave(conteoProductos));
 
-  /* Comisión efectivamente cobrada */
   let comisionCobrada = 0;
   Object.values(comisionesCache || {}).forEach((c) => { comisionCobrada += num(c.comisionUsd); });
 
@@ -838,8 +930,10 @@ function rechazarRecarga(id) {
     .catch((err) => mostrarMensajeEn("recargaMsg", "Error: " + err.message, true));
 }
 
-function eliminarRecarga(id) {
-  if (!confirm("¿Eliminar esta recarga del historial?")) return;
+async function eliminarRecarga(id) {
+  const seguro = await nvaConfirmar("Eliminar recarga", "¿Eliminar esta recarga del historial?", "🗑️");
+  if (!seguro) return;
+
   db.ref("recargas/" + id).remove()
     .then(() => mostrarMensajeEn("recargaMsg", "Recarga eliminada del historial."))
     .catch((err) => mostrarMensajeEn("recargaMsg", "Error: " + err.message, true));
@@ -898,8 +992,10 @@ function renderRecargas() {
     const resuelto = estado === "aprobada" || estado === "rechazada";
     const comp = String(it.comprobanteURL || "").trim();
 
+    /* El comprobante ahora abre un modal con la imagen DENTRO del
+       panel, en vez de navegar a un link nuevo. */
     const compHtml = comp
-      ? `<a class="nvaCompLink" href="${escaparHTML(comp)}" target="_blank" rel="noopener">Ver comprobante</a>`
+      ? `<button type="button" class="nvaCompLink" onclick="verComprobante('${escaparParaJS(comp)}')">🖼️ Ver comprobante</button>`
       : `<span class="nvaCompLink disabled">Sin comprobante</span>`;
 
     const acciones = resuelto
@@ -972,7 +1068,6 @@ function cargarRecargas() {
 
 /* =========================================================
    RETIROS DE PROVEEDORES
-   Aquí la plataforma cobra su comisión.
 ========================================================= */
 
 function copiarAlPortapapeles(texto, btn) {
@@ -996,120 +1091,118 @@ function copiarAlPortapapeles(texto, btn) {
   }
 }
 
-function aprobarRetiro(id) {
-  db.ref("retirosProveedores/" + id).get()
-    .then((snap) => {
-      const item = snap.val();
-      if (!item) throw new Error("La solicitud de retiro no existe.");
+async function aprobarRetiro(id) {
+  try {
+    const snap = await db.ref("retirosProveedores/" + id).get();
+    const item = snap.val();
+    if (!item) throw new Error("La solicitud de retiro no existe.");
 
-      const proveedorId = String(item.proveedorId || "").trim();
-      const monto = redondear(item.montoUsd ?? item.monto);
-      const estado = estadoNorm(item.estado);
+    const proveedorId = String(item.proveedorId || "").trim();
+    const monto = redondear(item.montoUsd ?? item.monto);
+    const estado = estadoNorm(item.estado);
 
-      if (!proveedorId) throw new Error("La solicitud no tiene proveedorId.");
-      if (!monto || monto <= 0) throw new Error("Monto inválido.");
-      if (estado === "aprobado") throw new Error("Este retiro ya fue aprobado.");
-      if (estado === "rechazado") throw new Error("Este retiro ya fue rechazado.");
+    if (!proveedorId) throw new Error("La solicitud no tiene proveedorId.");
+    if (!monto || monto <= 0) throw new Error("Monto inválido.");
+    if (estado === "aprobado") throw new Error("Este retiro ya fue aprobado.");
+    if (estado === "rechazado") throw new Error("Este retiro ya fue rechazado.");
 
-      const comision = item.comisionUsd !== undefined ? redondear(item.comisionUsd) : comisionDe(monto);
-      const neto = item.netoUsd !== undefined ? redondear(item.netoUsd) : redondear(monto - comision);
+    const comision = item.comisionUsd !== undefined ? redondear(item.comisionUsd) : comisionDe(monto);
+    const neto = item.netoUsd !== undefined ? redondear(item.netoUsd) : redondear(monto - comision);
 
-      const confirmar = confirm(
-        "CONFIRMAR PAGO DE RETIRO\n\n" +
-        "Proveedor: " + (item.proveedorNombre || proveedorId) + "\n" +
-        "Método: " + (item.metodo || "-") + "\n" +
-        "Dato de pago: " + (item.datoPago || "-") + "\n\n" +
-        "Solicitado:  " + fmtUsd(monto) + "  (" + fmtPen(monto) + ")\n" +
-        "Comisión " + Math.round(NVA_COMISION_RETIRO * 100) + "%: -" + fmtUsd(comision) + "  (" + fmtPen(comision) + ")\n" +
-        "───────────────────────────\n" +
-        "➜ DEBES TRANSFERIR: " + fmtUsd(neto) + "  (" + fmtPen(neto) + ")\n\n" +
-        "¿Ya realizaste la transferencia por ese monto neto?"
-      );
-      if (!confirmar) throw new Error("Operación cancelada por el administrador.");
+    const confirmado = await nvaConfirmar(
+      "Confirmar pago de retiro",
+      "Proveedor: " + (item.proveedorNombre || proveedorId) + "\n" +
+      "Método: " + (item.metodo || "-") + "\n" +
+      "Dato de pago: " + (item.datoPago || "-") + "\n\n" +
+      "Solicitado:  " + fmtUsd(monto) + "  (" + fmtPen(monto) + ")\n" +
+      "Comisión " + Math.round(NVA_COMISION_RETIRO * 100) + "%: -" + fmtUsd(comision) + "  (" + fmtPen(comision) + ")\n" +
+      "───────────────────────────\n" +
+      "➜ DEBES TRANSFERIR: " + fmtUsd(neto) + "  (" + fmtPen(neto) + ")\n\n" +
+      "¿Ya realizaste la transferencia por ese monto neto?",
+      "🏦"
+    );
+    if (!confirmado) return;
 
-      return db.ref("usuarios/" + proveedorId).get().then((us) => {
-        const prov = us.val();
-        if (!prov) throw new Error("No existe el proveedor en usuarios/" + proveedorId);
+    const us = await db.ref("usuarios/" + proveedorId).get();
+    const prov = us.val();
+    if (!prov) throw new Error("No existe el proveedor en usuarios/" + proveedorId);
 
-        const saldoActual = saldoDe(prov);
-        if (monto > saldoActual + 0.001) {
-          throw new Error("El proveedor solo tiene " + fmtUsd(saldoActual) + " de saldo.");
-        }
+    const saldoActual = saldoDe(prov);
+    if (monto > saldoActual + 0.001) {
+      throw new Error("El proveedor solo tiene " + fmtUsd(saldoActual) + " de saldo.");
+    }
 
-        const ahora = Date.now();
-        const movKey = db.ref("movimientosSaldo/" + proveedorId).push().key;
-        const comKey = db.ref("comisiones").push().key;
+    const ahora = Date.now();
+    const movKey = db.ref("movimientosSaldo/" + proveedorId).push().key;
+    const comKey = db.ref("comisiones").push().key;
 
-        const updates = {};
+    const updates = {};
+    updates["usuarios/" + proveedorId + "/saldoUsd"] = redondear(saldoActual - monto);
 
-        /* Se descuenta el MONTO COMPLETO del saldo del proveedor. */
-        updates["usuarios/" + proveedorId + "/saldoUsd"] = redondear(saldoActual - monto);
+    updates["retirosProveedores/" + id + "/estado"] = "aprobado";
+    updates["retirosProveedores/" + id + "/montoUsd"] = monto;
+    updates["retirosProveedores/" + id + "/comisionUsd"] = comision;
+    updates["retirosProveedores/" + id + "/comisionPorcentaje"] = NVA_COMISION_RETIRO * 100;
+    updates["retirosProveedores/" + id + "/netoUsd"] = neto;
+    updates["retirosProveedores/" + id + "/netoPen"] = redondear(neto * NVA_TIPO_CAMBIO);
+    updates["retirosProveedores/" + id + "/fechaResolucion"] = ahora;
+    updates["retirosProveedores/" + id + "/adminUid"] = auth.currentUser ? auth.currentUser.uid : "";
 
-        updates["retirosProveedores/" + id + "/estado"] = "aprobado";
-        updates["retirosProveedores/" + id + "/montoUsd"] = monto;
-        updates["retirosProveedores/" + id + "/comisionUsd"] = comision;
-        updates["retirosProveedores/" + id + "/comisionPorcentaje"] = NVA_COMISION_RETIRO * 100;
-        updates["retirosProveedores/" + id + "/netoUsd"] = neto;
-        updates["retirosProveedores/" + id + "/netoPen"] = redondear(neto * NVA_TIPO_CAMBIO);
-        updates["retirosProveedores/" + id + "/fechaResolucion"] = ahora;
-        updates["retirosProveedores/" + id + "/adminUid"] = auth.currentUser ? auth.currentUser.uid : "";
+    updates["movimientosSaldo/" + proveedorId + "/" + movKey] = {
+      tipo: "retiro",
+      detalle: "Retiro aprobado · " + (item.metodo || "-") + " · neto " + fmtUsd(neto),
+      montoUsd: monto,
+      signo: "-",
+      fecha: ahora
+    };
 
-        updates["movimientosSaldo/" + proveedorId + "/" + movKey] = {
-          tipo: "retiro",
-          detalle: "Retiro aprobado · " + (item.metodo || "-") + " · neto " + fmtUsd(neto),
-          montoUsd: monto,
-          signo: "-",
-          fecha: ahora
-        };
+    updates["comisiones/" + comKey] = {
+      retiroId: id,
+      proveedorId,
+      proveedorNombre: item.proveedorNombre || nombreUsuario(prov),
+      montoUsd: monto,
+      comisionUsd: comision,
+      comisionPorcentaje: NVA_COMISION_RETIRO * 100,
+      netoUsd: neto,
+      fecha: ahora
+    };
 
-        /* Libro de comisiones: aquí queda registrada la ganancia real */
-        updates["comisiones/" + comKey] = {
-          retiroId: id,
-          proveedorId,
-          proveedorNombre: item.proveedorNombre || nombreUsuario(prov),
-          montoUsd: monto,
-          comisionUsd: comision,
-          comisionPorcentaje: NVA_COMISION_RETIRO * 100,
-          netoUsd: neto,
-          fecha: ahora
-        };
-
-        return db.ref().update(updates);
-      });
-    })
-    .then(() => mostrarToast("✅ Retiro aprobado. Comisión registrada y saldo descontado."))
-    .catch((err) => {
-      if (String(err.message).includes("cancelada")) return;
-      mostrarToast("Error al aprobar retiro: " + err.message, true);
-    });
+    await db.ref().update(updates);
+    mostrarToast("✅ Retiro aprobado. Comisión registrada y saldo descontado.");
+  } catch (err) {
+    mostrarToast("Error al aprobar retiro: " + err.message, true);
+  }
 }
 
-function rechazarRetiro(id) {
-  const motivo = prompt("Motivo del rechazo (se guarda para el proveedor):", "");
+async function rechazarRetiro(id) {
+  const motivo = await nvaPrompt("Rechazar retiro", "Motivo del rechazo (se guarda para el proveedor):", "Ej: datos de pago inválidos");
   if (motivo === null) return;
 
-  db.ref("retirosProveedores/" + id).get()
-    .then((snap) => {
-      const item = snap.val();
-      if (!item) throw new Error("La solicitud no existe.");
+  try {
+    const snap = await db.ref("retirosProveedores/" + id).get();
+    const item = snap.val();
+    if (!item) throw new Error("La solicitud no existe.");
 
-      const estado = estadoNorm(item.estado);
-      if (estado === "aprobado") throw new Error("No puedes rechazar un retiro ya aprobado.");
-      if (estado === "rechazado") throw new Error("Este retiro ya fue rechazado.");
+    const estado = estadoNorm(item.estado);
+    if (estado === "aprobado") throw new Error("No puedes rechazar un retiro ya aprobado.");
+    if (estado === "rechazado") throw new Error("Este retiro ya fue rechazado.");
 
-      return db.ref("retirosProveedores/" + id).update({
-        estado: "rechazado",
-        motivoRechazo: motivo || "Sin especificar",
-        fechaResolucion: Date.now(),
-        adminUid: auth.currentUser ? auth.currentUser.uid : ""
-      });
-    })
-    .then(() => mostrarToast("Retiro rechazado. El saldo del proveedor no se tocó."))
-    .catch((err) => mostrarToast("Error: " + err.message, true));
+    await db.ref("retirosProveedores/" + id).update({
+      estado: "rechazado",
+      motivoRechazo: motivo || "Sin especificar",
+      fechaResolucion: Date.now(),
+      adminUid: auth.currentUser ? auth.currentUser.uid : ""
+    });
+    mostrarToast("Retiro rechazado. El saldo del proveedor no se tocó.");
+  } catch (err) {
+    mostrarToast("Error: " + err.message, true);
+  }
 }
 
-function eliminarRetiro(id) {
-  if (!confirm("¿Eliminar esta solicitud de retiro del historial?")) return;
+async function eliminarRetiro(id) {
+  const seguro = await nvaConfirmar("Eliminar retiro", "¿Eliminar esta solicitud de retiro del historial?", "🗑️");
+  if (!seguro) return;
+
   db.ref("retirosProveedores/" + id).remove()
     .then(() => mostrarToast("Retiro eliminado del historial."))
     .catch((err) => mostrarToast("Error: " + err.message, true));
@@ -1234,120 +1327,120 @@ function cargarComisiones() {
    REEMBOLSOS
 ========================================================= */
 
-function aprobarReembolso(id) {
-  db.ref("reembolsos/" + id).get()
-    .then((snap) => {
-      const item = snap.val();
-      if (!item) throw new Error("La solicitud no existe.");
+async function aprobarReembolso(id) {
+  try {
+    const snap = await db.ref("reembolsos/" + id).get();
+    const item = snap.val();
+    if (!item) throw new Error("La solicitud no existe.");
 
-      const clienteId = String(item.clienteId || item.uidUsuario || "").trim();
-      const proveedorId = String(item.proveedorId || "").trim();
-      const monto = redondear(item.montoUsd ?? item.monto);
-      const estado = estadoNorm(item.estado);
+    const clienteId = String(item.clienteId || item.uidUsuario || "").trim();
+    const proveedorId = String(item.proveedorId || "").trim();
+    const monto = redondear(item.montoUsd ?? item.monto);
+    const estado = estadoNorm(item.estado);
 
-      if (!clienteId) throw new Error("La solicitud no identifica al cliente.");
-      if (!monto || monto <= 0) throw new Error("Monto inválido.");
-      if (estado === "aprobado") throw new Error("Este reembolso ya fue aprobado.");
-      if (estado === "rechazado") throw new Error("Este reembolso ya fue rechazado.");
+    if (!clienteId) throw new Error("La solicitud no identifica al cliente.");
+    if (!monto || monto <= 0) throw new Error("Monto inválido.");
+    if (estado === "aprobado") throw new Error("Este reembolso ya fue aprobado.");
+    if (estado === "rechazado") throw new Error("Este reembolso ya fue rechazado.");
 
-      if (!confirm(
-        "Se devolverán " + fmtUsd(monto) + " al cliente y se descontará el mismo monto al proveedor.\n" +
-        "Si la cuenta entregada no fue usada, volverá al stock.\n\n¿Continuar?"
-      )) throw new Error("Operación cancelada.");
+    const confirmado = await nvaConfirmar(
+      "Aprobar reembolso",
+      "Se devolverán " + fmtUsd(monto) + " al cliente y se descontará el mismo monto al proveedor.\n" +
+      "Si la cuenta entregada no fue usada, volverá al stock.\n\n¿Continuar?",
+      "↩️"
+    );
+    if (!confirmado) return;
 
-      return Promise.all([
-        db.ref("usuarios/" + clienteId).get(),
-        proveedorId ? db.ref("usuarios/" + proveedorId).get() : Promise.resolve(null)
-      ]).then(([cs, ps]) => {
-        const cliente = cs.val();
-        if (!cliente) throw new Error("No existe el cliente.");
+    const [cs, ps] = await Promise.all([
+      db.ref("usuarios/" + clienteId).get(),
+      proveedorId ? db.ref("usuarios/" + proveedorId).get() : Promise.resolve(null)
+    ]);
 
-        const ahora = Date.now();
-        const updates = {};
+    const cliente = cs.val();
+    if (!cliente) throw new Error("No existe el cliente.");
 
-        /* 1. Devolver al cliente */
-        updates["usuarios/" + clienteId + "/saldoUsd"] = redondear(saldoDe(cliente) + monto);
+    const ahora = Date.now();
+    const updates = {};
 
-        const movCli = db.ref("movimientosSaldo/" + clienteId).push().key;
-        updates["movimientosSaldo/" + clienteId + "/" + movCli] = {
-          tipo: "reembolso",
-          detalle: "Reembolso aprobado · " + (item.productoNombre || item.productoId || "producto"),
-          montoUsd: monto, signo: "+", fecha: ahora
-        };
+    updates["usuarios/" + clienteId + "/saldoUsd"] = redondear(saldoDe(cliente) + monto);
 
-        /* 2. Descontar al proveedor que cobró la venta */
-        if (proveedorId && ps && ps.val()) {
-          const prov = ps.val();
-          updates["usuarios/" + proveedorId + "/saldoUsd"] = redondear(Math.max(0, saldoDe(prov) - monto));
+    const movCli = db.ref("movimientosSaldo/" + clienteId).push().key;
+    updates["movimientosSaldo/" + clienteId + "/" + movCli] = {
+      tipo: "reembolso",
+      detalle: "Reembolso aprobado · " + (item.productoNombre || item.productoId || "producto"),
+      montoUsd: monto, signo: "+", fecha: ahora
+    };
 
-          const movProv = db.ref("movimientosSaldo/" + proveedorId).push().key;
-          updates["movimientosSaldo/" + proveedorId + "/" + movProv] = {
-            tipo: "reembolso",
-            detalle: "Reembolso al cliente · " + (item.productoNombre || item.productoId || "producto"),
-            montoUsd: monto, signo: "-", fecha: ahora
-          };
-        }
+    if (proveedorId && ps && ps.val()) {
+      const prov = ps.val();
+      updates["usuarios/" + proveedorId + "/saldoUsd"] = redondear(Math.max(0, saldoDe(prov) - monto));
 
-        /* 3. Devolver la cuenta al stock si se conoce */
-        const productoId = String(item.productoId || "").trim();
-        const cuentaId = String(item.cuentaId || "").trim();
+      const movProv = db.ref("movimientosSaldo/" + proveedorId).push().key;
+      updates["movimientosSaldo/" + proveedorId + "/" + movProv] = {
+        tipo: "reembolso",
+        detalle: "Reembolso al cliente · " + (item.productoNombre || item.productoId || "producto"),
+        montoUsd: monto, signo: "-", fecha: ahora
+      };
+    }
 
-        if (productoId && cuentaId) {
-          const base = "cuentas/" + productoId + "/" + cuentaId + "/";
-          updates[base + "estado"] = "disponible";
-          updates[base + "compradorId"] = null;
-          updates[base + "compradorNombre"] = null;
-          updates[base + "fechaVenta"] = null;
+    const productoId = String(item.productoId || "").trim();
+    const cuentaId = String(item.cuentaId || "").trim();
 
-          const p = productosCache[productoId] || {};
-          if (p.stockIlimitado !== true) {
-            const nuevo = num(stockCache[productoId] ?? p.stock) + 1;
-            updates["stock/" + productoId] = nuevo;
-            updates["productos/" + productoId + "/stock"] = nuevo;
-          }
-        }
+    if (productoId && cuentaId) {
+      const base = "cuentas/" + productoId + "/" + cuentaId + "/";
+      updates[base + "estado"] = "disponible";
+      updates[base + "compradorId"] = null;
+      updates[base + "compradorNombre"] = null;
+      updates[base + "fechaVenta"] = null;
 
-        /* 4. Cerrar la solicitud */
-        updates["reembolsos/" + id + "/estado"] = "aprobado";
-        updates["reembolsos/" + id + "/fechaResolucion"] = ahora;
-        updates["reembolsos/" + id + "/adminUid"] = auth.currentUser ? auth.currentUser.uid : "";
+      const p = productosCache[productoId] || {};
+      if (p.stockIlimitado !== true) {
+        const nuevo = num(stockCache[productoId] ?? p.stock) + 1;
+        updates["stock/" + productoId] = nuevo;
+        updates["productos/" + productoId + "/stock"] = nuevo;
+      }
+    }
 
-        return db.ref().update(updates);
-      });
-    })
-    .then(() => mostrarMensajeEn("reembolsoMsg", "Reembolso aprobado. Saldo devuelto y stock repuesto."))
-    .catch((err) => {
-      if (String(err.message).includes("cancelada")) return;
-      mostrarMensajeEn("reembolsoMsg", "Error: " + err.message, true);
-    });
+    updates["reembolsos/" + id + "/estado"] = "aprobado";
+    updates["reembolsos/" + id + "/fechaResolucion"] = ahora;
+    updates["reembolsos/" + id + "/adminUid"] = auth.currentUser ? auth.currentUser.uid : "";
+
+    await db.ref().update(updates);
+    mostrarMensajeEn("reembolsoMsg", "Reembolso aprobado. Saldo devuelto y stock repuesto.");
+  } catch (err) {
+    mostrarMensajeEn("reembolsoMsg", "Error: " + err.message, true);
+  }
 }
 
-function rechazarReembolso(id) {
-  const motivo = prompt("Motivo del rechazo:", "");
+async function rechazarReembolso(id) {
+  const motivo = await nvaPrompt("Rechazar reembolso", "Motivo del rechazo:", "Ej: fuera del plazo permitido");
   if (motivo === null) return;
 
-  db.ref("reembolsos/" + id).get()
-    .then((snap) => {
-      const item = snap.val();
-      if (!item) throw new Error("La solicitud no existe.");
+  try {
+    const snap = await db.ref("reembolsos/" + id).get();
+    const item = snap.val();
+    if (!item) throw new Error("La solicitud no existe.");
 
-      const estado = estadoNorm(item.estado);
-      if (estado === "aprobado") throw new Error("No puedes rechazar un reembolso ya aprobado.");
-      if (estado === "rechazado") throw new Error("Este reembolso ya fue rechazado.");
+    const estado = estadoNorm(item.estado);
+    if (estado === "aprobado") throw new Error("No puedes rechazar un reembolso ya aprobado.");
+    if (estado === "rechazado") throw new Error("Este reembolso ya fue rechazado.");
 
-      return db.ref("reembolsos/" + id).update({
-        estado: "rechazado",
-        motivoRechazo: motivo || "Sin especificar",
-        fechaResolucion: Date.now(),
-        adminUid: auth.currentUser ? auth.currentUser.uid : ""
-      });
-    })
-    .then(() => mostrarMensajeEn("reembolsoMsg", "Reembolso rechazado."))
-    .catch((err) => mostrarMensajeEn("reembolsoMsg", "Error: " + err.message, true));
+    await db.ref("reembolsos/" + id).update({
+      estado: "rechazado",
+      motivoRechazo: motivo || "Sin especificar",
+      fechaResolucion: Date.now(),
+      adminUid: auth.currentUser ? auth.currentUser.uid : ""
+    });
+    mostrarMensajeEn("reembolsoMsg", "Reembolso rechazado.");
+  } catch (err) {
+    mostrarMensajeEn("reembolsoMsg", "Error: " + err.message, true);
+  }
 }
 
-function eliminarReembolso(id) {
-  if (!confirm("¿Eliminar esta solicitud del historial?")) return;
+async function eliminarReembolso(id) {
+  const seguro = await nvaConfirmar("Eliminar reembolso", "¿Eliminar esta solicitud del historial?", "🗑️");
+  if (!seguro) return;
+
   db.ref("reembolsos/" + id).remove()
     .then(() => mostrarMensajeEn("reembolsoMsg", "Reembolso eliminado."))
     .catch((err) => mostrarMensajeEn("reembolsoMsg", "Error: " + err.message, true));
@@ -1433,7 +1526,7 @@ function cargarReembolsos() {
 }
 
 /* =========================================================
-   CATEGORÍAS
+   CATEGORÍAS (con orden 1, 2, 3... editable)
 ========================================================= */
 
 function comprimirImagenCuadrada(file, lado = 320) {
@@ -1536,6 +1629,9 @@ function limpiarFormCategoria() {
   const nombre = document.getElementById("categoriaNombre");
   if (nombre) nombre.value = "";
 
+  const orden = document.getElementById("categoriaOrden");
+  if (orden) orden.value = "";
+
   const input = document.getElementById("categoriaArchivo");
   if (input) input.value = "";
 }
@@ -1544,6 +1640,7 @@ async function agregarCategoria(event) {
   event.preventDefault();
 
   const nombreInput = document.getElementById("categoriaNombre");
+  const ordenInput = document.getElementById("categoriaOrden");
   const btn = document.getElementById("btnGuardarCategoria");
   const nombre = (nombreInput.value || "").trim();
 
@@ -1565,14 +1662,22 @@ async function agregarCategoria(event) {
     return;
   }
 
+  /* Si el admin no escribe un orden manual, la categoría se agrega
+     al final del listado (posición máxima + 1). */
+  let orden = parseInt(ordenInput && ordenInput.value, 10);
+  if (!orden || orden < 1) {
+    const maxActual = Object.values(categoriasCache || {}).reduce(
+      (max, c) => Math.max(max, num(c.orden)), 0
+    );
+    orden = maxActual + 1;
+  }
+
   if (btn) { btn.disabled = true; btn.textContent = "Guardando..."; }
 
   try {
     const ref = db.ref("categorias").push();
     let urlFinal = categoriaImagenData;
 
-    /* Intentamos Storage. Si las reglas lo bloquean, usamos el
-       dataURL comprimido: pesa poco y el flujo nunca se rompe. */
     if (storage) {
       try {
         const sref = storage.ref("categorias/" + ref.key + ".jpg");
@@ -1587,11 +1692,12 @@ async function agregarCategoria(event) {
       nombre,
       nombreLower: normalizarTexto(nombre),
       imagen: urlFinal,
+      orden: orden,
       fecha: Date.now(),
       creadoPor: auth.currentUser ? auth.currentUser.uid : ""
     });
 
-    mostrarMensajeEn("categoriasMsg", "Categoría “" + nombre + "” agregada correctamente.");
+    mostrarMensajeEn("categoriasMsg", "Categoría “" + nombre + "” agregada en la posición " + orden + ".");
     limpiarFormCategoria();
   } catch (err) {
     mostrarMensajeEn("categoriasMsg", "Error: " + err.message, true);
@@ -1600,9 +1706,16 @@ async function agregarCategoria(event) {
   }
 }
 
-function eliminarCategoria(id) {
+async function eliminarCategoria(id) {
   const cat = categoriasCache[id] || {};
-  if (!confirm("¿Eliminar la categoría “" + (cat.nombre || id) + "”?\n\nLos productos ya publicados no se borran, pero esta plataforma dejará de ofrecerse a los proveedores.")) return;
+
+  const seguro = await nvaConfirmar(
+    "Eliminar categoría",
+    "¿Eliminar la categoría “" + (cat.nombre || id) + "”?\n\n" +
+    "Los productos ya publicados no se borran, pero esta plataforma dejará de ofrecerse a los proveedores.",
+    "🗑️"
+  );
+  if (!seguro) return;
 
   db.ref("categorias/" + id).remove()
     .then(() => {
@@ -1610,6 +1723,44 @@ function eliminarCategoria(id) {
       mostrarMensajeEn("categoriasMsg", "Categoría eliminada.");
     })
     .catch((err) => mostrarMensajeEn("categoriasMsg", "Error: " + err.message, true));
+}
+
+/* Mueve una categoría un puesto a la izquierda (-1) o a la
+   derecha (+1) intercambiando su "orden" con el de la vecina.
+   Si alguna categoría del listado nunca tuvo "orden" asignado,
+   primero se normaliza todo el listado con la posición visual
+   actual para que el intercambio sea siempre consistente. */
+function moverCategoria(id, direccion) {
+  const data = categoriasCache || {};
+  const keys = Object.keys(data).filter((k) => data[k] && typeof data[k] === "object");
+
+  keys.sort((a, b) => {
+    const oa = num(data[a].orden) || 9999;
+    const ob = num(data[b].orden) || 9999;
+    if (oa !== ob) return oa - ob;
+    return normalizarTexto(data[a].nombre).localeCompare(normalizarTexto(data[b].nombre));
+  });
+
+  const idx = keys.indexOf(id);
+  const destino = idx + direccion;
+  if (idx < 0 || destino < 0 || destino >= keys.length) return;
+
+  const updates = {};
+  const faltaOrden = keys.some((k) => !num(data[k].orden));
+
+  if (faltaOrden) {
+    /* Normaliza todo el listado según la posición visual actual */
+    keys.forEach((k, i) => { updates["categorias/" + k + "/orden"] = i + 1; });
+  }
+
+  const otroId = keys[destino];
+  const ordenActual = faltaOrden ? idx + 1 : (num(data[id].orden) || idx + 1);
+  const ordenOtro = faltaOrden ? destino + 1 : (num(data[otroId].orden) || destino + 1);
+
+  updates["categorias/" + id + "/orden"] = ordenOtro;
+  updates["categorias/" + otroId + "/orden"] = ordenActual;
+
+  db.ref().update(updates).catch((e) => mostrarMensajeEn("categoriasMsg", "Error: " + e.message, true));
 }
 
 function renderCategorias() {
@@ -1627,11 +1778,18 @@ function renderCategorias() {
   }
 
   vacio.classList.add("hidden");
-  keys.sort((a, b) => normalizarTexto(data[a].nombre).localeCompare(normalizarTexto(data[b].nombre)));
 
-  grid.innerHTML = keys.map((id) => {
+  keys.sort((a, b) => {
+    const oa = num(data[a].orden) || 9999;
+    const ob = num(data[b].orden) || 9999;
+    if (oa !== ob) return oa - ob;
+    return normalizarTexto(data[a].nombre).localeCompare(normalizarTexto(data[b].nombre));
+  });
+
+  grid.innerHTML = keys.map((id, idx) => {
     const it = data[id] || {};
     const imagen = String(it.imagen || "").trim();
+    const posicion = idx + 1;
 
     const usados = Object.values(productosCache || {}).filter(
       (p) => normalizarTexto(p.plataforma) === normalizarTexto(it.nombre)
@@ -1639,6 +1797,7 @@ function renderCategorias() {
 
     return `
       <div class="nvaCatCard">
+        <div class="nvaCatCardOrden" title="Posición ${posicion} en el catálogo (de izquierda a derecha)">${posicion}</div>
         <button type="button" class="nvaCatCardDel" title="Eliminar" onclick="eliminarCategoria('${escaparParaJS(id)}')">✕</button>
         <div class="nvaCatCardAvatar">
           ${imagen
@@ -1647,6 +1806,11 @@ function renderCategorias() {
         </div>
         <div class="nvaCatCardName">${escaparHTML(textoSeguro(it.nombre, "Sin nombre"))}</div>
         <div class="nvaCatCardMeta">${usados} producto${usados === 1 ? "" : "s"}</div>
+        <div class="nvaCatCardMoveRow">
+          <button type="button" class="nvaCatMoveBtn" title="Mover a la izquierda" ${idx === 0 ? "disabled" : ""} onclick="moverCategoria('${escaparParaJS(id)}', -1)">◀</button>
+          <span class="nvaCatMoveLabel">Orden</span>
+          <button type="button" class="nvaCatMoveBtn" title="Mover a la derecha" ${idx === keys.length - 1 ? "disabled" : ""} onclick="moverCategoria('${escaparParaJS(id)}', 1)">▶</button>
+        </div>
       </div>`;
   }).join("");
 }
@@ -1672,16 +1836,17 @@ function toggleProductoActivo(productoId, estadoActual) {
     .catch((err) => mostrarMensajeEn("stockMsg", "Error: " + err.message, true));
 }
 
-function eliminarProductoModeracion(productoId) {
+async function eliminarProductoModeracion(productoId) {
   const p = productosCache[productoId] || {};
 
-  if (!confirm(
-    "MODERACIÓN · Eliminar producto\n\n" +
-    "“" + (p.nombre || productoId) + "”\n" +
-    "Proveedor: " + (p.proveedorNombre || "-") + "\n\n" +
-    "Se eliminará el producto y sus cuentas DISPONIBLES.\n" +
-    "Las ventas ya realizadas se conservan en el historial.\n\n¿Continuar?"
-  )) return;
+  const seguro = await nvaConfirmar(
+    "Eliminar producto (moderación)",
+    "“" + (p.nombre || productoId) + "”\nProveedor: " + (p.proveedorNombre || "-") +
+    "\n\nSe eliminará el producto y sus cuentas DISPONIBLES.\n" +
+    "Las ventas ya realizadas se conservan en el historial.\n\n¿Continuar?",
+    "🗑️"
+  );
+  if (!seguro) return;
 
   const updates = {};
   updates["productos/" + productoId] = null;
@@ -1846,9 +2011,6 @@ function cargarStock() {
   }, (err) => { stockCache = {}; renderStock(); console.error("stock:", err.message); });
 }
 
-/* Cuentas: un listener por producto.
-   Antes se leía /cuentas completo, lo que es pesado y trae de
-   golpe credenciales que no se necesitan todas a la vez. */
 function sincronizarCuentas() {
   const ids = Object.keys(productosCache);
 
@@ -1868,7 +2030,6 @@ function sincronizarCuentas() {
   });
 }
 
-/* Compatibilidad con el botón del HTML */
 function cargarCuentas() { sincronizarCuentas(); }
 
 /* =========================================================
@@ -1889,8 +2050,10 @@ function nombreClienteVenta(v = {}) {
   return "-";
 }
 
-function eliminarVenta(id) {
-  if (!confirm("¿Eliminar esta venta del historial?\n\nOJO: no revierte el saldo del proveedor ni el stock.")) return;
+async function eliminarVenta(id) {
+  const seguro = await nvaConfirmar("Eliminar venta", "¿Eliminar esta venta del historial?\n\nOJO: no revierte el saldo del proveedor ni el stock.", "🗑️");
+  if (!seguro) return;
+
   db.ref("ventas/" + id).remove()
     .then(() => mostrarToast("Venta eliminada del historial."))
     .catch((err) => mostrarToast("Error: " + err.message, true));
@@ -2007,7 +2170,7 @@ function cargarVentas() {
    CLIENTES
 ========================================================= */
 
-function guardarSaldoUsuario(uid) {
+async function guardarSaldoUsuario(uid) {
   const input = document.getElementById("saldoUser_" + safeDomKey(uid));
   if (!input) return;
 
@@ -2021,66 +2184,70 @@ function guardarSaldoUsuario(uid) {
 
   const nuevo = redondear(valor);
 
-  db.ref("usuarios/" + uid).get()
-    .then((snap) => {
-      const u = snap.val();
-      if (!u) throw new Error("El usuario no existe.");
+  try {
+    const snap = await db.ref("usuarios/" + uid).get();
+    const u = snap.val();
+    if (!u) throw new Error("El usuario no existe.");
 
-      const anterior = saldoDe(u);
-      const diferencia = redondear(nuevo - anterior);
+    const anterior = saldoDe(u);
+    const diferencia = redondear(nuevo - anterior);
 
-      if (Math.abs(diferencia) < 0.005) throw new Error("SIN_CAMBIOS");
+    if (Math.abs(diferencia) < 0.005) { mostrarToast("El saldo ya tenía ese valor."); return; }
 
-      if (!confirm(
-        "AJUSTE MANUAL DE SALDO\n\n" +
-        "Usuario: " + nombreUsuario(u) + "\n" +
-        "Saldo actual: " + fmtUsd(anterior) + "\n" +
-        "Nuevo saldo:  " + fmtUsd(nuevo) + "\n" +
-        "───────────────────────\n" +
-        (diferencia > 0 ? "➜ SE SUMAN " : "➜ SE RESTAN ") + fmtUsd(Math.abs(diferencia)) + "\n\n" +
-        "Este movimiento queda registrado en el historial del usuario. ¿Continuar?"
-      )) throw new Error("CANCELADO");
+    const confirmado = await nvaConfirmar(
+      "Ajuste manual de saldo",
+      "Usuario: " + nombreUsuario(u) + "\n" +
+      "Saldo actual: " + fmtUsd(anterior) + "\n" +
+      "Nuevo saldo:  " + fmtUsd(nuevo) + "\n" +
+      "───────────────────────\n" +
+      (diferencia > 0 ? "➜ SE SUMAN " : "➜ SE RESTAN ") + fmtUsd(Math.abs(diferencia)) + "\n\n" +
+      "Este movimiento queda registrado en el historial del usuario. ¿Continuar?",
+      "💰"
+    );
+    if (!confirmado) return;
 
-      const ahora = Date.now();
-      const movKey = db.ref("movimientosSaldo/" + uid).push().key;
+    const ahora = Date.now();
+    const movKey = db.ref("movimientosSaldo/" + uid).push().key;
 
-      const updates = {};
-      updates["usuarios/" + uid + "/saldoUsd"] = nuevo;
-      updates["movimientosSaldo/" + uid + "/" + movKey] = {
-        tipo: "ajuste",
-        detalle: "Ajuste manual del administrador",
-        montoUsd: redondear(Math.abs(diferencia)),
-        signo: diferencia > 0 ? "+" : "-",
-        fecha: ahora,
-        adminUid: auth.currentUser ? auth.currentUser.uid : ""
-      };
+    const updates = {};
+    updates["usuarios/" + uid + "/saldoUsd"] = nuevo;
+    updates["movimientosSaldo/" + uid + "/" + movKey] = {
+      tipo: "ajuste",
+      detalle: "Ajuste manual del administrador",
+      montoUsd: redondear(Math.abs(diferencia)),
+      signo: diferencia > 0 ? "+" : "-",
+      fecha: ahora,
+      adminUid: auth.currentUser ? auth.currentUser.uid : ""
+    };
 
-      return db.ref().update(updates);
-    })
-    .then(() => mostrarToast("Saldo actualizado a " + fmtUsd(nuevo) + "."))
-    .catch((err) => {
-      if (err.message === "CANCELADO") return;
-      if (err.message === "SIN_CAMBIOS") { mostrarToast("El saldo ya tenía ese valor."); return; }
-      mostrarToast("No se pudo actualizar el saldo: " + err.message, true);
-    });
+    await db.ref().update(updates);
+    mostrarToast("Saldo actualizado a " + fmtUsd(nuevo) + ".");
+  } catch (err) {
+    mostrarToast("No se pudo actualizar el saldo: " + err.message, true);
+  }
 }
 
-function toggleUsuarioEstado(uid, nuevoEstado) {
+async function toggleUsuarioEstado(uid, nuevoEstado) {
   const u = usuariosCache[uid] || {};
   const bloquear = nuevoEstado === "bloqueado";
 
-  if (bloquear && !confirm(
-    "¿Bloquear a " + nombreUsuario(u) + "?\n\n" +
-    "Su sesión se cerrará automáticamente y no podrá comprar ni ingresar " +
-    "hasta que lo desbloquees. Su saldo se conserva intacto."
-  )) return;
+  if (bloquear) {
+    const seguro = await nvaConfirmar(
+      "Bloquear usuario",
+      "¿Bloquear a " + nombreUsuario(u) + "?\n\n" +
+      "Su sesión se cerrará automáticamente y no podrá comprar ni ingresar " +
+      "hasta que lo desbloquees. Su saldo se conserva intacto.",
+      "🚫"
+    );
+    if (!seguro) return;
+  }
 
   db.ref("usuarios/" + uid + "/estado").set(nuevoEstado)
     .then(() => mostrarToast(bloquear ? "Usuario bloqueado." : "Usuario reactivado."))
     .catch((err) => mostrarToast("No se pudo cambiar el estado: " + err.message, true));
 }
 
-function toggleRolProveedor(uid, esProveedorActual) {
+async function toggleRolProveedor(uid, esProveedorActual) {
   const u = usuariosCache[uid] || {};
   const nuevoRol = esProveedorActual ? "cliente" : "proveedor";
 
@@ -2097,13 +2264,12 @@ function toggleRolProveedor(uid, esProveedorActual) {
             "cargar stock y solicitar retiros (comisión " + Math.round(NVA_COMISION_RETIRO * 100) + "%).";
   }
 
-  if (!confirm(aviso)) return;
+  const seguro = await nvaConfirmar(esProveedorActual ? "Quitar rol de proveedor" : "Convertir en proveedor", aviso, "🛍️");
+  if (!seguro) return;
 
   const updates = {};
   updates["usuarios/" + uid + "/rol"] = nuevoRol;
 
-  /* Al ascender creamos su ficha pública para que el catálogo
-     ya pueda mostrar su nombre y su WhatsApp de soporte. */
   if (nuevoRol === "proveedor") {
     updates["proveedoresPublicos/" + uid + "/nombre"] = nombreUsuario(u);
     updates["proveedoresPublicos/" + uid + "/correo"] = u.correo || "";
@@ -2353,28 +2519,28 @@ function cargarProveedoresPublicos() {
 
 /* =========================================================
    ADMINISTRADORES
-   Como ya eres admin, las reglas te permiten cambiar el rol
-   de otros usuarios. Así creas admins sin tocar la consola.
 ========================================================= */
 
-function hacerAdmin(uid) {
+async function hacerAdmin(uid) {
   const u = usuariosCache[uid] || {};
 
-  if (!confirm(
-    "⚠️ CONVERTIR EN ADMINISTRADOR\n\n" +
+  const seguro = await nvaConfirmar(
+    "Convertir en administrador",
     "Usuario: " + nombreUsuario(u) + "\n" +
     "Correo: " + (u.correo || "-") + "\n\n" +
     "Tendrá acceso TOTAL: podrá aprobar recargas y retiros, ajustar\n" +
     "saldos, eliminar productos y crear otros administradores.\n\n" +
-    "Solo hazlo con alguien de absoluta confianza.\n\n¿Continuar?"
-  )) return;
+    "Solo hazlo con alguien de absoluta confianza.\n\n¿Continuar?",
+    "👑"
+  );
+  if (!seguro) return;
 
   db.ref("usuarios/" + uid + "/rol").set("admin")
     .then(() => mostrarToast("✅ " + nombreUsuario(u) + " ahora es administrador."))
     .catch((e) => mostrarToast("No se pudo cambiar el rol: " + e.message, true));
 }
 
-function quitarAdmin(uid) {
+async function quitarAdmin(uid) {
   const yo = auth.currentUser ? auth.currentUser.uid : "";
 
   if (uid === yo) {
@@ -2383,7 +2549,13 @@ function quitarAdmin(uid) {
   }
 
   const u = usuariosCache[uid] || {};
-  if (!confirm("¿Quitar el rol de administrador a " + nombreUsuario(u) + "?\n\nVolverá a ser cliente.")) return;
+
+  const seguro = await nvaConfirmar(
+    "Quitar administrador",
+    "¿Quitar el rol de administrador a " + nombreUsuario(u) + "?\n\nVolverá a ser cliente.",
+    "👑"
+  );
+  if (!seguro) return;
 
   db.ref("usuarios/" + uid + "/rol").set("cliente")
     .then(() => mostrarToast("Rol de administrador retirado."))
@@ -2439,14 +2611,16 @@ function renderAdmins() {
    VACIAR NODOS
 ========================================================= */
 
-function vaciarNodoConfirmado(path, aviso) {
+async function vaciarNodoConfirmado(path, aviso) {
   if (!path) return;
 
-  if (!confirm(
-    aviso + "\n\n" +
-    "⚠ Esta acción NO se puede deshacer y no revierte saldos ni stock.\n" +
-    "Solo borra el historial de esta tabla.\n\n¿Continuar?"
-  )) return;
+  const seguro = await nvaConfirmar(
+    "Vaciar historial",
+    aviso + "\n\n⚠ Esta acción NO se puede deshacer y no revierte saldos ni stock.\n" +
+    "Solo borra el historial de esta tabla.\n\n¿Continuar?",
+    "🗑️"
+  );
+  if (!seguro) return;
 
   db.ref(path).remove()
     .then(() => {
@@ -2489,7 +2663,12 @@ function vaciarNodoConfirmado(path, aviso) {
 ========================================================= */
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") cerrarSidebar();
+  if (e.key === "Escape") {
+    cerrarSidebar();
+    cerrarComprobante();
+    const ovC = document.getElementById("nvaConfirmOverlay");
+    if (ovC) ovC.classList.remove("show");
+  }
 });
 
 /* =========================================================
@@ -2503,5 +2682,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const hash = (window.location.hash || "").replace("#", "");
   if (hash && document.getElementById(hash)) {
     setTimeout(() => irASeccion(hash), 300);
+  }
+
+  const compModal = document.getElementById("nvaComprobanteModal");
+  if (compModal) {
+    compModal.addEventListener("mousedown", (e) => { if (e.target === compModal) cerrarComprobante(); });
+  }
+
+  const confOverlay = document.getElementById("nvaConfirmOverlay");
+  if (confOverlay) {
+    confOverlay.addEventListener("mousedown", (e) => { if (e.target === confOverlay) confOverlay.classList.remove("show"); });
   }
 });
