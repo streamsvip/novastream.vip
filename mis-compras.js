@@ -702,7 +702,15 @@ function abrirConfirm(opts){
 
   const campo = mcEl("mcConfirmCampo");
   campo.style.display = opts.pedirMotivo ? "" : "none";
-  mcEl("mcConfirmMotivo").value = "";
+
+  /* ⭐ FIX: se limpia también el estado de error de intentos
+     anteriores, para que el modal se vea "fresco" cada vez que
+     se abre (por ejemplo, al reintentar un reembolso). */
+  const motivoInput = mcEl("mcConfirmMotivo");
+  motivoInput.value = "";
+  motivoInput.classList.remove("error");
+  const motivoErr = mcEl("mcConfirmMotivoError");
+  if (motivoErr) motivoErr.classList.remove("show");
 
   mcAccionPendiente = opts.accion || null;
   mcEl("mcConfirm").classList.add("show");
@@ -855,6 +863,9 @@ function pedirReembolsoDesdeFila(k){
 }
 
 async function ejecutarReembolso(f, motivo){
+  /* Red de seguridad: el click de "Aceptar" ya valida el largo del
+     motivo antes de llegar aquí (ver listener de mcConfirmAceptar),
+     así que en el flujo normal esto nunca debería dispararse. */
   if (!motivo || motivo.trim().length < 8){
     toast("Explica el motivo con un poco más de detalle (mínimo 8 caracteres).");
     return;
@@ -1044,13 +1055,40 @@ document.addEventListener("DOMContentLoaded", () => {
 
   mcEl("mcConfirmAceptar").addEventListener("click", async () => {
     const a = mcAccionPendiente;
-    const motivo = mcEl("mcConfirmMotivo").value;
+    const motivoInput = mcEl("mcConfirmMotivo");
+    const motivo = motivoInput ? motivoInput.value : "";
+
+    /* ⭐ FIX: antes esto cerraba el modal SIEMPRE y recién después
+       ejecutarReembolso() revisaba el largo del motivo, mostrando
+       un toast sin ninguna forma de volver a escribir. Ahora se
+       valida ANTES de cerrar: si el motivo es muy corto, el modal
+       se queda abierto, se marca el campo en rojo y el cliente
+       puede seguir escribiendo en el mismo lugar. */
+    if (a && a.tipo === "reembolso" && motivo.trim().length < 8){
+      if (motivoInput) motivoInput.classList.add("error");
+      const motivoErr = mcEl("mcConfirmMotivoError");
+      if (motivoErr) motivoErr.classList.add("show");
+      if (motivoInput) motivoInput.focus();
+      return;
+    }
+
     cerrarConfirm();
     if (!a) return;
 
     if (a.tipo === "renovar")   await ejecutarRenovacion(a.fila);
     if (a.tipo === "reembolso") await ejecutarReembolso(a.fila, motivo);
   });
+
+  /* Al escribir, se quita el estado de error para que el cliente
+     vea que su corrección ya cuenta. */
+  const mcMotivoInput = mcEl("mcConfirmMotivo");
+  if (mcMotivoInput){
+    mcMotivoInput.addEventListener("input", function(){
+      this.classList.remove("error");
+      const motivoErr = mcEl("mcConfirmMotivoError");
+      if (motivoErr) motivoErr.classList.remove("show");
+    });
+  }
 
   document.addEventListener("keydown", e => {
     if (e.key === "Escape"){
