@@ -498,6 +498,7 @@ function plantillaTarjetas(lista){
     const k = claveFila(f);
     const rn = puedeRenovar(f, e);
     const re = puedeReembolsar(f);
+    const yaReembolsado = f.reembolso === "aprobado";   /* ⭐ NUEVO */
 
     return '<div class="mcCard ' + e + '">' +
       '<div class="mcCardTop">' +
@@ -521,7 +522,7 @@ function plantillaTarjetas(lista){
           '<span class="mcTiempoValor ' + e + '" data-expira="' + f.fechaExpira + '">' + esc(tiempoRestante(f.fechaExpira)) + '</span>' +
         '</div>' +
         '<div class="mcCardBtns">' +
-          '<button type="button" class="mcBtnVer" data-k="' + esc(k) + '">👁 Ver cuenta</button>' +
+          '<button type="button" class="mcBtnVer" data-k="' + esc(k) + '"' + (yaReembolsado ? " disabled" : "") + '>' + (yaReembolsado ? "🚫 Reembolsado" : "👁 Ver cuenta") + '</button>' +
           '<button type="button" class="mcBtnRenovar ' + (rn ? "activo" : "") + '" data-k="' + esc(k) + '" ' + (rn ? "" : "disabled") + '>🔄 Renovar</button>' +
           '<button type="button" class="mcBtnSoporte" data-k="' + esc(k) + '" title="Soporte">🎧</button>' +
           '<button type="button" class="mcBtnSoporte mcBtnReembolsoFila" data-k="' + esc(k) + '" title="Reembolso"' + (re ? "" : " disabled") + '>↩️</button>' +
@@ -530,13 +531,13 @@ function plantillaTarjetas(lista){
     '</div>';
   }).join("");
 }
-
 function plantillaCompacta(lista){
   const filas = lista.map(f => {
     const e = obtenerEstado(f);
     const k = claveFila(f);
     const rn = puedeRenovar(f, e);
     const re = puedeReembolsar(f);
+    const yaReembolsado = f.reembolso === "aprobado";   /* ⭐ NUEVO */
 
     return '<div class="mcCompactRow ' + e + '">' +
       '<div class="mcCompactServicio">' +
@@ -552,7 +553,7 @@ function plantillaCompacta(lista){
       '<div class="mcCompactCell"><strong>' + esc(fechaCorta(f.fechaExpira)) + '</strong></div>' +
       '<div class="mcCompactCell"><span class="mcCompactTiempo ' + e + '" data-expira="' + f.fechaExpira + '">' + esc(tiempoRestante(f.fechaExpira)) + '</span></div>' +
       '<div class="mcCompactAcciones">' +
-        '<button type="button" class="mcBtnVer" data-k="' + esc(k) + '">👁 Ver</button>' +
+        '<button type="button" class="mcBtnVer" data-k="' + esc(k) + '"' + (yaReembolsado ? " disabled" : "") + '>' + (yaReembolsado ? "🚫 Reemb." : "👁 Ver") + '</button>' +
         '<button type="button" class="mcBtnRenovar ' + (rn ? "activo" : "") + '" data-k="' + esc(k) + '" ' + (rn ? "" : "disabled") + '>🔄 Renovar</button>' +
         '<button type="button" class="mcBtnSoporte" data-k="' + esc(k) + '" title="Soporte">🎧</button>' +
         '<button type="button" class="mcBtnSoporte mcBtnReembolsoFila" data-k="' + esc(k) + '" title="Reembolso"' + (re ? "" : " disabled") + '>↩️</button>' +
@@ -584,6 +585,12 @@ function actualizarContadores(){
 function abrirModal(k){
   const f = buscarFila(k);
   if (!f) return;
+
+  /* ⭐ NUEVO: si ya fue reembolsado, no se muestra la cuenta */
+  if (f.reembolso === "aprobado"){
+    toast("Este acceso ya fue reembolsado y ya no está disponible.");
+    return;
+  }
 
   mcFilaModal = f;
   const e = obtenerEstado(f);
