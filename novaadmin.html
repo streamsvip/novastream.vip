@@ -645,6 +645,30 @@
             <span class="nvaCardHint">Saldo en USD, bloqueos y ascenso a proveedor</span>
           </div>
           <div class="nvaCardBody">
+
+            <div class="nvaStatsRow">
+              <div class="nvaStat">
+                <span class="nvaStatLabel">Clientes registrados</span>
+                <span class="nvaStatValue" id="usuariosTotalCount">0</span>
+                <span class="nvaStatSub">Total en la base de datos</span>
+              </div>
+              <div class="nvaStat accentGreen">
+                <span class="nvaStatLabel">Activos</span>
+                <span class="nvaStatValue" id="usuariosActivosCount">0</span>
+                <span class="nvaStatSub">Pueden comprar e ingresar</span>
+              </div>
+              <div class="nvaStat accentOrange">
+                <span class="nvaStatLabel">Bloqueados</span>
+                <span class="nvaStatValue" id="usuariosBloqueadosCount">0</span>
+                <span class="nvaStatSub">Sin acceso al catálogo</span>
+              </div>
+              <div class="nvaStat accentViolet">
+                <span class="nvaStatLabel">Saldo total de clientes</span>
+                <span class="nvaStatValue" id="usuariosSaldoTotal">$0.00</span>
+                <span class="nvaStatSub" id="usuariosSaldoTotalPen">≈ S/ 0.00 · en manos de clientes</span>
+              </div>
+            </div>
+
             <div class="nvaSearch">
               <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
               <input type="text" id="buscarUsuarios" placeholder="Buscar por nombre, @usuario, correo o UID...">
