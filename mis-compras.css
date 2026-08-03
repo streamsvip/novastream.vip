@@ -722,3 +722,18 @@
   #mcBtnGuardarCliente.mcBtnCopiar{ display:none; }
 
   .nsSaldoValorPen{ display:block; font-size:10px; color:var(--text-faint); font-weight:700; }
+  /* ⭐ NUEVO: estado deshabilitado para "Ver cuenta" cuando el
+   acceso ya fue reembolsado (aprobado). Antes solo existía este
+   estilo para .mcBtnSoporte, y .mcBtnVer se quedaba con su
+   apariencia normal aunque tuviera el atributo disabled. */
+.mcBtnVer:disabled{
+  opacity:.45;
+  cursor:not-allowed;
+  background:var(--panel-2);
+  color:var(--text-faint);
+}
+.mcBtnVer:disabled:hover{
+  background:var(--panel-2);
+  color:var(--text-faint);
+  border-color:var(--line);
+}
