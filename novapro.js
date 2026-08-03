@@ -1711,42 +1711,87 @@ async function resolverReembolso(id, nuevoEstado){
   const inputMotivo = $("reembRechazoMotivo_" + id);
   const motivoRechazo = inputMotivo ? String(inputMotivo.value || "").trim().slice(0, 380) : "";
 
-  /* Si va a rechazar, también se le pide un motivo mínimo — igual
-     que al cliente cuando solicita el reembolso — para que quede
-     registrado por qué se rechazó. */
   if (!aceptar && motivoRechazo.length < 8) {
     avisa("Escribe el motivo del rechazo con un poco más de detalle (mínimo 8 caracteres).");
     if (inputMotivo) inputMotivo.focus();
     return;
   }
 
+  const monto = red(num(r.montoUsd));
+
+  /* ⭐ NUEVO: si va a aceptar, verificamos saldo REAL suficiente */
+  if (aceptar) {
+    let saldoReal = 0;
+    try {
+      const s = await db.ref("usuarios/" + npUid + "/saldoUsd").get();
+      saldoReal = num(s.val());
+    } catch (e) { err("No se pudo verificar tu saldo."); return; }
+
+    if (saldoReal < monto) {
+      avisa("Tu saldo actual (" + usd(saldoReal) + ") no alcanza para cubrir este reembolso de " + usd(monto) + ".");
+      return;
+    }
+  }
+
   const seguro = await confirmar(
     aceptar ? "Aceptar reembolso" : "Rechazar reembolso",
     aceptar
-      ? "Confirmas que el reembolso de " + usd(r.montoUsd) + " a " + (r.clienteNombre || "el cliente") +
-        " procede. El administrador hará el ajuste de saldo correspondiente."
+      ? "Se descontará " + usd(monto) + " de tu saldo y se le devolverá a " + (r.clienteNombre || "el cliente") + ". Esta acción no se puede deshacer."
       : "El reembolso quedará marcado como rechazado y el cliente verá el motivo que escribiste.",
     aceptar ? "✓" : "✕"
   );
   if (!seguro) return;
 
-  const updates = {
-    estado: nuevoEstado,
-    fechaResolucion: Date.now(),
-    resueltoPor: "proveedor"
-  };
-  if (!aceptar) updates.motivoRechazo = motivoRechazo;
+  const ahora = Date.now();
+  const updates = {};
+
+  updates["reembolsos/" + id + "/estado"] = nuevoEstado;
+  updates["reembolsos/" + id + "/fechaResolucion"] = ahora;
+  updates["reembolsos/" + id + "/resueltoPor"] = "proveedor";
+  if (!aceptar) updates["reembolsos/" + id + "/motivoRechazo"] = motivoRechazo;
+
+  if (aceptar) {
+    /* 1) Descuento en MI propio saldo (self-write, siempre permitido) */
+    const movProvKey = db.ref("movimientosSaldo/" + npUid).push().key;
+    updates["usuarios/" + npUid + "/saldoUsd"] = red(npPerfil.saldoUsd - monto);
+    updates["movimientosSaldo/" + npUid + "/" + movProvKey] = {
+      tipo: "reembolso",
+      detalle: "Reembolso · " + (r.productoNombre || "producto") + " · " + (r.clienteNombre || "cliente"),
+      montoUsd: monto,
+      signo: "-",
+      fecha: ahora
+    };
+  }
 
   try {
-    await db.ref("reembolsos/" + id).update(updates);
+    await db.ref().update(updates);
+
+    if (aceptar && r.clienteId) {
+      /* 2) Acredito al cliente (permitido por regla: proveedor -> cliente, incremento) */
+      try {
+        await db.ref("usuarios/" + r.clienteId + "/saldoUsd").transaction(a => red(num(a) + monto));
+
+        const movCliKey = db.ref("movimientosSaldo/" + r.clienteId).push().key;
+        await db.ref("movimientosSaldo/" + r.clienteId + "/" + movCliKey).set({
+          tipo: "reembolso",
+          detalle: "Reembolso · " + (r.productoNombre || "producto"),
+          montoUsd: monto,
+          signo: "+",
+          fecha: Date.now()
+        });
+      } catch (e) {
+        console.error("No se pudo acreditar al cliente:", e);
+        avisa("El reembolso se descontó de tu saldo, pero no se pudo acreditar al cliente automáticamente. Contacta a administración.");
+      }
+    }
+
     ok(aceptar
-      ? "Reembolso aceptado. Queda pendiente el ajuste de saldo por parte del administrador."
+      ? "Reembolso aceptado. Se descontaron " + usd(monto) + " de tu saldo y se devolvieron al cliente."
       : "Reembolso rechazado.");
   } catch (e) {
     err("No se pudo procesar: " + e.message + " (revisa que las reglas de Firebase permitan esta actualización)");
   }
 }
-
 /* =========================================================
    RENOVACIONES
 ========================================================= */
