@@ -1,23 +1,14 @@
 /* =========================================================
-   NOVASTREAM.VIP — novaadmin.js (v5)
+   NOVASTREAM.VIP — novaadmin.js (v6)
    Panel Administrador
 
    ─────────────────────────────────────────────────────────
-   NOVEDADES DE ESTA VERSIÓN (v5)
+   NOVEDADES DE ESTA VERSIÓN (v6)
    ─────────────────────────────────────────────────────────
-   1) ORDEN DE CATEGORÍAS: cada categoría tiene un campo "orden"
-      (1, 2, 3...) editable desde este panel con flechas ◀ ▶.
-      Ese orden es exactamente el que se usa en el catálogo
-      público para pintar los botones de izquierda a derecha.
-
-   2) MODALES PROFESIONALES: se reemplazaron TODOS los
-      window.confirm()/window.prompt() nativos del navegador
-      por un modal propio (nvaConfirmar / nvaPrompt) con el
-      mismo estilo visual del resto del panel.
-
-   3) COMPROBANTE EN MODAL: el botón "Ver comprobante" de
-      Recargas ya no abre una pestaña nueva; abre un modal con
-      la imagen del voucher dentro del mismo panel.
+   1) Estadísticas visuales en la sección Clientes: total de
+      clientes registrados, activos, bloqueados y saldo total
+      en su poder — con la misma tarjeta de stats que ya se usa
+      en Recargas / Retiros / Ventas.
    ========================================================= */
 
 /* =========================
@@ -2305,9 +2296,26 @@ function renderUsuarios() {
 
   const data = usuariosCache || {};
 
-  let lista = Object.keys(data)
+  let listaCompleta = Object.keys(data)
     .map((id) => ({ id, u: data[id] || {} }))
     .filter(({ u }) => !esProveedor(u) && !esAdminUser(u));
+
+  /* ---- Estadísticas de la sección Clientes (siempre sobre el
+     total real, sin aplicar el buscador, para que el número no
+     "salte" al escribir en el filtro) ---- */
+  let activos = 0, bloqueados = 0, saldoTotal = 0;
+  listaCompleta.forEach(({ u }) => {
+    const est = String(u.estado || "activo").toLowerCase();
+    if (est === "bloqueado") bloqueados++; else activos++;
+    saldoTotal += saldoDe(u);
+  });
+
+  setTxt("usuariosTotalCount", String(listaCompleta.length));
+  setTxt("usuariosActivosCount", String(activos));
+  setTxt("usuariosBloqueadosCount", String(bloqueados));
+  setMoneda("usuariosSaldoTotal", "usuariosSaldoTotalPen", redondear(saldoTotal), "en manos de clientes");
+
+  let lista = listaCompleta;
 
   if (filtroUsuarios) {
     lista = lista.filter(({ id, u }) => {
