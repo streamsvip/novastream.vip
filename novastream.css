@@ -910,18 +910,30 @@ body.nsInvitado .nsModalGuestCta.nsSoloInvitado{ display:block !important; }
 }
 
 @media (max-width:600px){
-  .nsNavInner{ padding:10px 12px; gap:6px; }
+  .nsNavInner{ padding:10px 12px; gap:4px; }
   .nsBrandText{ font-size:14px; }
   .nsBrandLogo{ width:28px; height:28px; }
 
-  .nsNavActions{ gap:6px; }
+  .nsNavActions{ gap:4px; }
   .nsIconBtn{ width:32px; height:32px; }
   .nsIconBtn svg{ width:15px; height:15px; }
 
-  .nsSaldoChip{ padding:4px 8px; }
+  .nsSaldoChip{ padding:3px 6px; }
   .nsSaldoLabel{ display:none; }
-  .nsSaldoValor{ font-size:12px; }
+  .nsSaldoValor{ font-size:11px; }
   .nsSaldoValorPen{ font-size:9px; }
+
+  /* Chip de usuario (avatar + nombre + flechita) visible y compacto en móvil */
+  .nsUserMenu.nsSoloAuth{ display:flex !important; }
+  .nsUserMenuBtn{
+    height:32px;
+    padding:0 6px 0 3px;
+    gap:5px;
+    max-width:120px;
+  }
+  .nsUserAvatar{ width:22px; height:22px; font-size:10.5px; }
+  .nsUserNombreChip{ font-size:11px; max-width:64px; }
+  .nsUserCaret{ width:11px; height:11px; }
 
   .nsBtnIngresar{ height:32px; padding:0 12px; font-size:12px; gap:6px; }
   .nsBtnIngresar svg{ width:14px; height:14px; }
@@ -1015,6 +1027,11 @@ body.nsInvitado .nsModalGuestCta.nsSoloInvitado{ display:block !important; }
   .nsBrandText{ font-size:13px; }
   .nsGrid{ gap:6px; }
   .nsCardImg{ height:78px; }
+
+  /* En pantallas muy angostas, el nombre se oculta para que no se corte;
+     queda solo el avatar + flechita, siempre completo y visible */
+  .nsUserNombreChip{ display:none; }
+  .nsUserMenuBtn{ padding:0 6px; max-width:none; }
 }
 
 @media (prefers-reduced-motion:reduce){
@@ -1182,10 +1199,6 @@ body.nsInvitado .nsModalGuestCta.nsSoloInvitado{ display:block !important; }
   padding-top: 12px;
 }
 .nsUserDropdownLogout:hover{ background: rgba(255,93,115,.12); }
-
-@media (max-width: 900px){
-  .nsUserMenu.nsSoloAuth{ display: none !important; }
-}
 
 /* =========================================================
    BADGE DE TIPO DE ENTREGA — v7
