@@ -1227,6 +1227,15 @@ body.nsInvitado .nsModalGuestCta.nsSoloInvitado{ display:block !important; }
   color: #ffd08a;
 }
 
+/* Texto largo en escritorio ("Entrega automática" / "Entrega manual"),
+   texto corto en celular ("Automática" / "Manual") */
+.nsBadgeTxtShort{ display:none; }
+
+@media (max-width:600px){
+  .nsBadgeTxtFull{ display:none; }
+  .nsBadgeTxtShort{ display:inline; }
+}
+
 .nsBadgeReembolso{
   display: inline-flex;
   align-items: center;
