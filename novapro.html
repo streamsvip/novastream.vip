@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="novapro.css?v=6" />
+<link rel="stylesheet" href="novapro.css?v=8" />
 </head>
 <body>
 
@@ -223,16 +223,19 @@
             </div>
 
             <div class="npField">
-              <label>Nombre del producto</label>
-              <input type="text" id="prodNombre" placeholder="Ej. Crunchyroll Premium · Perfil 1 mes" required />
-            </div>
+  <label>Nombre del producto</label>
+  <input type="text" id="prodNombre" placeholder="Ej. Crunchyroll Premium · Perfil 1 mes" required />
+</div>
 
-            <div class="npField">
-              <label>Plataforma (categoría del catálogo)</label>
-              <input type="text" id="prodPlataforma" placeholder="Ej. Netflix, Spotify, Canva" list="npListaPlataformas" />
-              <datalist id="npListaPlataformas"></datalist>
-              <span class="npFieldHelp">Selecciona una categoría creada por el administrador. Si todavía no hay ninguna, pídele que la cree desde su panel.</span>
-            </div>
+<div class="npField">
+  <label>Plataforma (categoría del catálogo)</label>
+  <div class="npCombo" id="npComboPlataforma">
+    <input type="text" id="prodPlataforma" placeholder="Escribe o elige una categoría..." autocomplete="off" />
+    <button type="button" class="npComboToggle" id="npComboToggle" tabindex="-1" aria-label="Mostrar categorías">▾</button>
+    <div class="npComboPanel" id="npComboPanel"></div>
+  </div>
+  <span class="npFieldHelp" id="npPlataformaMatch">Escribe el nombre o toca el campo para elegir una categoría ya creada.</span>
+</div>
 
             <div class="npField">
               <label>Precio (USD)</label>
@@ -674,6 +677,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 
 <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-<script src="novapro.js?v=7"></script>
+<script src="novapro.js?v=8"></script>
 </body>
 </html>
