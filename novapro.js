@@ -1,3 +1,52 @@
+/* =========================================================
+   NOVASTREAM.VIP — novapro.js (v7)
+   PANEL PROVEEDOR · adaptado a los IDs reales de novapro.html
+   y 100% compatible con las reglas RTDB v5.
+
+   ─────────────────────────────────────────────────────────
+   CAMBIOS EN ESTA VERSIÓN (v7)
+   ─────────────────────────────────────────────────────────
+   · Se quitó el campo "Categoría general" del formulario de
+     producto (ya no se guarda ni se usa el campo `categoria`).
+   · El campo "Plataforma" ahora SOLO sugiere las categorías
+     creadas por el administrador en /categorias. Ya no se
+     autocompleta con las plataformas que ya usaron otros
+     productos del catálogo. Si el admin todavía no creó
+     ninguna categoría, el campo no sugiere nada.
+
+   ─────────────────────────────────────────────────────────
+   MODELO DE NEGOCIO
+   ─────────────────────────────────────────────────────────
+   · Cada venta acredita el 100% del precio al proveedor.
+   · La plataforma NO cobra nada en la venta.
+   · La comisión del 20% se cobra SOLO al retirar:
+         Solicitas $100 → comisión $20 → recibes $80
+   · Retención: las ventas de las últimas 24 h todavía no son
+     retirables (protección ante reembolsos).
+
+   ─────────────────────────────────────────────────────────
+   LO QUE CONDICIONA ESTE ARCHIVO (reglas)
+   ─────────────────────────────────────────────────────────
+   · El proveedor NO puede leer nodos completos. Todas las
+     lecturas globales usan .orderByChild('proveedorId')
+     .equalTo(uid). Leer el nodo entero = permission_denied.
+   · El proveedor NO puede modificar su propio saldoUsd:
+     solo el admin lo mueve al aprobar recargas o retiros.
+   · Los reembolsos: el proveedor puede ACEPTAR o RECHAZAR la
+     solicitud (cambiar su estado y dejar un motivo de rechazo),
+     pero el AJUSTE DE SALDO real (descontarle al proveedor y
+     devolverle al cliente) lo sigue haciendo el admin — el
+     proveedor nunca escribe saldoUsd directamente. Ver
+     resolverReembolso() más abajo. Esto requiere que las reglas
+     de /reembolsos/{id} permitan al proveedor dueño (proveedorId
+     === auth.uid) actualizar SOLO estado/motivoRechazo/
+     fechaResolucion/resueltoPor mientras estado actual sea
+     "pendiente".
+   · /cuentas se lee producto por producto (nunca completo).
+   · Las imágenes se guardan comprimidas en la base (dataURL),
+     así el flujo nunca depende de las reglas de Storage.
+========================================================= */
+
 /* =========================
    CONFIG
 ========================= */
@@ -1718,10 +1767,10 @@ async function resolverReembolso(id, nuevoEstado){
   }
 
   const monto = red(num(r.montoUsd));
+  let saldoReal = npPerfil.saldoUsd; // valor por defecto (caso rechazo, no se usa)
 
-  /* ⭐ NUEVO: si va a aceptar, verificamos saldo REAL suficiente */
+  /* ⭐ CORREGIDO: guardamos saldoReal fuera del if para reutilizarlo al escribir */
   if (aceptar) {
-    let saldoReal = 0;
     try {
       const s = await db.ref("usuarios/" + npUid + "/saldoUsd").get();
       saldoReal = num(s.val());
@@ -1751,9 +1800,9 @@ async function resolverReembolso(id, nuevoEstado){
   if (!aceptar) updates["reembolsos/" + id + "/motivoRechazo"] = motivoRechazo;
 
   if (aceptar) {
-    /* 1) Descuento en MI propio saldo (self-write, siempre permitido) */
     const movProvKey = db.ref("movimientosSaldo/" + npUid).push().key;
-    updates["usuarios/" + npUid + "/saldoUsd"] = red(npPerfil.saldoUsd - monto);
+    /* ⭐ CORREGIDO: usa saldoReal (fresco), no npPerfil.saldoUsd (caché) */
+    updates["usuarios/" + npUid + "/saldoUsd"] = red(saldoReal - monto);
     updates["movimientosSaldo/" + npUid + "/" + movProvKey] = {
       tipo: "reembolso",
       detalle: "Reembolso · " + (r.productoNombre || "producto") + " · " + (r.clienteNombre || "cliente"),
@@ -1767,10 +1816,8 @@ async function resolverReembolso(id, nuevoEstado){
     await db.ref().update(updates);
 
     if (aceptar && r.clienteId) {
-      /* 2) Acredito al cliente (permitido por regla: proveedor -> cliente, incremento) */
       try {
         await db.ref("usuarios/" + r.clienteId + "/saldoUsd").transaction(a => red(num(a) + monto));
-
         const movCliKey = db.ref("movimientosSaldo/" + r.clienteId).push().key;
         await db.ref("movimientosSaldo/" + r.clienteId + "/" + movCliKey).set({
           tipo: "reembolso",
