@@ -120,12 +120,13 @@
             <span class="nvaNavIcon"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M6 21V9l6-5 6 5v12"/><path d="M10 21v-6h4v6"/></svg></span>
             Proveedores
           </a>
-        </div>
           <a class="nvaLink" data-target="secAdmins" onclick="irASeccion('secAdmins'); return false;" href="#secAdmins">
             <span class="nvaNavIcon"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.4 8.4-8 9.5C7.4 20.4 4 17 4 12V7l8-4Z"/><path d="m9 12 2 2 4-4"/></svg></span>
             Administradores
             <span class="nvaLinkBadge" id="adminsTotal">0</span>
           </a>
+        </div>
+
         <div class="nvaGroup">
           <div class="nvaGroupTitle">Próximamente</div>
           <a class="nvaLink nvaLinkDisabled" data-target="secSolicitudesAcceso" onclick="irASeccion('secSolicitudesAcceso'); return false;" href="#secSolicitudesAcceso">
@@ -162,46 +163,7 @@
           <button class="nvaLogout" onclick="cerrarSesion()">Cerrar sesión</button>
         </div>
       </div>
-        <!-- ============ ADMINISTRADORES ============ -->
-        <div class="nvaCard" id="secAdmins">
-          <div class="nvaCardHead">
-            <span class="nvaCardEyebrow">Personas</span>
-            <h3 class="nvaCardTitle">Administradores</h3>
-            <span class="nvaCardHint">Cuentas con acceso total al panel interno</span>
-          </div>
-          <div class="nvaCardBody">
 
-            <div class="nvaInfoBanner nvaInfoBannerKey">
-              <span class="nvaInfoIcon">👑</span>
-              <div>
-                <strong>Cómo agregar un administrador</strong>
-                <span>
-                  La persona se registra normal en <code>registro</code> (queda como cliente).
-                  Luego ve a <b>Clientes</b>, búscala y pulsa <b>👑 Admin</b>.
-                  <br><br>
-                  ⚠️ Un admin puede aprobar recargas y retiros, ajustar saldos y crear otros admins.
-                  <b>Dale este rol solo a gente de total confianza.</b>
-                  <br><br>
-                  📁 Para que también pueda subir logos de categorías, añade su UID en
-                  <b>Storage → Reglas</b> (Storage no puede leer los roles de la base).
-                </span>
-              </div>
-            </div>
-
-            <div class="nvaTableWrap">
-              <table class="nvaTable hidden" id="tablaAdmins">
-                <thead>
-                  <tr><th>Administrador</th><th>Correo</th><th>Registro</th><th>Estado</th><th>Acciones</th></tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-              <div id="adminsVacio" class="nvaEmpty">
-                No se detectan administradores. Si ves este mensaje estando logueado,
-                tu cuenta no tiene <code>rol: "admin"</code> en la base de datos.
-              </div>
-            </div>
-          </div>
-        </div>
       <main class="nvaContent">
 
         <!-- ============ RESUMEN ============ -->
@@ -723,6 +685,47 @@
           </div>
         </div>
 
+        <!-- ============ ADMINISTRADORES ============ -->
+        <div class="nvaCard" id="secAdmins">
+          <div class="nvaCardHead">
+            <span class="nvaCardEyebrow">Personas</span>
+            <h3 class="nvaCardTitle">Administradores</h3>
+            <span class="nvaCardHint">Cuentas con acceso total al panel interno</span>
+          </div>
+          <div class="nvaCardBody">
+
+            <div class="nvaInfoBanner nvaInfoBannerKey">
+              <span class="nvaInfoIcon">👑</span>
+              <div>
+                <strong>Cómo agregar un administrador</strong>
+                <span>
+                  La persona se registra normal en <code>registro</code> (queda como cliente).
+                  Luego ve a <b>Clientes</b>, búscala y pulsa <b>👑 Admin</b>.
+                  <br><br>
+                  ⚠️ Un admin puede aprobar recargas y retiros, ajustar saldos y crear otros admins.
+                  <b>Dale este rol solo a gente de total confianza.</b>
+                  <br><br>
+                  📁 Para que también pueda subir logos de categorías, añade su UID en
+                  <b>Storage → Reglas</b> (Storage no puede leer los roles de la base).
+                </span>
+              </div>
+            </div>
+
+            <div class="nvaTableWrap">
+              <table class="nvaTable hidden" id="tablaAdmins">
+                <thead>
+                  <tr><th>Administrador</th><th>Correo</th><th>Registro</th><th>Estado</th><th>Acciones</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <div id="adminsVacio" class="nvaEmpty">
+                No se detectan administradores. Si ves este mensaje estando logueado,
+                tu cuenta no tiene <code>rol: "admin"</code> en la base de datos.
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- ============ SOLICITUDES DE INGRESO (BLOQUEADO) ============ -->
         <div class="nvaCard" id="secSolicitudesAcceso">
           <div class="nvaCardHead">
@@ -754,10 +757,55 @@
     </div>
   </div>
 
+  <!-- ============ MODAL DE COMPROBANTE (imagen del voucher) ============ -->
+  <div class="nvaComprobanteModal" id="nvaComprobanteModal">
+    <div class="nvaComprobanteBox">
+      <div class="nvaComprobanteHead">
+        <div>
+          <h3>Comprobante de pago</h3>
+          <p>Revisa la imagen antes de aprobar o rechazar la recarga</p>
+        </div>
+        <button type="button" class="nvaModalCerrarBtn" onclick="cerrarComprobante()">✕</button>
+      </div>
+      <div class="nvaComprobanteBody">
+        <div class="nvaComprobanteLoader" id="nvaComprobanteLoader">
+          <div class="nvaComprobanteSpinner"></div>
+          <span>Cargando comprobante...</span>
+        </div>
+        <img class="nvaComprobanteImg" id="nvaComprobanteImg" alt="Comprobante de pago"
+             onload="nvaComprobanteImgLista()" onerror="nvaComprobanteImgError()">
+      </div>
+      <div class="nvaComprobanteFoot">
+        <a id="nvaComprobanteAbrirLink" class="nvaBtnMini soft" href="#" target="_blank" rel="noopener">Abrir en pestaña nueva</a>
+        <button type="button" class="nvaBtnMini danger" onclick="cerrarComprobante()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL DE CONFIRMACIÓN / PROMPT (nvaConfirmar / nvaPrompt) ============ -->
+  <div class="nvaConfirmOverlay" id="nvaConfirmOverlay">
+    <div class="nvaConfirmBox">
+      <div class="nvaConfirmHead">
+        <div class="nvaConfirmIcon" id="nvaConfirmIcon">?</div>
+        <div class="nvaConfirmText">
+          <h3 id="nvaConfirmTitle">Confirmar acción</h3>
+          <p id="nvaConfirmMessage">¿Deseas continuar?</p>
+        </div>
+      </div>
+      <div class="nvaConfirmPromptWrap" id="nvaConfirmPromptWrap" style="display:none;">
+        <input type="text" class="nvaConfirmPromptInput" id="nvaConfirmPromptInput" placeholder="">
+      </div>
+      <div class="nvaConfirmActions">
+        <button type="button" class="nvaBtnMini soft" id="nvaConfirmCancel">Cancelar</button>
+        <button type="button" class="nvaBtnMini ok" id="nvaConfirmAccept">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-  <script src="novaadmin.js?v=4"></script>
+  <script src="novaadmin.js?v=5"></script>
 </body>
 </html>
