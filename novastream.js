@@ -570,14 +570,22 @@ function productoCoincide(id, item){
   return cat && busq && fav;
 }
 
-/* Genera el HTML de los badges de entrega/reembolso/renovación según
-   lo que configuró el proveedor en su panel (modoEntrega /
-   aplicaReembolso / esRenovable) */
+/* Genera el HTML del badge de entrega según lo que configuró el
+   proveedor (modoEntrega). Incluye dos versiones del texto:
+   - .nsBadgeTxtFull  → "Entrega automática" / "Entrega manual" (escritorio)
+   - .nsBadgeTxtShort → "Automática" / "Manual" (celular)
+   El CSS decide cuál mostrar según el ancho de pantalla. */
 function badgeEntregaHTML(item){
   const esManual = item.modoEntrega === "manual";
   const claseEntrega = esManual ? "manual" : "automatico";
-  const txtEntrega = esManual ? "🕒 Entrega manual" : "⚡ Entrega automática";
-  return '<span class="nsBadgeEntrega ' + claseEntrega + '">' + txtEntrega + '</span>';
+  const icono = esManual ? "🕒" : "⚡";
+  const txtFull  = esManual ? "Entrega manual" : "Entrega automática";
+  const txtShort = esManual ? "Manual" : "Automática";
+  return '<span class="nsBadgeEntrega ' + claseEntrega + '">' +
+           icono + ' ' +
+           '<span class="nsBadgeTxtFull">' + txtFull + '</span>' +
+           '<span class="nsBadgeTxtShort">' + txtShort + '</span>' +
+         '</span>';
 }
 
 function badgeRenovableHTML(item){
