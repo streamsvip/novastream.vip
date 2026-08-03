@@ -357,7 +357,7 @@ function iniciarPanel(){
     prepararFormSoporte();
   }, () => { npPublico = {}; });
 
-  /* Categorías (lectura pública) → datalist de plataformas.
+  /* Categorías (lectura pública) → combo de plataformas.
      Esta es la MISMA lista que crea el administrador desde su
      panel en /categorias. El proveedor ya no puede escribir
      plataformas "libres" que no existan ahí. */
@@ -797,15 +797,14 @@ function generarNuevoIdProducto(){
   setTxt("npProdIdTexto", npNuevoProdId);
 }
 
-/* Solo se muestran las categorías creadas por el administrador
-   en su panel (/categorias). Ya no se agregan automáticamente
-   las plataformas que otros productos hayan usado antes, para
-   evitar que se creen categorías "sueltas" fuera de control. */
-function renderDatalistPlataformas(){
-  const sel = $("prodPlataformaSelect");
-  if (!sel) return;
+/* =========================================================
+   COMBO DE PLATAFORMA (categorías del admin)
+   Desplegable compacto tipo buscador: no genera basura
+   visual aunque el admin cree muchas categorías nuevas.
+========================================================= */
 
-  const cats = Object.values(npCategorias || {})
+function categoriasOrdenadas(){
+  return Object.values(npCategorias || {})
     .filter(c => c && c.nombre)
     .sort((a,b) => {
       const oa = Number(a.orden) || 9999;
@@ -813,44 +812,119 @@ function renderDatalistPlataformas(){
       if (oa !== ob) return oa - ob;
       return norm(a.nombre).localeCompare(norm(b.nombre));
     });
+}
 
-  const actual = String((($("prodPlataforma")||{}).value) || "");
+function renderDatalistPlataformas(){
+  renderComboPanel();
+  actualizarIndicadorPlataforma();
+}
 
-  sel.innerHTML = '<option value="">Selecciona una categoría...</option>' +
-    cats.map(c => '<option value="' + esc(c.nombre) + '">' + esc(c.nombre) + '</option>').join("") +
-    '<option value="__nueva__">➕ Escribir una nueva categoría</option>';
+function renderComboPanel(){
+  const panel = $("npComboPanel");
+  if (!panel) return;
 
-  /* Si el producto en edición usa una plataforma que ya es categoría
-     oficial, la seleccionamos sola; si no, abrimos el modo "nueva". */
-  if (actual) {
-    const existe = cats.some(c => norm(c.nombre) === norm(actual));
-    sel.value = existe ? actual : "__nueva__";
-    togglePlataformaInput(sel.value === "__nueva__");
+  const valor = String(($("prodPlataforma")||{}).value || "").trim();
+  const filtro = norm(valor);
+  const cats = categoriasOrdenadas();
+
+  if (!cats.length) {
+    panel.innerHTML = '<div class="npComboEmpty">El administrador todavía no creó categorías. Pídele que las cree desde su panel.</div>';
+    return;
+  }
+
+  const visibles = filtro ? cats.filter(c => norm(c.nombre).includes(filtro)) : cats;
+
+  let html = visibles.map(c => {
+    const activa = norm(c.nombre) === filtro;
+    return '<button type="button" class="npComboItem' + (activa ? " on" : "") + '" ' +
+      'onclick="elegirCategoriaPlataforma(\'' + escJS(c.nombre) + '\')">' +
+      (c.imagen ? '<img src="' + esc(c.imagen) + '" alt="">' : '<span class="npComboItemDot"></span>') +
+      esc(c.nombre) +
+    '</button>';
+  }).join("");
+
+  if (!visibles.length) {
+    html = '<div class="npComboEmpty">No hay categorías que coincidan con «' + esc(valor) + '».</div>';
+  }
+
+  if (valor && !cats.some(c => norm(c.nombre) === filtro)) {
+    html += '<div class="npComboItemNueva">➕ Se creará «' + esc(valor) + '» al guardar</div>';
+  }
+
+  panel.innerHTML = html;
+}
+
+function abrirComboPlataforma(){
+  const wrap = $("npComboPlataforma");
+  if (!wrap) return;
+  renderComboPanel();
+  wrap.classList.add("open");
+}
+function cerrarComboPlataforma(){
+  const wrap = $("npComboPlataforma");
+  if (wrap) wrap.classList.remove("open");
+}
+
+function elegirCategoriaPlataforma(nombre){
+  const inp = $("prodPlataforma");
+  if (!inp) return;
+  inp.value = nombre;
+  actualizarIndicadorPlataforma();
+  cerrarComboPlataforma();
+  /* No se vuelve a enfocar el input: si lo hiciéramos, el
+     listener de "focus" reabriría el panel justo después de
+     elegir una categoría. */
+}
+
+function actualizarIndicadorPlataforma(){
+  const el = $("npPlataformaMatch");
+  const valor = String(($("prodPlataforma")||{}).value || "").trim();
+  const cats = categoriasOrdenadas();
+  const encontrada = cats.find(c => norm(c.nombre) === norm(valor));
+
+  if (!el) return;
+  el.classList.remove("npPlataformaOk", "npPlataformaNueva");
+
+  if (!valor) {
+    el.textContent = "Escribe el nombre o toca el campo para elegir una categoría ya creada.";
+    return;
+  }
+
+  if (encontrada) {
+    el.textContent = "✓ Categoría seleccionada: «" + encontrada.nombre + "» (se usará su imagen del catálogo).";
+    el.classList.add("npPlataformaOk");
+  } else {
+    el.textContent = "➕ Categoría nueva: se creará «" + valor + "» al guardar el producto.";
+    el.classList.add("npPlataformaNueva");
   }
 }
 
-function togglePlataformaInput(mostrar){
+function conectarInputPlataforma(){
   const inp = $("prodPlataforma");
-  if (inp) inp.style.display = mostrar ? "" : "none";
-}
+  const wrap = $("npComboPlataforma");
+  const toggle = $("npComboToggle");
+  if (!inp || inp.dataset.listo) return;
 
-function conectarSelectPlataforma(){
-  const sel = $("prodPlataformaSelect");
-  const inp = $("prodPlataforma");
-  if (!sel || !inp || sel.dataset.listo) return;
+  inp.addEventListener("input", () => { actualizarIndicadorPlataforma(); renderComboPanel(); abrirComboPlataforma(); });
+  inp.addEventListener("focus", abrirComboPlataforma);
 
-  sel.addEventListener("change", () => {
-    if (sel.value === "__nueva__") {
-      togglePlataformaInput(true);
-      inp.value = "";
-      inp.focus();
+  if (toggle) toggle.addEventListener("click", (e) => {
+    e.preventDefault();
+    const abierto = wrap && wrap.classList.contains("open");
+    if (abierto) {
+      cerrarComboPlataforma();
     } else {
-      togglePlataformaInput(false);
-      inp.value = sel.value;
+      abrirComboPlataforma();
+      inp.focus();
     }
   });
 
-  sel.dataset.listo = "1";
+  document.addEventListener("click", (e) => {
+    if (wrap && !wrap.contains(e.target)) cerrarComboPlataforma();
+  });
+  inp.addEventListener("keydown", (e) => { if (e.key === "Escape") cerrarComboPlataforma(); });
+
+  inp.dataset.listo = "1";
 }
 
 function comprimirImagen(file, lado){
@@ -982,9 +1056,7 @@ function limpiarFormProducto(){
     const el = $(id); if (el) el.value = "";
   });
 
-  const selPlat = $("prodPlataformaSelect");
-  if (selPlat) selPlat.value = "";
-  togglePlataformaInput(false);
+  actualizarIndicadorPlataforma();
 
   const dur = $("prodDuracion");     if (dur) dur.value = "30";
   const df  = $("prodDuracionFecha");if (df)  df.value  = "";
@@ -1692,6 +1764,14 @@ function renderTablaRetiros(){
    de aplicar el administrador — el proveedor nunca escribe
    saldoUsd directamente.
 
+   ⭐ Al ACEPTAR un reembolso, si la solicitud trae productoId
+   y cuentaId (la cuenta puntual que se entregó al cliente),
+   esa cuenta vuelve automáticamente al stock disponible del
+   proveedor (estado "disponible", se limpian sus datos de
+   venta) y el contador de stock del producto se actualiza.
+   Si el reembolso no trae esos datos, el ajuste de saldo se
+   aplica igual pero no hay forma de saber qué cuenta devolver.
+
    ⚠️ IMPORTANTE: para que resolverReembolso() funcione hace
    falta que las reglas de Firebase permitan, en
    /reembolsos/{id}, que el proveedor dueño (proveedorId ===
@@ -1699,6 +1779,12 @@ function renderTablaRetiros(){
    fechaResolucion/resueltoPor mientras el estado actual sea
    "pendiente". Si las reglas actuales dicen que reembolsos es
    de solo lectura para el proveedor, hay que ampliarlas.
+   Además, para devolver la cuenta a stock, las reglas de
+   /cuentas/{pid}/{cid} deben permitir que el mismo proveedor
+   dueño del producto escriba estado/compradorId/
+   compradorNombre/fechaVenta/renovado/avisoAtendido — no
+   solo cuando crea stock nuevo, sino también al revertir una
+   venta por reembolso.
 ========================================================= */
 
 function renderReembolsos(){
@@ -1785,7 +1871,8 @@ async function resolverReembolso(id, nuevoEstado){
   const seguro = await confirmar(
     aceptar ? "Aceptar reembolso" : "Rechazar reembolso",
     aceptar
-      ? "Se descontará " + usd(monto) + " de tu saldo y se le devolverá a " + (r.clienteNombre || "el cliente") + ". Esta acción no se puede deshacer."
+      ? "Se descontará " + usd(monto) + " de tu saldo y se le devolverá a " + (r.clienteNombre || "el cliente") + ". Esta acción no se puede deshacer." +
+        (r.productoId && r.cuentaId ? " La cuenta entregada volverá a tu stock disponible." : "")
       : "El reembolso quedará marcado como rechazado y el cliente verá el motivo que escribiste.",
     aceptar ? "✓" : "✕"
   );
@@ -1799,6 +1886,8 @@ async function resolverReembolso(id, nuevoEstado){
   updates["reembolsos/" + id + "/resueltoPor"] = "proveedor";
   if (!aceptar) updates["reembolsos/" + id + "/motivoRechazo"] = motivoRechazo;
 
+  let cuentaDevuelta = false;
+
   if (aceptar) {
     const movProvKey = db.ref("movimientosSaldo/" + npUid).push().key;
     /* ⭐ CORREGIDO: usa saldoReal (fresco), no npPerfil.saldoUsd (caché) */
@@ -1810,6 +1899,29 @@ async function resolverReembolso(id, nuevoEstado){
       signo: "-",
       fecha: ahora
     };
+
+    /* ⭐ Devolver la cuenta vendida al stock disponible.
+       Solo si el reembolso trae la referencia exacta de qué
+       cuenta se entregó (productoId + cuentaId) y esa cuenta
+       todavía existe en el nodo /cuentas del proveedor. */
+    if (r.productoId && r.cuentaId &&
+        npCuentas[r.productoId] && npCuentas[r.productoId][r.cuentaId]) {
+      const pid = r.productoId, cid = r.cuentaId;
+
+      updates["cuentas/" + pid + "/" + cid + "/estado"] = "disponible";
+      updates["cuentas/" + pid + "/" + cid + "/compradorId"] = null;
+      updates["cuentas/" + pid + "/" + cid + "/compradorNombre"] = null;
+      updates["cuentas/" + pid + "/" + cid + "/fechaVenta"] = null;
+      updates["cuentas/" + pid + "/" + cid + "/renovado"] = null;
+      updates["cuentas/" + pid + "/" + cid + "/avisoAtendido"] = null;
+
+      if (npProductos[pid] && !esIlimitado(npProductos[pid])) {
+        const nuevoStock = stockReal(pid) + 1;
+        updates["productos/" + pid + "/stock"] = nuevoStock;
+        updates["stock/" + pid] = nuevoStock;
+      }
+      cuentaDevuelta = true;
+    }
   }
 
   try {
@@ -1833,7 +1945,8 @@ async function resolverReembolso(id, nuevoEstado){
     }
 
     ok(aceptar
-      ? "Reembolso aceptado. Se descontaron " + usd(monto) + " de tu saldo y se devolvieron al cliente."
+      ? "Reembolso aceptado. Se descontaron " + usd(monto) + " de tu saldo y se devolvieron al cliente." +
+        (cuentaDevuelta ? " La cuenta volvió a tu stock disponible." : "")
       : "Reembolso rechazado.");
   } catch (e) {
     err("No se pudo procesar: " + e.message + " (revisa que las reglas de Firebase permitan esta actualización)");
@@ -2162,15 +2275,8 @@ function prepararFormularios(){
   conectarToggle("npGrupoReembolso", "reembolso", "prodAplicaReembolso");
   conectarToggle("npGrupoEsRenovable", "renovable", "prodEsRenovable");
   conectarToggle("npGrupoSoporteActivo", "soporte", "npSoporteActivo");
-  conectarToggle("npGrupoModoEntrega", "modo", "prodModoEntrega", (v) => {
-  setTxt("npModoEntregaHelp", v === "manual"
-    ? "Manual: tú entregas el acceso al cliente por soporte."
-    : "Automático: el cliente recibe el acceso al instante.");
-});
-conectarToggle("npGrupoReembolso", "reembolso", "prodAplicaReembolso");
-conectarToggle("npGrupoEsRenovable", "renovable", "prodEsRenovable");
-conectarToggle("npGrupoSoporteActivo", "soporte", "npSoporteActivo");
-conectarSelectPlataforma();   // ⭐ AGREGAR ESTA LÍNEA
+  conectarInputPlataforma();
+
   /* --- Imagen --- */
   const btnImg = $("npBtnSubirImagen");
   const inpImg = $("prodImagenArchivo");
@@ -2296,3 +2402,4 @@ window.resolverReembolso     = resolverReembolso;
 window.marcarRenovo          = marcarRenovo;
 window.aplicarClaveVencimiento = aplicarClaveVencimiento;
 window.capturarProductoTienda  = capturarProductoTienda;
+window.elegirCategoriaPlataforma = elegirCategoriaPlataforma;
