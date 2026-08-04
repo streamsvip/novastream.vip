@@ -594,6 +594,9 @@ function badgeRenovableHTML(item){
   const txtRenovable = esRenovable ? "🔁 Renovable" : "⛔ No renovable";
   return '<span class="nsBadgeRenovable ' + claseRenovable + '">' + txtRenovable + '</span>';
 }
+function badgeProveedorHTML(item){
+  return '<span class="nsBadgeProveedor">🏬 ' + escaparHTML(item.proveedor) + '</span>';
+}
 
 /* Pill con texto completo en la esquina de la imagen, en espejo
    con el botón de favorito (esquina superior derecha). */
@@ -753,7 +756,7 @@ function abrirModal(id){
   document.getElementById("modalImagen").alt = item.nombre;
 
   const badgesBox = document.getElementById("modalBadgesFila");
-  if (badgesBox) badgesBox.innerHTML = badgeEntregaHTML(item) + badgeRenovableHTML(item);
+  if (badgesBox) badgesBox.innerHTML = badgeProveedorHTML(item) + badgeEntregaHTML(item) + badgeRenovableHTML(item);
 
   document.getElementById("modalDescripcion").innerText = item.descripcion || "Sin descripción disponible.";
 
