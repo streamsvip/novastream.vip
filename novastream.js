@@ -33,7 +33,7 @@ let filtroFavoritosActivo = false;
 
 let nsAuth = null, nsDb = null;
 let nsUid = null;
-let nsUsuario = { nombre: "Invitado", correo: "", rol: "cliente", saldoUsd: 0 };
+let nsUsuario = { nombre: "Invitado", usuarioDisplay: "Invitado", correo: "", rol: "cliente", saldoUsd: 0 };
 
 let nsFbActivo = false;
 let nsProductosListos = false;
@@ -179,16 +179,16 @@ function pintarDrawerUsuario(){
 
   if (esInvitado()) return;
 
-  if (nombre) nombre.textContent = nsUsuario.nombre;
+if (nombre) nombre.textContent = nsUsuario.usuarioDisplay;
   if (saldo) saldo.textContent = fmt(nsUsuario.saldoUsd) + " · " + fmtPEN(nsUsuario.saldoUsd);
-  if (avatar) avatar.textContent = String(nsUsuario.nombre || "N").trim().charAt(0).toUpperCase();
+  if (avatar) avatar.textContent = String(nsUsuario.usuarioDisplay || "N").trim().charAt(0).toUpperCase();
 }
 
 /* Menú de usuario en escritorio: nombre, avatar, correo y saldo */
 function pintarUserMenu(){
   if (esInvitado()) return;
 
-  const inicial = String(nsUsuario.nombre || "N").trim().charAt(0).toUpperCase();
+  const inicial = String(nsUsuario.usuarioDisplay || "N").trim().charAt(0).toUpperCase();
 
   const avatarChip = document.getElementById("nsUserAvatarChip");
   const avatarDrop = document.getElementById("nsUserAvatarDropdown");
@@ -199,8 +199,8 @@ function pintarUserMenu(){
 
   if (avatarChip) avatarChip.textContent = inicial;
   if (avatarDrop) avatarDrop.textContent = inicial;
-  if (nombreChip) nombreChip.textContent = nsUsuario.nombre;
-  if (nombreDrop) nombreDrop.textContent = nsUsuario.nombre;
+  if (nombreChip) nombreChip.textContent = nsUsuario.usuarioDisplay;
+  if (nombreDrop) nombreDrop.textContent = nsUsuario.usuarioDisplay;
   if (correoDrop) correoDrop.textContent = nsUsuario.correo || "";
   if (saldoDrop) saldoDrop.textContent = fmt(nsUsuario.saldoUsd);
 }
@@ -316,7 +316,7 @@ function nsFbInit(){
 
     if (!user) {
       nsUid = null;
-      nsUsuario = { nombre: "Invitado", correo: "", rol: "cliente", saldoUsd: 0 };
+      nsUsuario = { nombre: "Invitado", usuarioDisplay: "Invitado", correo: "", rol: "cliente", saldoUsd: 0 };
       nsAplicarModoSesion();
       return;
     }
@@ -334,8 +334,9 @@ function nsFbInit(){
         return;
       }
 
-      nsUsuario = {
+     nsUsuario = {
         nombre: d.nombre || user.email || "Cliente",
+        usuarioDisplay: d.usuario || d.nombre || user.email || "Cliente",
         correo: d.correo || user.email || "",
         rol: d.rol || "cliente",
         saldoUsd: Number(d.saldoUsd || 0)
