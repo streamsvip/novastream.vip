@@ -907,6 +907,16 @@ body.nsInvitado .nsModalGuestCta.nsSoloInvitado{ display:block !important; }
   .nsGuestBar{ padding:14px 16px; }
   .nsGuestBtns{ width:100%; }
   .nsGuestBtns a{ flex:1; text-align:center; }
+
+  /* ⭐ NUEVO: chip de usuario compacto desde que aparece la hamburguesa */
+  .nsUserMenuBtn{
+    height:32px;
+    padding:0 5px;
+    gap:0;
+    max-width:none;
+  }
+  .nsUserNombreChip{ display:none; }
+  .nsUserCaret{ width:12px; height:12px; flex-shrink:0; }
 }
 
 @media (max-width:600px){
@@ -927,7 +937,7 @@ body.nsInvitado .nsModalGuestCta.nsSoloInvitado{ display:block !important; }
   .nsSaldoValorPen{ font-size:9px; }
 
   /* Chip de usuario (avatar + nombre + flechita) visible y compacto en móvil */
-  .nsUserMenu.nsSoloAuth{ display:flex !important; }
+  body.nsAutenticado .nsUserMenu.nsSoloAuth{ display:flex !important; }
   .nsUserMenuBtn{
     height:30px;
     padding:0 4px 0 2px;
