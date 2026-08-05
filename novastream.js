@@ -217,13 +217,18 @@ async function cerrarSesionUsuario(){
   if (menuWrap) menuWrap.classList.remove("abierto");
   if (btnMenu) btnMenu.setAttribute("aria-expanded", "false");
 
+  // ⭐ Ocultamos TODO lo de usuario autenticado de inmediato,
+  // antes de esperar nada, para que no haya ni un instante
+  // donde se vea el dropdown/carrito/saldo tras cerrar sesión.
+  document.body.classList.remove("nsAutenticado");
+  document.body.classList.add("nsInvitado");
+
   if (nsFbActivo && nsAuth && nsUid) {
     try { await nsAuth.signOut(); } catch (e) {}
-    setCarrito([]);
-    toast("Sesión cerrada. Sigues viendo el catálogo como invitado.");
-  } else {
-    window.location.href = NS_LOGIN_URL;
   }
+
+  setCarrito([]);
+  window.location.replace("catalogo.html");
 }
 
 /* =========================
@@ -1271,7 +1276,14 @@ function ajustarAlturaNav(){
 
 window.addEventListener("load", ajustarAlturaNav);
 window.addEventListener("resize", ajustarAlturaNav);
-
+/* ⭐ Si el navegador restaura la página desde el bfcache (por
+   ejemplo con el botón "atrás" después de cerrar sesión), se
+   ve una foto congelada del estado anterior sin volver a
+   correr nuestro JS. Forzamos una recarga real para que la
+   sesión se vuelva a verificar desde cero. */
+window.addEventListener("pageshow", (e) => {
+  if (e.persisted) window.location.reload();
+});
 /* =========================
    FOOTER
 ========================= */
