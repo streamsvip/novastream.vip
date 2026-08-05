@@ -908,7 +908,6 @@ body.nsInvitado .nsModalGuestCta.nsSoloInvitado{ display:block !important; }
   .nsGuestBtns{ width:100%; }
   .nsGuestBtns a{ flex:1; text-align:center; }
 
-  /* ⭐ NUEVO: chip de usuario compacto desde que aparece la hamburguesa */
   .nsUserMenuBtn{
     height:32px;
     padding:0 5px;
@@ -920,7 +919,6 @@ body.nsInvitado .nsModalGuestCta.nsSoloInvitado{ display:block !important; }
 }
 
 @media (max-width:600px){
-  /* Navbar más compacto: acercamos todo al logo NOVASTREAM */
   .nsNavInner{ padding:10px 10px; gap:2px; }
   .nsBrandText{ font-size:13px; }
   .nsBrand{ gap:7px; }
@@ -930,13 +928,11 @@ body.nsInvitado .nsModalGuestCta.nsSoloInvitado{ display:block !important; }
   .nsIconBtn{ width:32px; height:32px; }
   .nsIconBtn svg{ width:15px; height:15px; }
 
-  /* Saldo: se mantiene legible, solo se oculta la etiqueta "Saldo" */
   .nsSaldoChip{ padding:3px 6px; }
   .nsSaldoLabel{ display:none; }
   .nsSaldoValor{ font-size:11px; }
   .nsSaldoValorPen{ font-size:9px; }
 
-  /* Chip de usuario (avatar + nombre + flechita) visible y compacto en móvil */
   body.nsAutenticado .nsUserMenu.nsSoloAuth{ display:flex !important; }
   .nsUserMenuBtn{
     height:30px;
@@ -996,7 +992,6 @@ body.nsInvitado .nsModalGuestCta.nsSoloInvitado{ display:block !important; }
   .nsCatBtnFoto{ height:34px; padding:0 12px 0 5px; gap:6px; }
   .nsCatAvatar{ width:22px; height:22px; }
 
-  /* Carrusel de categorías en móvil: flechas siempre visibles */
   .nsCatArrow{ opacity:1; pointer-events:auto; width:28px; height:28px; }
   .nsCatArrow svg{ width:13px; height:13px; }
   .nsCatArrowLeft{ left:-2px; }
@@ -1035,8 +1030,6 @@ body.nsInvitado .nsModalGuestCta.nsSoloInvitado{ display:block !important; }
   .nsBtnIngresar span{ display:none; }
   .nsBtnIngresar{ padding:0 10px; }
 
-  /* En pantallas muy angostas, el nombre se oculta para que no se corte;
-     queda solo el avatar + flechita, siempre completo y visible */
   .nsUserNombreChip{ display:none; }
   .nsUserMenuBtn{ padding:0 5px; max-width:none; }
 }
@@ -1240,8 +1233,6 @@ body.nsInvitado .nsModalGuestCta.nsSoloInvitado{ display:block !important; }
   color: #ffd08a;
 }
 
-/* Texto largo en escritorio ("Entrega automática" / "Entrega manual"),
-   texto corto en celular ("Automática" / "Manual") */
 .nsBadgeTxtShort{ display:none; }
 
 @media (max-width:600px){
