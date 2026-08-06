@@ -1,6 +1,23 @@
 /* =========================================================
    NOVAPRO — Panel de Proveedores
-   novapro.css  (v8)
+   novapro.css  (v9 — acabado visual profesional)
+
+   IMPORTANTE: este archivo SOLO cambia estilos. No se tocó
+   ningún nombre de clase/ID — novapro.html y novapro.js
+   (conectado a Firebase) funcionan exactamente igual.
+   Paleta: se mantiene ámbar + cian + violeta del panel
+   original, solo se refina el acabado (sombras, tipografía,
+   estados hover/focus, tablas, modales, scrollbar).
+
+   v9 (este cambio):
+   - Sombras y profundidad más realistas en tarjetas/paneles.
+   - Escala tipográfica más cuidada (pesos, letter-spacing).
+   - Estados hover/focus consistentes en toda la interfaz.
+   - Scrollbar temática, focus-visible accesible, selección
+     de texto con color de marca.
+   - Tablas con hover sutil, badges con punto indicador.
+   - Modales con backdrop-blur y animación de entrada.
+   - Hero con textura de grid sutil + glow de marca.
 
    v8:
    - Se reemplazó la fila fija de "chips" de categorías por un
@@ -24,17 +41,19 @@
    ========================================================= */
 
 :root{
-  --ink-0:#0a0b0f;
-  --ink-1:#12141b;
-  --ink-2:#181b24;
+  --ink-0:#08090c;
+  --ink-1:#101218;
+  --ink-2:#161923;
   --ink-3:#1f2330;
 
   --line:rgba(255,255,255,.08);
   --line-strong:rgba(255,255,255,.16);
 
   --amber:#f3a53c;
+  --amber-2:#ffc978;
   --amber-dim:#c9832a;
   --cyan:#2fd4c6;
+  --cyan-2:#7ff0e4;
   --violet:#8b7cff;
   --danger:#ff5d73;
 
@@ -42,16 +61,25 @@
   --text-dim:#a4aabd;
   --text-faint:#666c80;
 
-  --gauge:conic-gradient(from -90deg, var(--amber), var(--cyan) 65%, var(--line) 65% 100%);
+  --gauge:conic-gradient(from -90deg, var(--amber-2), var(--cyan) 65%, var(--line) 65% 100%);
+  --ribbon:linear-gradient(120deg, var(--amber-2), var(--amber-dim));
+  --ribbon-soft:linear-gradient(120deg, rgba(243,165,60,.18), rgba(47,212,198,.08));
 
   --font-display:'Space Grotesk','Inter',sans-serif;
   --font-body:'Inter',Arial,sans-serif;
   --font-mono:'JetBrains Mono','Consolas',monospace;
 
+  --r-xs:8px;
+  --r-s:10px;
   --r-m:14px;
   --r-l:20px;
+  --r-xl:26px;
 
-  --shadow:0 20px 46px rgba(0,0,0,.40);
+  --shadow:0 24px 52px -18px rgba(0,0,0,.55), 0 2px 0 0 rgba(255,255,255,.02) inset;
+  --shadow-lift:0 30px 64px -20px rgba(0,0,0,.6), 0 1px 0 0 rgba(255,255,255,.03) inset;
+  --glow-amber:0 0 0 1px rgba(243,165,60,.14), 0 12px 28px -10px rgba(243,165,60,.32);
+
+  --ease:cubic-bezier(.2,.7,.2,1);
 }
 
 *,*::before,*::after{ box-sizing:border-box; }
@@ -59,12 +87,15 @@ html,body{ margin:0; padding:0; min-height:100%; }
 
 body{
   background:
-    radial-gradient(circle at 8% -10%, rgba(243,165,60,.10), transparent 32%),
-    radial-gradient(circle at 100% 0%, rgba(47,212,198,.08), transparent 30%),
+    radial-gradient(900px 460px at 8% -10%, rgba(243,165,60,.10), transparent 32%),
+    radial-gradient(700px 420px at 100% 0%, rgba(47,212,198,.09), transparent 30%),
+    radial-gradient(1200px 800px at 50% 120%, rgba(139,124,255,.05), transparent 60%),
     var(--ink-0);
+  background-attachment:fixed;
   color:var(--text);
   font-family:var(--font-body);
   -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
   overflow-x:hidden;
 }
 
@@ -73,6 +104,18 @@ button, input, select, textarea{ font-family:inherit; color:inherit; }
 a{ color:inherit; text-decoration:none; }
 .mono{ font-family:var(--font-mono); }
 
+::selection{ background:rgba(243,165,60,.28); color:#fff; }
+
+::-webkit-scrollbar{ width:10px; height:10px; }
+::-webkit-scrollbar-track{ background:transparent; }
+::-webkit-scrollbar-thumb{ background:rgba(255,220,170,.18); border-radius:99px; border:2px solid transparent; background-clip:padding-box; }
+
+:focus-visible{ outline:2px solid rgba(255,201,120,.65); outline-offset:2px; border-radius:6px; }
+
+@media (prefers-reduced-motion:reduce){
+  *{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; }
+}
+
 /* =========================================================
    LAYOUT
    ========================================================= */
@@ -80,65 +123,80 @@ a{ color:inherit; text-decoration:none; }
 .npApp{ display:flex; min-height:100vh; width:100%; }
 
 .npSidebar{
-  width:272px; flex-shrink:0; height:100vh;
+  width:276px; flex-shrink:0; height:100vh;
   position:sticky; top:0; overflow:auto;
-  padding:18px 14px 26px;
-  background:linear-gradient(180deg, rgba(18,20,27,.98), rgba(10,11,15,.98));
+  padding:20px 14px 26px;
+  background:linear-gradient(180deg, rgba(20,22,30,.97), rgba(8,9,12,.99));
   border-right:1px solid var(--line);
   z-index:40;
 }
 
 .npBrand{
-  display:flex; align-items:center; gap:12px; padding:14px; border-radius:var(--r-l);
-  background:linear-gradient(135deg, rgba(243,165,60,.16), rgba(47,212,198,.08));
-  border:1px solid var(--line); box-shadow:var(--shadow); margin-bottom:16px;
+  display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:var(--r-l);
+  background:linear-gradient(160deg, rgba(243,165,60,.16), rgba(47,212,198,.06));
+  border:1px solid var(--line-strong); box-shadow:var(--shadow); margin-bottom:18px;
+  position:relative; overflow:hidden;
+}
+.npBrand::after{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(115deg, transparent 40%, rgba(255,255,255,.05) 50%, transparent 60%);
 }
 .npBrandMark{
-  width:42px; height:42px; border-radius:13px; display:grid; place-items:center;
-  background:linear-gradient(135deg,var(--amber),var(--amber-dim));
-  color:#1b1204; font-family:var(--font-display); font-weight:700; font-size:16px; flex-shrink:0;
+  width:42px; height:42px; border-radius:12px; display:grid; place-items:center;
+  background:var(--ribbon);
+  color:#1b1204; font-family:var(--font-display); font-weight:700; font-size:15px; flex-shrink:0;
+  box-shadow:var(--glow-amber);
 }
-.npBrandText h1{ font-family:var(--font-display); font-size:16px; margin:0 0 2px; }
-.npBrandText p{ margin:0; font-size:11px; color:var(--text-faint); font-weight:600; }
+.npBrandText h1{ font-family:var(--font-display); font-size:16.5px; font-weight:600; margin:0 0 2px; letter-spacing:-.2px; }
+.npBrandText p{ margin:0; font-size:10.5px; color:var(--text-faint); font-weight:700; text-transform:uppercase; letter-spacing:.6px; }
 
 .npWalletGauge{
   position:relative; margin-bottom:16px; padding:16px; border-radius:var(--r-l);
-  background:linear-gradient(180deg, var(--ink-2), var(--ink-1));
+  background:linear-gradient(175deg, var(--ink-2), var(--ink-1));
   border:1px solid var(--line); box-shadow:var(--shadow);
 }
 .npGaugeTop{ display:flex; align-items:center; gap:14px; }
-.npGaugeRing{ width:64px; height:64px; border-radius:50%; background:var(--gauge); display:grid; place-items:center; flex-shrink:0; }
-.npGaugeRing::after{ content:""; width:48px; height:48px; border-radius:50%; background:var(--ink-1); }
+.npGaugeRing{
+  width:60px; height:60px; border-radius:50%; background:var(--gauge); display:grid; place-items:center; flex-shrink:0;
+  box-shadow:0 0 0 1px rgba(255,220,170,.08), 0 8px 20px -6px rgba(243,165,60,.35);
+}
+.npGaugeRing::after{ content:""; width:46px; height:46px; border-radius:50%; background:var(--ink-1); }
 .npGaugeCenter{ position:absolute; left:34px; top:34px; font-size:15px; }
 .npGaugeMeta{ min-width:0; }
-.npGaugeLabel{ font-size:10.5px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:var(--text-faint); }
-.npGaugeValueUsd{ font-family:var(--font-mono); font-size:20px; font-weight:700; color:var(--amber); line-height:1.3; }
-.npGaugeValuePen{ font-family:var(--font-mono); font-size:11.5px; color:var(--text-faint); }
+.npGaugeLabel{ font-size:10px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; color:var(--text-faint); }
+.npGaugeValueUsd{ font-family:var(--font-mono); font-size:19px; font-weight:600; color:var(--amber-2); line-height:1.35; letter-spacing:-.2px; }
+.npGaugeValuePen{ font-family:var(--font-mono); font-size:11px; color:var(--text-faint); }
 
 .npNivelChip{
   display:inline-flex; align-items:center; gap:6px; padding:6px 11px; border-radius:999px;
-  font-size:10.5px; font-weight:800; margin-top:12px;
+  font-size:10.5px; font-weight:700; margin-top:12px; letter-spacing:.1px;
   background:rgba(47,212,198,.10); border:1px solid rgba(47,212,198,.28); color:#c8fff7;
 }
 .npNivelChip.lvl-top{
-  background:linear-gradient(135deg, rgba(243,165,60,.22), rgba(243,165,60,.10));
-  border-color:rgba(243,165,60,.4); color:#ffe3ae;
+  background:linear-gradient(135deg, rgba(243,165,60,.24), rgba(243,165,60,.10));
+  border-color:rgba(243,165,60,.42); color:#ffe3ae;
 }
 
-.npMenuTitle{ font-size:10.5px; letter-spacing:.6px; text-transform:uppercase; color:var(--text-faint); font-weight:800; margin:16px 8px 8px; }
-.npMenu{ display:flex; flex-direction:column; gap:6px; }
+.npMenuTitle{ font-size:10px; letter-spacing:.8px; text-transform:uppercase; color:var(--text-faint); font-weight:700; margin:18px 10px 8px; }
+.npMenu{ display:flex; flex-direction:column; gap:3px; }
 
 .npMenuBtn{
   width:100%; border:1px solid transparent; cursor:pointer; text-align:left;
-  padding:12px; border-radius:12px; background:transparent; color:var(--text-dim);
-  display:flex; align-items:center; gap:10px; font-size:13.5px; font-weight:600; transition:.16s ease;
+  padding:11px 12px; border-radius:11px; background:transparent; color:var(--text-dim);
+  display:flex; align-items:center; gap:10px; font-size:13.5px; font-weight:600;
+  transition:background .15s var(--ease), color .15s var(--ease); position:relative;
 }
-.npMenuBtn:hover{ background:rgba(255,255,255,.04); color:var(--text); }
+.npMenuBtn::before{
+  content:""; position:absolute; left:-14px; top:50%; translate:0 -50%; height:0; width:3px;
+  background:var(--ribbon); border-radius:0 3px 3px 0; transition:height .15s var(--ease);
+}
+.npMenuBtn:hover{ background:rgba(255,255,255,.035); color:var(--text); }
 .npMenuBtn.activo{
-  background:linear-gradient(135deg, rgba(243,165,60,.16), rgba(243,165,60,.04));
-  border-color:rgba(243,165,60,.30); color:#fff;
+  background:linear-gradient(90deg, rgba(243,165,60,.14), rgba(243,165,60,.02));
+  color:#fff;
 }
-.npMenuIcon{ width:22px; text-align:center; flex-shrink:0; font-size:15px; }
+.npMenuBtn.activo::before{ height:18px; }
+.npMenuIcon{ width:20px; text-align:center; flex-shrink:0; font-size:14.5px; opacity:.9; }
 .npMenuBadge{ margin-left:auto; background:var(--danger); color:#fff; border-radius:999px; padding:2px 7px; font-size:10px; font-weight:800; display:none; }
 .npMenuBadge.visible{ display:inline-flex; }
 
@@ -146,11 +204,11 @@ a{ color:inherit; text-decoration:none; }
    MAIN / TOPBAR
    ========================================================= */
 
-.npMain{ flex:1; min-width:0; padding:22px; }
+.npMain{ flex:1; min-width:0; padding:24px 26px; }
 
-.npTopbar{ display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:20px; }
+.npTopbar{ display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:22px; }
 .npTopbarLeft{ min-width:0; display:flex; align-items:center; gap:12px; }
-.npPageTitle h2{ font-family:var(--font-display); font-size:21px; margin:0 0 3px; }
+.npPageTitle h2{ font-family:var(--font-display); font-size:22px; font-weight:600; margin:0 0 3px; letter-spacing:-.3px; }
 .npPageTitle p{ margin:0; font-size:12.5px; color:var(--text-faint); }
 .npTopActions{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 
@@ -165,18 +223,22 @@ a{ color:inherit; text-decoration:none; }
    ========================================================= */
 
 .npBtn{
-  border:none; cursor:pointer; border-radius:12px; padding:11px 16px;
-  font-size:13px; font-weight:800; transition:.16s ease;
+  border:none; cursor:pointer; border-radius:11px; padding:11px 16px;
+  font-size:13px; font-weight:700; letter-spacing:.1px;
+  transition:transform .12s var(--ease), filter .12s var(--ease), background .12s var(--ease), box-shadow .12s var(--ease);
   display:inline-flex; align-items:center; justify-content:center; gap:8px;
 }
-.npBtnPrimary{ background:linear-gradient(135deg,var(--amber),var(--amber-dim)); color:#1b1204; box-shadow:0 10px 22px rgba(243,165,60,.22); }
+.npBtnPrimary{ background:var(--ribbon); color:#1b1204; box-shadow:var(--glow-amber); }
 .npBtnPrimary:hover{ transform:translateY(-1px); filter:brightness(1.05); }
-.npBtnGhost{ background:rgba(255,255,255,.05); border:1px solid var(--line); color:var(--text); }
-.npBtnGhost:hover{ background:rgba(255,255,255,.08); }
-.npBtnCyan{ background:linear-gradient(135deg, rgba(47,212,198,.9), rgba(47,212,198,.65)); color:#03211d; }
+.npBtnPrimary:active{ transform:translateY(0); }
+.npBtnGhost{ background:rgba(255,255,255,.045); border:1px solid var(--line); color:var(--text); }
+.npBtnGhost:hover{ background:rgba(255,255,255,.08); border-color:var(--line-strong); }
+.npBtnCyan{ background:linear-gradient(135deg, var(--cyan-2), #1fa89c); color:#03211d; }
+.npBtnCyan:hover{ transform:translateY(-1px); filter:brightness(1.05); }
 .npBtnBlock{ width:100%; }
 
-.npBtnMini{ border:none; cursor:pointer; border-radius:9px; padding:8px 10px; font-size:11px; font-weight:800; color:#fff; }
+.npBtnMini{ border:none; cursor:pointer; border-radius:9px; padding:8px 10px; font-size:11px; font-weight:700; color:#fff; transition:filter .12s var(--ease); }
+.npBtnMini:hover{ filter:brightness(1.12); }
 .npBtnMini.edit{ background:linear-gradient(135deg, rgba(47,212,198,.30), rgba(139,124,255,.22)); border:1px solid rgba(47,212,198,.35); }
 .npBtnMini.del{ background:linear-gradient(135deg, rgba(255,93,115,.28), rgba(255,93,115,.16)); border:1px solid rgba(255,93,115,.34); }
 .npBtnMini.toggle{ background:linear-gradient(135deg, rgba(243,165,60,.28), rgba(139,124,255,.16)); border:1px solid rgba(243,165,60,.34); }
@@ -185,12 +247,12 @@ a{ color:inherit; text-decoration:none; }
    SECCIONES / TARJETAS
    ========================================================= */
 
-.npSection{ display:none; animation:npFade .2s ease; }
+.npSection{ display:none; animation:npFade .22s var(--ease); }
 .npSection.activa{ display:block; }
-@keyframes npFade{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+@keyframes npFade{ from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);} }
 
 .npCard{
-  background:linear-gradient(180deg, var(--ink-2), var(--ink-1));
+  background:linear-gradient(175deg, var(--ink-2), var(--ink-1));
   border:1px solid var(--line); border-radius:var(--r-l); box-shadow:var(--shadow);
 }
 
@@ -198,25 +260,26 @@ a{ color:inherit; text-decoration:none; }
 .npGridStats.cols2{ grid-template-columns:repeat(2,minmax(0,1fr)); }
 .npGridStats.cols3{ grid-template-columns:repeat(3,minmax(0,1fr)); }
 
-.npStat{ padding:18px; }
-.npStat span{ display:block; font-size:11.5px; color:var(--text-faint); font-weight:700; margin-bottom:8px; }
-.npStat strong{ display:block; font-family:var(--font-mono); font-size:23px; margin-bottom:6px; word-break:break-word; }
+.npStat{ padding:19px; position:relative; overflow:hidden; transition:border-color .15s var(--ease), transform .15s var(--ease); }
+.npStat:hover{ border-color:var(--line-strong); transform:translateY(-2px); }
+.npStat span{ display:block; font-size:11px; color:var(--text-faint); font-weight:700; margin-bottom:9px; text-transform:uppercase; letter-spacing:.4px; }
+.npStat strong{ display:block; font-family:var(--font-mono); font-size:23px; font-weight:600; margin-bottom:6px; word-break:break-word; letter-spacing:-.3px; }
 .npStat small{ display:block; font-size:11.5px; color:var(--text-faint); line-height:1.4; }
 
-.npPanel{ padding:18px; margin-bottom:18px; }
-.npPanelHead{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
-.npPanelHead h3{ font-family:var(--font-display); font-size:16.5px; margin:0 0 4px; }
+.npPanel{ padding:20px; margin-bottom:18px; }
+.npPanelHead{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap; margin-bottom:17px; padding-bottom:15px; border-bottom:1px solid var(--line); }
+.npPanelHead h3{ font-family:var(--font-display); font-size:16.5px; font-weight:600; margin:0 0 4px; letter-spacing:-.15px; }
 .npPanelHead p{ margin:0; font-size:12px; color:var(--text-faint); line-height:1.55; }
 .npPanelHeadTools{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 
 .npHint{
-  margin-bottom:14px; padding:12px 14px; border-radius:14px; font-size:12.5px; line-height:1.6; color:#e9ecf7;
-  background:linear-gradient(135deg, rgba(243,165,60,.10), rgba(47,212,198,.06));
+  margin-bottom:14px; padding:13px 15px; border-radius:14px; font-size:12.5px; line-height:1.6; color:#f2f0e5;
+  background:var(--ribbon-soft);
   border:1px solid rgba(243,165,60,.18);
 }
 .npNotice{
   margin-top:10px; padding:12px 14px; border-radius:14px; font-size:12.5px; line-height:1.6;
-  color:#dfe3f2; background:rgba(255,255,255,.04); border:1px solid var(--line);
+  color:#dfe3f2; background:rgba(255,255,255,.035); border:1px solid var(--line);
 }
 
 /* =========================================================
@@ -224,63 +287,74 @@ a{ color:inherit; text-decoration:none; }
    ========================================================= */
 
 .npHero{
-  padding:22px; margin-bottom:16px; position:relative; overflow:hidden;
+  padding:26px; margin-bottom:16px; position:relative; overflow:hidden;
   background:
-    linear-gradient(135deg, rgba(243,165,60,.13), rgba(47,212,198,.05)),
+    radial-gradient(560px 260px at 100% -20%, rgba(255,201,120,.15), transparent 60%),
+    linear-gradient(145deg, rgba(243,165,60,.09), rgba(47,212,198,.03)),
     linear-gradient(180deg, var(--ink-2), var(--ink-1));
-  border-color:rgba(243,165,60,.20);
+  border-color:rgba(243,165,60,.20); box-shadow:var(--shadow-lift);
 }
-.npHeroTop{ display:flex; gap:22px; justify-content:space-between; flex-wrap:wrap; }
+.npHero::before{
+  content:""; position:absolute; inset:0; pointer-events:none; opacity:.5;
+  background-image:
+    linear-gradient(rgba(255,220,170,.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,220,170,.045) 1px, transparent 1px);
+  background-size:34px 34px;
+  mask-image:radial-gradient(560px 320px at 85% 0%, #000, transparent 75%);
+}
+.npHeroTop{ display:flex; gap:24px; justify-content:space-between; flex-wrap:wrap; position:relative; }
 .npHeroSaldo{ min-width:230px; }
-.npHeroLabel{ display:block; font-size:11px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:var(--text-faint); margin-bottom:8px; }
-.npHeroMonto{ font-size:38px; font-weight:700; color:#fff; line-height:1; letter-spacing:-.5px; }
-.npHeroMontoPen{ font-size:12.5px; color:var(--text-faint); margin-top:6px; }
+.npHeroLabel{ display:block; font-size:10.5px; font-weight:700; letter-spacing:.7px; text-transform:uppercase; color:var(--text-faint); margin-bottom:9px; }
+.npHeroMonto{ font-family:var(--font-display); font-size:40px; font-weight:600; color:#fff; line-height:1; letter-spacing:-1px; }
+.npHeroMontoPen{ font-size:12.5px; color:var(--text-faint); margin-top:7px; font-family:var(--font-mono); }
 
 .npHeroNivel{ min-width:210px; flex:1; max-width:280px; display:flex; flex-direction:column; align-items:flex-end; gap:9px; }
 .npHeroNivel .npNivelChip{ margin-top:0; }
-.npNivelBar{ width:100%; height:7px; border-radius:999px; background:rgba(255,255,255,.07); overflow:hidden; }
-.npNivelBarFill{ height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg, var(--amber), var(--cyan)); transition:width .4s ease; }
+.npNivelBar{ width:100%; height:6px; border-radius:999px; background:rgba(255,255,255,.06); overflow:hidden; }
+.npNivelBarFill{ height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg, var(--amber-2), var(--cyan)); transition:width .5s var(--ease); box-shadow:0 0 12px rgba(243,165,60,.5); }
 .npNivelTexto{ font-size:11.5px; color:var(--text-faint); font-family:var(--font-mono); text-align:right; }
 
-.npInfoChips{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:18px; }
-.npInfoChip{ padding:11px 13px; border-radius:14px; background:rgba(255,255,255,.03); border:1px solid var(--line); }
-.npInfoChip b{ display:block; font-family:var(--font-mono); font-size:16px; color:var(--cyan); }
-.npInfoChip span{ display:block; font-size:10.5px; color:var(--text-faint); font-weight:700; margin-top:3px; }
+.npInfoChips{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:20px; position:relative; }
+.npInfoChip{ padding:12px 14px; border-radius:14px; background:rgba(255,255,255,.025); border:1px solid var(--line); }
+.npInfoChip b{ display:block; font-family:var(--font-mono); font-size:16px; color:var(--cyan-2); font-weight:600; }
+.npInfoChip span{ display:block; font-size:10.5px; color:var(--text-faint); font-weight:700; margin-top:3px; text-transform:uppercase; letter-spacing:.3px; }
 
-.npHeroNota{ margin:14px 0 0; font-size:12px; color:var(--text-dim); line-height:1.6; }
-.npHeroNota strong{ color:#fff; }
+.npHeroNota{ margin:16px 0 0; font-size:12px; color:var(--text-dim); line-height:1.65; position:relative; }
+.npHeroNota strong{ color:#fff; font-weight:700; }
 
-.npSaldoSplit{ display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
-.npSaldoSplitItem{ flex:1; min-width:140px; padding:10px 12px; border-radius:12px; background:rgba(255,255,255,.03); border:1px solid var(--line); }
-.npSaldoSplitItem span{ display:block; font-size:10px; font-weight:800; letter-spacing:.3px; text-transform:uppercase; color:var(--text-faint); margin-bottom:4px; }
-.npSaldoSplitItem strong{ display:block; font-family:var(--font-mono); font-size:15px; }
-.npSaldoSplitItem.disponible strong{ color:var(--cyan); }
-.npSaldoSplitItem.congelado strong{ color:var(--amber); }
+.npSaldoSplit{ display:flex; gap:10px; flex-wrap:wrap; margin-top:15px; }
+.npSaldoSplitItem{ flex:1; min-width:140px; padding:11px 13px; border-radius:12px; background:rgba(255,255,255,.025); border:1px solid var(--line); }
+.npSaldoSplitItem span{ display:block; font-size:10px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:var(--text-faint); margin-bottom:5px; }
+.npSaldoSplitItem strong{ display:block; font-family:var(--font-mono); font-size:15px; font-weight:600; }
+.npSaldoSplitItem.disponible strong{ color:var(--cyan-2); }
+.npSaldoSplitItem.congelado strong{ color:var(--amber-2); }
 
 .npDashGrid{ display:grid; grid-template-columns:1.15fr .85fr; gap:16px; }
 
 .npMov{
   display:flex; align-items:center; gap:12px; padding:12px; border-radius:14px;
-  background:rgba(255,255,255,.03); border:1px solid var(--line); margin-bottom:9px;
+  background:rgba(255,255,255,.025); border:1px solid var(--line); margin-bottom:8px;
+  transition:border-color .15s var(--ease);
 }
+.npMov:hover{ border-color:var(--line-strong); }
 .npMovIcon{
   width:36px; height:36px; border-radius:11px; flex-shrink:0; display:grid; place-items:center; font-size:15px;
-  background:rgba(47,212,198,.12); border:1px solid rgba(47,212,198,.25);
+  background:rgba(47,212,198,.10); border:1px solid rgba(47,212,198,.22);
 }
-.npMov.neg .npMovIcon{ background:rgba(255,93,115,.12); border-color:rgba(255,93,115,.25); }
+.npMov.neg .npMovIcon{ background:rgba(255,93,115,.10); border-color:rgba(255,93,115,.22); }
 .npMovInfo{ min-width:0; flex:1; }
-.npMovInfo strong{ display:block; font-size:12.5px; text-transform:capitalize; }
+.npMovInfo strong{ display:block; font-size:12.5px; text-transform:capitalize; font-weight:700; }
 .npMovInfo span{ display:block; font-size:11px; color:var(--text-faint); margin-top:3px; line-height:1.45; }
-.npMovMonto{ font-family:var(--font-mono); font-weight:800; font-size:13px; color:#bdfff6; white-space:nowrap; }
+.npMovMonto{ font-family:var(--font-mono); font-weight:700; font-size:13px; color:#a6f5ea; white-space:nowrap; }
 .npMov.neg .npMovMonto{ color:#ffb8c1; }
 
 .npDataList{ display:flex; flex-direction:column; gap:8px; }
 .npDataRow{
   display:flex; justify-content:space-between; align-items:center; gap:12px;
-  padding:11px 13px; border-radius:12px; background:rgba(255,255,255,.03); border:1px solid var(--line);
+  padding:11px 13px; border-radius:12px; background:rgba(255,255,255,.025); border:1px solid var(--line);
 }
 .npDataRow span{ font-size:11.5px; color:var(--text-faint); font-weight:700; }
-.npDataRow strong{ font-size:12.5px; text-align:right; word-break:break-word; }
+.npDataRow strong{ font-size:12.5px; text-align:right; word-break:break-word; font-weight:600; }
 
 /* =========================================================
    FORMULARIOS
@@ -290,14 +364,16 @@ a{ color:inherit; text-decoration:none; }
 .npFormGrid3{ grid-template-columns:1fr 1fr 150px; }
 .npField{ display:flex; flex-direction:column; gap:7px; min-width:0; }
 .npField.full{ grid-column:1/-1; }
-.npField label{ font-size:12.5px; font-weight:700; color:#dfe3f2; display:flex; align-items:center; gap:6px; }
+.npField label{ font-size:12.5px; font-weight:700; color:#efe6d2; display:flex; align-items:center; gap:6px; }
 
 .npField input, .npField select, .npField textarea{
-  width:100%; border:1px solid var(--line); outline:none; border-radius:12px;
-  padding:12px 13px; font-size:14px; background:rgba(255,255,255,.03); color:#fff; transition:.16s ease;
+  width:100%; border:1px solid var(--line); outline:none; border-radius:11px;
+  padding:12px 13px; font-size:14px; background:rgba(255,255,255,.025); color:#fff;
+  transition:border-color .15s var(--ease), box-shadow .15s var(--ease), background .15s var(--ease);
 }
+.npField input::placeholder, .npField textarea::placeholder{ color:var(--text-faint); }
 .npField input:focus, .npField select:focus, .npField textarea:focus{
-  border-color:rgba(243,165,60,.5); box-shadow:0 0 0 4px rgba(243,165,60,.10); background:rgba(255,255,255,.05);
+  border-color:rgba(243,165,60,.55); box-shadow:0 0 0 4px rgba(243,165,60,.12); background:rgba(255,255,255,.045);
 }
 .npField textarea{ min-height:100px; resize:vertical; }
 .npField select{
@@ -305,22 +381,22 @@ a{ color:inherit; text-decoration:none; }
   background-image:url("data:image/svg+xml;utf8,<svg fill='white' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path d='M5.5 7.5L10 12l4.5-4.5'/></svg>");
   background-repeat:no-repeat; background-position:right 14px center; background-size:15px; padding-right:40px;
 }
-.npField select option{ background:#20232f; color:#fff; }
+.npField select option{ background:#161923; color:#fff; }
 
 .npFieldHelp{ font-size:11.5px; color:var(--text-faint); line-height:1.5; }
-.npFieldHelp strong{ color:var(--cyan); font-family:var(--font-mono); }
+.npFieldHelp strong{ color:var(--cyan-2); font-family:var(--font-mono); }
 .npModalFooterBtns{ display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; }
 
 .npIdLocked{ display:flex; align-items:center; gap:10px; padding:12px 13px; border-radius:12px; background:rgba(255,255,255,.02); border:1px dashed var(--line-strong); }
 .npIdLocked .npIdLockIcon{
   width:30px; height:30px; border-radius:9px; flex-shrink:0;
-  background:linear-gradient(135deg,var(--amber),var(--amber-dim)); display:grid; place-items:center; color:#1b1204; font-size:14px;
+  background:var(--ribbon); display:grid; place-items:center; color:#1b1204; font-size:14px;
 }
 .npIdLocked span{ font-family:var(--font-mono); font-size:13px; font-weight:700; word-break:break-all; }
 
 .npFxChip{
   display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; margin-top:4px; padding:9px 12px; border-radius:12px;
-  background:rgba(47,212,198,.08); border:1px solid rgba(47,212,198,.24);
+  background:rgba(47,212,198,.07); border:1px solid rgba(47,212,198,.22);
   font-family:var(--font-mono); font-size:12.5px; color:#c8fff7; width:100%; line-height:1.5;
 }
 .npFxChip .npFxDot{ width:7px; height:7px; border-radius:50%; background:var(--cyan); box-shadow:0 0 0 3px rgba(47,212,198,.18); flex-shrink:0; }
@@ -328,15 +404,15 @@ a{ color:inherit; text-decoration:none; }
 
 .npToggleGroup{
   display:grid; grid-auto-flow:column; grid-auto-columns:1fr;
-  border-radius:12px; overflow:hidden; border:1px solid var(--line); background:rgba(255,255,255,.03); width:100%;
+  border-radius:11px; overflow:hidden; border:1px solid var(--line); background:rgba(255,255,255,.025); width:100%;
 }
-.npToggleBtn{ border:none; cursor:pointer; padding:12px; background:transparent; color:var(--text-dim); font-size:12.5px; font-weight:800; transition:.16s ease; }
-.npToggleBtn.on{ background:linear-gradient(135deg,var(--amber),var(--amber-dim)); color:#1b1204; }
-.npToggleBtn.on.cyan{ background:linear-gradient(135deg, var(--cyan), #1fa89c); color:#03211d; }
+.npToggleBtn{ border:none; cursor:pointer; padding:12px; background:transparent; color:var(--text-dim); font-size:12.5px; font-weight:700; transition:background .15s var(--ease), color .15s var(--ease); }
+.npToggleBtn.on{ background:var(--ribbon); color:#1b1204; }
+.npToggleBtn.on.cyan{ background:linear-gradient(135deg, var(--cyan-2), #1fa89c); color:#03211d; }
 
 .npImgUpload{
   display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:12px; border-radius:14px;
-  border:1px dashed var(--line-strong); background:rgba(255,255,255,.02);
+  border:1px dashed var(--line-strong); background:rgba(255,255,255,.018);
 }
 .npImgPreview{
   width:64px; height:64px; border-radius:12px; flex-shrink:0; background:var(--ink-0) center/cover no-repeat;
@@ -344,14 +420,14 @@ a{ color:inherit; text-decoration:none; }
 }
 .npImgPreview img{ width:100%; height:100%; object-fit:cover; }
 .npImgUploadInfo{ min-width:0; flex:1; }
-.npImgUploadInfo strong{ display:block; font-size:12.5px; margin-bottom:3px; word-break:break-all; }
+.npImgUploadInfo strong{ display:block; font-size:12.5px; margin-bottom:3px; word-break:break-all; font-weight:700; }
 .npImgUploadInfo span{ display:block; font-size:11px; color:var(--text-faint); }
 .npImgUploadBtns{ display:flex; gap:8px; flex-wrap:wrap; }
 .npFileHidden{ display:none; }
 
 .npDuracionPersonalizada{ margin-top:8px; display:none; }
 .npDuracionPersonalizada.show{ display:block; }
-.npDuracionEquivalencia{ margin-top:6px; font-size:11.5px; color:var(--cyan); font-family:var(--font-mono); }
+.npDuracionEquivalencia{ margin-top:6px; font-size:11.5px; color:var(--cyan-2); font-family:var(--font-mono); }
 
 /* =========================================================
    TABS
@@ -359,14 +435,15 @@ a{ color:inherit; text-decoration:none; }
 
 .npSubToggleWrap{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
 .npSubToggleBtn{
-  border:1px solid var(--line); cursor:pointer; padding:10px 15px; border-radius:12px;
-  background:rgba(255,255,255,.03); color:var(--text-dim); font-size:12.5px; font-weight:800; flex:1 1 auto;
+  border:1px solid var(--line); cursor:pointer; padding:10px 15px; border-radius:11px;
+  background:rgba(255,255,255,.025); color:var(--text-dim); font-size:12.5px; font-weight:700; flex:1 1 auto;
+  transition:background .15s var(--ease), color .15s var(--ease), border-color .15s var(--ease);
 }
 .npSubToggleBtn.activo{
-  background:linear-gradient(135deg, rgba(243,165,60,.22), rgba(47,212,198,.12));
-  border-color:rgba(243,165,60,.36); color:#fff;
+  background:linear-gradient(135deg, rgba(243,165,60,.22), rgba(47,212,198,.10));
+  border-color:rgba(243,165,60,.38); color:#fff;
 }
-.npSubPanel{ display:none; animation:npFade .18s ease; }
+.npSubPanel{ display:none; animation:npFade .18s var(--ease); }
 .npSubPanel.activo{ display:block; }
 
 /* =========================================================
@@ -379,12 +456,12 @@ a{ color:inherit; text-decoration:none; }
   -webkit-overflow-scrolling:touch;
   overscroll-behavior-x:contain;
   scrollbar-width:thin;
-  scrollbar-color:rgba(243,165,60,.55) transparent;
-  background:rgba(255,255,255,.012);
+  scrollbar-color:rgba(243,165,60,.5) transparent;
+  background:rgba(255,255,255,.01);
 }
 .npTableWrap::-webkit-scrollbar{ height:9px; }
-.npTableWrap::-webkit-scrollbar-track{ background:rgba(255,255,255,.05); }
-.npTableWrap::-webkit-scrollbar-thumb{ background:linear-gradient(90deg, var(--amber), var(--cyan)); border-radius:99px; }
+.npTableWrap::-webkit-scrollbar-track{ background:rgba(255,255,255,.04); }
+.npTableWrap::-webkit-scrollbar-thumb{ background:var(--ribbon); border-radius:99px; }
 
 table.npTable{ width:100%; min-width:900px; border-collapse:separate; border-spacing:0; }
 
@@ -393,22 +470,23 @@ table.npTable{ width:100%; min-width:900px; border-collapse:separate; border-spa
   border-bottom:1px solid var(--line); vertical-align:middle; white-space:nowrap;
 }
 .npTable th{
-  font-size:11px; color:var(--text-dim); background:#1b1f2a;
-  text-transform:uppercase; letter-spacing:.4px; position:sticky; top:0; z-index:4;
+  font-size:10.5px; color:var(--text-dim); background:#12141c;
+  text-transform:uppercase; letter-spacing:.5px; font-weight:700; position:sticky; top:0; z-index:4;
 }
-.npTable td{ color:#eef1ff; font-family:var(--font-mono); }
+.npTable td{ color:#eef0fa; font-family:var(--font-mono); }
 .npTable td.txt{ font-family:var(--font-body); }
-.npTable tbody tr:hover td{ background:rgba(255,255,255,.02); }
+.npTable tbody tr{ transition:background .12s var(--ease); }
+.npTable tbody tr:hover td{ background:rgba(243,165,60,.035); }
 .npTable tbody tr:last-child td{ border-bottom:none; }
 
 /* Primera columna anclada: no se pierde la referencia al deslizar */
 .npTable thead th:first-child,
 .npTable tbody td:first-child{
   position:sticky; left:0; z-index:3;
-  background:#171a23;
-  box-shadow:8px 0 14px rgba(0,0,0,.35);
+  background:#0e1015;
+  box-shadow:8px 0 14px rgba(0,0,0,.4);
 }
-.npTable thead th:first-child{ z-index:6; background:#1b1f2a; }
+.npTable thead th:first-child{ z-index:6; background:#12141c; }
 
 .npTable td.npTdEmpty{
   position:static; box-shadow:none; white-space:normal; background:transparent;
@@ -416,22 +494,23 @@ table.npTable{ width:100%; min-width:900px; border-collapse:separate; border-spa
 
 .npBadge{
   display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px;
-  font-size:10.5px; font-weight:800; border:1px solid transparent; white-space:nowrap; font-family:var(--font-body);
+  font-size:10.5px; font-weight:700; border:1px solid transparent; white-space:nowrap; font-family:var(--font-body);
 }
-.npBadge.ok{ background:rgba(47,212,198,.12); color:#bdfff6; border-color:rgba(47,212,198,.28); }
-.npBadge.warn{ background:rgba(243,165,60,.12); color:#ffe3b3; border-color:rgba(243,165,60,.28); }
-.npBadge.bad{ background:rgba(255,93,115,.12); color:#ffd3da; border-color:rgba(255,93,115,.26); }
-.npBadge.info{ background:rgba(139,124,255,.12); color:#e1dcff; border-color:rgba(139,124,255,.28); }
+.npBadge::before{ content:""; width:6px; height:6px; border-radius:50%; background:currentColor; flex-shrink:0; }
+.npBadge.ok{ background:rgba(47,212,198,.11); color:#a6f5ea; border-color:rgba(47,212,198,.26); }
+.npBadge.warn{ background:rgba(243,165,60,.11); color:#ffe3b3; border-color:rgba(243,165,60,.26); }
+.npBadge.bad{ background:rgba(255,93,115,.11); color:#ffd3da; border-color:rgba(255,93,115,.24); }
+.npBadge.info{ background:rgba(139,124,255,.11); color:#e1dcff; border-color:rgba(139,124,255,.26); }
 
-.npEmpty{ text-align:center; padding:30px 18px; color:var(--text-faint); font-size:13px; line-height:1.6; }
+.npEmpty{ text-align:center; padding:34px 18px; color:var(--text-faint); font-size:13px; line-height:1.6; }
 .npActionRow{ display:flex; gap:6px; flex-wrap:nowrap; }
 
 /* Aviso "desliza" (lo inyecta el JS solo en móvil) */
 .npScrollHint{
   display:none; align-items:center; gap:7px;
   margin:0 0 8px; padding:8px 11px; border-radius:11px;
-  font-size:11px; font-weight:700; color:#c8fff7;
-  background:rgba(47,212,198,.08); border:1px solid rgba(47,212,198,.22);
+  font-size:11px; font-weight:700; color:#ffe3b3;
+  background:rgba(243,165,60,.08); border:1px solid rgba(243,165,60,.22);
 }
 .npScrollHint b{ font-family:var(--font-mono); }
 
@@ -442,16 +521,16 @@ table.npTable{ width:100%; min-width:900px; border-collapse:separate; border-spa
 .npBulkGrid{ display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:16px; }
 .npBulkTextarea{
   min-height:150px !important; font-family:var(--font-mono) !important; line-height:1.55;
-  border-color:rgba(47,212,198,.3) !important; background:rgba(8,15,20,.5) !important; font-size:13px !important;
+  border-color:rgba(47,212,198,.28) !important; background:rgba(6,14,18,.55) !important; font-size:13px !important;
 }
 .npBulkActions{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-top:12px; }
-.npBulkHelp{ padding:14px; border-radius:16px; background:rgba(255,255,255,.02); border:1px solid var(--line); }
-.npBulkHelp h4{ font-family:var(--font-display); font-size:13.5px; margin:0 0 10px; }
+.npBulkHelp{ padding:15px; border-radius:16px; background:rgba(255,255,255,.018); border:1px solid var(--line); }
+.npBulkHelp h4{ font-family:var(--font-display); font-size:13.5px; font-weight:600; margin:0 0 10px; }
 .npBulkStep{ display:grid; grid-template-columns:26px 1fr; gap:9px; padding:9px 0; border-bottom:1px dashed var(--line); }
 .npBulkStep:last-child{ border-bottom:none; }
 .npBulkStep b{
   width:24px; height:24px; border-radius:50%; display:grid; place-items:center;
-  background:linear-gradient(135deg,var(--amber),var(--amber-dim)); color:#1b1204; font-size:11px; font-weight:900;
+  background:var(--ribbon); color:#1b1204; font-size:11px; font-weight:900;
 }
 .npBulkStep span{ font-size:11.5px; color:var(--text-dim); line-height:1.5; }
 
@@ -466,10 +545,10 @@ table.npTable{ width:100%; min-width:900px; border-collapse:separate; border-spa
 .npRetiroMontoWrap{ position:relative; }
 .npRetiroMontoWrap .npRetiroMontoPrefijo{
   position:absolute; left:15px; top:50%; transform:translateY(-50%);
-  font-family:var(--font-mono); font-weight:800; font-size:18px; color:var(--amber); pointer-events:none;
+  font-family:var(--font-mono); font-weight:700; font-size:18px; color:var(--amber-2); pointer-events:none;
 }
 .npRetiroMontoWrap input#retiroMonto{
-  padding:16px 16px 16px 38px; font-family:var(--font-mono); font-size:22px; font-weight:700; height:58px; letter-spacing:.5px;
+  padding:16px 16px 16px 38px; font-family:var(--font-mono); font-size:22px; font-weight:600; height:58px; letter-spacing:.3px;
 }
 .npRetiroMontoWrap input::-webkit-outer-spin-button,
 .npRetiroMontoWrap input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
@@ -478,39 +557,39 @@ table.npTable{ width:100%; min-width:900px; border-collapse:separate; border-spa
 .npRetiroQuick{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
 .npQuickBtn{
   border:1px solid var(--line); cursor:pointer; border-radius:11px; padding:10px 8px;
-  background:rgba(255,255,255,.03); color:var(--text-dim); font-size:12px; font-weight:800;
-  font-family:var(--font-mono); transition:.16s ease;
+  background:rgba(255,255,255,.025); color:var(--text-dim); font-size:12px; font-weight:700;
+  font-family:var(--font-mono); transition:background .15s var(--ease), color .15s var(--ease);
 }
 .npQuickBtn:hover{ background:rgba(255,255,255,.07); color:#fff; }
 .npQuickBtn:active{ transform:scale(.97); }
 
 .npField.npFieldMetodo .npToggleGroupWrap{ display:grid; grid-template-columns:repeat(auto-fit, minmax(130px,1fr)); gap:8px; }
 .npMetodoBtn{
-  border:1px solid var(--line); cursor:pointer; border-radius:12px; padding:13px 10px;
-  background:rgba(255,255,255,.03); color:var(--text-dim); font-size:12.5px; font-weight:800;
-  display:flex; align-items:center; justify-content:center; gap:8px; transition:.16s ease;
+  border:1px solid var(--line); cursor:pointer; border-radius:11px; padding:13px 10px;
+  background:rgba(255,255,255,.025); color:var(--text-dim); font-size:12.5px; font-weight:700;
+  display:flex; align-items:center; justify-content:center; gap:8px; transition:background .15s var(--ease), border-color .15s var(--ease);
 }
 .npMetodoBtn:hover{ background:rgba(255,255,255,.06); }
 .npMetodoBtn.on{
-  background:linear-gradient(135deg, rgba(243,165,60,.24), rgba(47,212,198,.10));
+  background:linear-gradient(135deg, rgba(243,165,60,.22), rgba(47,212,198,.10));
   border-color:rgba(243,165,60,.4); color:#fff;
 }
 .npMetodoBtn .npMetodoDot{ width:8px; height:8px; border-radius:50%; background:var(--text-faint); flex-shrink:0; }
-.npMetodoBtn.on .npMetodoDot{ background:var(--amber); }
+.npMetodoBtn.on .npMetodoDot{ background:var(--amber-2); }
 
-.npRetiroResumen{ padding:15px; border-radius:16px; background:rgba(255,255,255,.03); border:1px solid var(--line); }
+.npRetiroResumen{ padding:16px; border-radius:16px; background:rgba(255,255,255,.025); border:1px solid var(--line); }
 .npRetiroLinea{ display:flex; justify-content:space-between; align-items:center; gap:14px; font-size:12.5px; padding:8px 0; color:var(--text-dim); }
-.npRetiroLinea strong{ color:#fff; font-family:var(--font-mono); display:block; text-align:right; font-size:14px; }
+.npRetiroLinea strong{ color:#fff; font-family:var(--font-mono); display:block; text-align:right; font-size:14px; font-weight:600; }
 .npRetiroLineaValores{ text-align:right; flex-shrink:0; }
 .npRetiroLineaPen{ display:block; font-family:var(--font-mono); font-size:10.5px; color:var(--text-faint); margin-top:2px; }
-.npRetiroLinea.total{ border-top:1px dashed var(--line); margin-top:6px; padding-top:13px; }
+.npRetiroLinea.total{ border-top:1px dashed var(--line); margin-top:6px; padding-top:14px; }
 .npRetiroLinea.total > span:first-child{ font-size:13px; font-weight:700; color:#fff; }
-.npRetiroLinea.total strong{ color:var(--amber); font-size:22px; }
+.npRetiroLinea.total strong{ color:var(--amber-2); font-size:23px; }
 .npRetiroLinea.total .npRetiroLineaPen{ font-size:11.5px; }
 
 .npRetencionNotice{
   margin-bottom:16px; padding:12px 14px; border-radius:14px; font-size:12px; line-height:1.6; color:#ffe3b3;
-  background:rgba(243,165,60,.08); border:1px solid rgba(243,165,60,.22);
+  background:rgba(243,165,60,.07); border:1px solid rgba(243,165,60,.2);
   display:flex; align-items:flex-start; gap:10px;
 }
 .npRetencionNotice .npRetencionIcono{ font-size:16px; flex-shrink:0; }
@@ -520,31 +599,31 @@ table.npTable{ width:100%; min-width:900px; border-collapse:separate; border-spa
    AVISO VENCIMIENTOS
    ========================================================= */
 
-.npAvisoClickable{ cursor:pointer; transition:.16s ease; }
+.npAvisoClickable{ cursor:pointer; transition:filter .15s var(--ease), transform .15s var(--ease); }
 .npAvisoClickable:hover{ filter:brightness(1.08); transform:translateY(-1px); }
 
 .npAvisoVencimientos{
-  padding:16px; border-radius:16px; margin-bottom:18px; display:flex; align-items:center; gap:14px;
-  background:linear-gradient(135deg, rgba(255,93,115,.14), rgba(243,165,60,.08));
-  border:1px solid rgba(255,93,115,.28);
+  padding:17px; border-radius:16px; margin-bottom:18px; display:flex; align-items:center; gap:14px;
+  background:linear-gradient(135deg, rgba(255,93,115,.13), rgba(243,165,60,.07));
+  border:1px solid rgba(255,93,115,.26);
 }
 .npAvisoVencimientos.npAvisoOk{
-  background:linear-gradient(135deg, rgba(47,212,198,.10), rgba(139,124,255,.06));
+  background:linear-gradient(135deg, rgba(47,212,198,.09), rgba(139,124,255,.05));
   border-color:rgba(47,212,198,.22);
 }
 .npAvisoVencIcono{
   width:44px; height:44px; border-radius:13px; flex-shrink:0; display:grid; place-items:center; font-size:19px;
   background:linear-gradient(135deg, var(--danger), #c93049); color:#fff;
 }
-.npAvisoVencimientos.npAvisoOk .npAvisoVencIcono{ background:linear-gradient(135deg, var(--cyan), #1fa89c); color:#03211d; }
+.npAvisoVencimientos.npAvisoOk .npAvisoVencIcono{ background:linear-gradient(135deg, var(--cyan-2), #1fa89c); color:#03211d; }
 .npAvisoVencTexto{ flex:1; min-width:0; }
-.npAvisoVencTexto strong{ display:block; font-size:13.5px; color:#fff; margin-bottom:3px; }
+.npAvisoVencTexto strong{ display:block; font-size:13.5px; color:#fff; margin-bottom:3px; font-weight:700; }
 .npAvisoVencTexto span{ display:block; font-size:12px; color:var(--text-dim); line-height:1.5; }
 .npAvisoVencFlecha{ font-size:20px; color:var(--text-faint); flex-shrink:0; }
 
-.npVencGrupo{ padding:14px; border-radius:16px; margin-bottom:12px; background:rgba(255,255,255,.03); border:1px solid var(--line); }
+.npVencGrupo{ padding:14px; border-radius:16px; margin-bottom:12px; background:rgba(255,255,255,.025); border:1px solid var(--line); }
 .npVencGrupoHead{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
-.npVencGrupoHead h4{ margin:0 0 3px; font-size:14px; font-family:var(--font-display); }
+.npVencGrupoHead h4{ margin:0 0 3px; font-size:14px; font-family:var(--font-display); font-weight:600; }
 .npVencGrupoHead p{ margin:0; font-size:11.5px; color:var(--text-faint); font-family:var(--font-mono); word-break:break-all; }
 .npVencClientesLista{ display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
 .npVencCliente{
@@ -561,17 +640,19 @@ table.npTable{ width:100%; min-width:900px; border-collapse:separate; border-spa
 .npVencRenovadoBtn{
   border:1px solid var(--line); cursor:pointer; border-radius:8px; padding:7px 11px;
   font-size:10.5px; font-weight:800; background:rgba(255,255,255,.03); color:var(--text-dim);
+  transition:background .15s var(--ease), color .15s var(--ease), border-color .15s var(--ease);
 }
-.npVencRenovadoBtn.si.on{ background:rgba(47,212,198,.18); border-color:rgba(47,212,198,.4); color:#bdfff6; }
+.npVencRenovadoBtn.si.on{ background:rgba(47,212,198,.18); border-color:rgba(47,212,198,.4); color:#a6f5ea; }
 .npVencRenovadoBtn.no.on{ background:rgba(255,93,115,.18); border-color:rgba(255,93,115,.4); color:#ffd3da; }
 .npVencAplicarRow{ display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; }
 
 .npMiniSelect, .npMiniInput{
   width:100%; border-radius:10px; border:1px solid var(--line);
   background:rgba(255,255,255,.04); color:#fff; padding:10px; font-size:12.5px;
+  transition:border-color .15s var(--ease), box-shadow .15s var(--ease);
 }
-.npMiniSelect option{ background:#20232f; color:#fff; }
-.npMiniSelect:focus, .npMiniInput:focus{ outline:none; border-color:rgba(243,165,60,.5); }
+.npMiniSelect option{ background:#161923; color:#fff; }
+.npMiniSelect:focus, .npMiniInput:focus{ outline:none; border-color:rgba(243,165,60,.5); box-shadow:0 0 0 3px rgba(243,165,60,.12); }
 
 /* =========================================================
    CAMBIO DE CLAVE POR CORREO
@@ -586,7 +667,7 @@ table.npTable{ width:100%; min-width:900px; border-collapse:separate; border-spa
   display:inline-flex; align-items:center; gap:6px; padding:4px 9px; margin:3px 4px 0 0; border-radius:999px;
   font-size:10.5px; font-weight:700; background:rgba(255,255,255,.05); border:1px solid var(--line);
 }
-.npCorreoCuentaChip.usada{ color:#bdfff6; border-color:rgba(47,212,198,.28); }
+.npCorreoCuentaChip.usada{ color:#a6f5ea; border-color:rgba(47,212,198,.28); }
 .npCorreoCuentaChip.disponible{ color:#ffe3b3; border-color:rgba(243,165,60,.28); }
 
 /* =========================================================
@@ -594,13 +675,14 @@ table.npTable{ width:100%; min-width:900px; border-collapse:separate; border-spa
    ========================================================= */
 
 .npTiendaGrid{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
-.npTiendaCard{ overflow:hidden; display:flex; flex-direction:column; }
+.npTiendaCard{ overflow:hidden; display:flex; flex-direction:column; transition:transform .15s var(--ease), border-color .15s var(--ease); }
+.npTiendaCard:hover{ transform:translateY(-3px); border-color:var(--line-strong); }
 .npTiendaImg{ width:100%; height:150px; background:var(--ink-0); display:flex; align-items:center; justify-content:center; font-size:30px; color:var(--text-faint); }
-.npTiendaBody{ padding:14px; display:flex; flex-direction:column; gap:8px; flex:1; }
-.npTiendaBody h4{ font-family:var(--font-display); font-size:15.5px; margin:0; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.npTiendaBody{ padding:15px; display:flex; flex-direction:column; gap:8px; flex:1; }
+.npTiendaBody h4{ font-family:var(--font-display); font-size:15.5px; font-weight:600; margin:0; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
 .npTiendaMeta{ font-size:11.5px; color:var(--text-faint); line-height:1.6; }
 .npTiendaPrecio{ margin-top:auto; display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
-.npTiendaPrecio strong{ font-family:var(--font-mono); font-size:20px; color:var(--amber); }
+.npTiendaPrecio strong{ font-family:var(--font-mono); font-size:20px; color:var(--amber-2); font-weight:600; }
 .npTiendaPrecio span{ font-family:var(--font-mono); font-size:11px; color:var(--text-faint); }
 
 /* Barra de captura: se oculta a sí misma de la imagen vía
@@ -614,23 +696,24 @@ table.npTable{ width:100%; min-width:900px; border-collapse:separate; border-spa
    MODALES / NOTIFICACIONES
    ========================================================= */
 
-.npModalBase{ display:none; position:fixed; inset:0; background:rgba(4,5,8,.75); z-index:9999; padding:20px; align-items:center; justify-content:center; }
-.npModalBase.show{ display:flex; }
+.npModalBase{ display:none; position:fixed; inset:0; background:rgba(3,4,6,.78); backdrop-filter:blur(3px); z-index:9999; padding:20px; align-items:center; justify-content:center; }
+.npModalBase.show{ display:flex; animation:npFade .18s var(--ease); }
 .npModalBox{
   width:100%; max-width:640px; max-height:90vh; overflow:auto;
-  background:linear-gradient(180deg,#151822,#0f1117); border:1px solid var(--line);
-  border-radius:var(--r-l); box-shadow:0 24px 70px rgba(0,0,0,.5); padding:20px;
+  background:linear-gradient(180deg,#13151d,#0c0e13); border:1px solid var(--line-strong);
+  border-radius:var(--r-l); box-shadow:0 30px 80px rgba(0,0,0,.55); padding:22px;
 }
-.npModalHead{ display:flex; justify-content:space-between; gap:12px; margin-bottom:16px; }
-.npModalHead h3{ font-family:var(--font-display); font-size:19px; margin:0 0 5px; }
+.npModalHead{ display:flex; justify-content:space-between; gap:12px; margin-bottom:17px; padding-bottom:15px; border-bottom:1px solid var(--line); }
+.npModalHead h3{ font-family:var(--font-display); font-size:19px; font-weight:600; margin:0 0 5px; letter-spacing:-.2px; }
 .npModalHead p{ margin:0; font-size:12.5px; color:var(--text-faint); line-height:1.55; }
-.npModalX{ width:38px; height:38px; border:none; border-radius:11px; cursor:pointer; background:rgba(255,255,255,.08); color:#fff; font-size:16px; flex-shrink:0; }
+.npModalX{ width:38px; height:38px; border:none; border-radius:11px; cursor:pointer; background:rgba(255,255,255,.08); color:#fff; font-size:16px; flex-shrink:0; transition:background .15s var(--ease); }
+.npModalX:hover{ background:rgba(255,255,255,.14); }
 
 .npNotifyWrap{ position:fixed; top:16px; right:16px; z-index:10050; width:min(370px, calc(100vw - 24px)); display:flex; flex-direction:column; gap:10px; pointer-events:none; }
 .npNotifyItem{
-  display:flex; align-items:flex-start; gap:12px; padding:13px; border-radius:16px; border:1px solid var(--line);
-  background:linear-gradient(180deg,#151822,#0e1015); box-shadow:0 18px 40px rgba(0,0,0,.35);
-  transform:translateY(-10px); opacity:0; pointer-events:auto; animation:npNotifyIn .2s ease forwards;
+  display:flex; align-items:flex-start; gap:12px; padding:14px; border-radius:16px; border:1px solid var(--line-strong);
+  background:linear-gradient(180deg,#13151d,#0c0e13); box-shadow:0 20px 44px rgba(0,0,0,.4);
+  transform:translateY(-10px); opacity:0; pointer-events:auto; animation:npNotifyIn .22s var(--ease) forwards;
 }
 @keyframes npNotifyIn{ to{ opacity:1; transform:translateY(0);} }
 .npNotifyIcon{ width:38px; height:38px; border-radius:12px; display:grid; place-items:center; font-size:16px; flex-shrink:0; color:#fff; font-weight:800; }
@@ -639,26 +722,26 @@ table.npTable{ width:100%; min-width:900px; border-collapse:separate; border-spa
 .npNotifyItem.warning .npNotifyIcon{ background:linear-gradient(135deg,#f3a53c,#c9832a); }
 .npNotifyItem.info .npNotifyIcon{ background:linear-gradient(135deg,#8b7cff,#5f4dd6); }
 .npNotifyContent{ min-width:0; flex:1; }
-.npNotifyContent strong{ display:block; font-size:13px; margin-bottom:3px; color:#fff; }
+.npNotifyContent strong{ display:block; font-size:13px; margin-bottom:3px; color:#fff; font-weight:700; }
 .npNotifyContent p{ margin:0; font-size:11.5px; line-height:1.5; color:#dbe0f2; }
 .npNotifyClose{ width:26px; height:26px; border:none; border-radius:8px; background:rgba(255,255,255,.08); color:#fff; cursor:pointer; flex-shrink:0; }
 
-.npConfirmOverlay{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:10060; padding:18px; align-items:center; justify-content:center; }
+.npConfirmOverlay{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.72); backdrop-filter:blur(2px); z-index:10060; padding:18px; align-items:center; justify-content:center; }
 .npConfirmOverlay.show{ display:flex; }
 .npConfirmBox{
-  width:100%; max-width:440px; background:linear-gradient(180deg,#151a24,#0e1017);
-  border:1px solid var(--line); border-radius:var(--r-l); padding:20px; box-shadow:0 24px 60px rgba(0,0,0,.48);
+  width:100%; max-width:440px; background:linear-gradient(180deg,#13161f,#0c0e14);
+  border:1px solid var(--line-strong); border-radius:var(--r-l); padding:22px; box-shadow:0 30px 70px rgba(0,0,0,.5);
 }
-.npConfirmHead{ display:flex; gap:12px; margin-bottom:14px; }
+.npConfirmHead{ display:flex; gap:12px; margin-bottom:15px; }
 .npConfirmIcon{
-  width:42px; height:42px; border-radius:13px; background:linear-gradient(135deg,var(--amber),var(--cyan));
+  width:42px; height:42px; border-radius:13px; background:linear-gradient(135deg,var(--amber-2),var(--cyan));
   color:#1b1204; display:grid; place-items:center; font-size:18px; flex-shrink:0;
 }
-.npConfirmText h3{ margin:0 0 5px; font-size:16.5px; font-family:var(--font-display); }
+.npConfirmText h3{ margin:0 0 5px; font-size:16.5px; font-weight:600; font-family:var(--font-display); }
 .npConfirmText p{ margin:0; font-size:12.5px; color:var(--text-dim); line-height:1.6; }
-.npConfirmActions{ display:flex; justify-content:flex-end; gap:10px; margin-top:16px; }
+.npConfirmActions{ display:flex; justify-content:flex-end; gap:10px; margin-top:17px; }
 
-.npOverlayMovil{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:35; }
+.npOverlayMovil{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); backdrop-filter:blur(1px); z-index:35; }
 .npOverlayMovil.show{ display:block; }
 
 .npCuentaModalHead{ display:flex; align-items:center; gap:12px; }
@@ -688,7 +771,7 @@ table.npTable{ width:100%; min-width:900px; border-collapse:separate; border-spa
 }
 
 @media (max-width:900px){
-  .npSidebar{ position:fixed; left:-100%; top:0; width:86%; max-width:300px; transition:.22s ease; }
+  .npSidebar{ position:fixed; left:-100%; top:0; width:86%; max-width:300px; transition:left .25s var(--ease); }
   .npSidebar.show{ left:0; }
   .npMobileBtn{ display:inline-grid; place-items:center; }
   .npMain{ padding:16px; }
@@ -721,7 +804,7 @@ table.npTable{ width:100%; min-width:900px; border-collapse:separate; border-spa
   .npTopActions .npBtnPrimary span{ display:inline; }
 
   .npHero{ padding:18px; }
-  .npHeroMonto{ font-size:30px; }
+  .npHeroMonto{ font-size:31px; }
   .npHeroTop{ gap:16px; }
   .npHeroSaldo, .npHeroNivel{ min-width:0; width:100%; }
   .npInfoChips{ gap:8px; }
@@ -744,7 +827,7 @@ table.npTable{ width:100%; min-width:900px; border-collapse:separate; border-spa
   .npAvisoVencTexto strong{ font-size:12.5px; }
 
   .npPanel{ padding:14px; }
-  .npPanelHead{ margin-bottom:13px; }
+  .npPanelHead{ margin-bottom:13px; padding-bottom:12px; }
   .npPanelHead h3{ font-size:15px; }
 
   .npDataRow{ flex-direction:column; align-items:flex-start; gap:3px; }
@@ -775,7 +858,7 @@ table.npTable{ width:100%; min-width:900px; border-collapse:separate; border-spa
 @media (max-width:420px){
   .npGridStats, .npGridStats.cols2, .npGridStats.cols3{ grid-template-columns:1fr; }
   .npSaldoSplitItem{ flex:1 1 100%; }
-  .npHeroMonto{ font-size:27px; }
+  .npHeroMonto{ font-size:28px; }
   .npInfoChips{ grid-template-columns:1fr; }
   .npInfoChip{ display:flex; align-items:center; justify-content:space-between; }
   .npInfoChip b{ font-size:15px; }
@@ -785,9 +868,9 @@ table.npTable{ width:100%; min-width:900px; border-collapse:separate; border-spa
 
 /* ⭐ Indicador visual del campo Plataforma. Se colorea
    según si lo escrito coincide con una categoría existente
-   (teal) o si va a crear una categoría nueva al guardar (ámbar). */
-.npFieldHelp.npPlataformaOk{ color:var(--cyan); font-weight:700; }
-.npFieldHelp.npPlataformaNueva{ color:var(--amber); font-weight:700; }
+   (cian) o si va a crear una categoría nueva al guardar (ámbar). */
+.npFieldHelp.npPlataformaOk{ color:var(--cyan-2); font-weight:700; }
+.npFieldHelp.npPlataformaNueva{ color:var(--amber-2); font-weight:700; }
 
 /* =========================================================
    COMBO DE PLATAFORMA — listado desplegable compacto
@@ -801,30 +884,30 @@ table.npTable{ width:100%; min-width:900px; border-collapse:separate; border-spa
   position:absolute; right:6px; top:50%; transform:translateY(-50%);
   width:28px; height:28px; border:none; border-radius:8px; cursor:pointer;
   background:rgba(255,255,255,.06); color:var(--text-dim); font-size:12px;
-  display:grid; place-items:center; transition:.15s ease;
+  display:grid; place-items:center; transition:background .15s var(--ease), color .15s var(--ease), transform .15s var(--ease);
 }
 .npComboToggle:hover{ background:rgba(255,255,255,.1); color:#fff; }
-.npCombo.open .npComboToggle{ transform:translateY(-50%) rotate(180deg); color:var(--cyan); }
+.npCombo.open .npComboToggle{ transform:translateY(-50%) rotate(180deg); color:var(--cyan-2); }
 
 .npComboPanel{
   position:absolute; left:0; right:0; top:calc(100% + 6px); z-index:30;
   max-height:236px; overflow-y:auto;
-  background:linear-gradient(180deg,#181b24,#12141b);
+  background:linear-gradient(180deg,#161923,#0f1117);
   border:1px solid var(--line-strong); border-radius:14px;
   box-shadow:0 18px 40px rgba(0,0,0,.45);
   padding:6px; display:none;
 }
 .npCombo.open .npComboPanel{ display:block; }
 .npComboPanel::-webkit-scrollbar{ width:8px; }
-.npComboPanel::-webkit-scrollbar-thumb{ background:linear-gradient(180deg, var(--amber), var(--cyan)); border-radius:99px; }
+.npComboPanel::-webkit-scrollbar-thumb{ background:linear-gradient(180deg, var(--amber-2), var(--cyan)); border-radius:99px; }
 
 .npComboItem{
   display:flex; align-items:center; gap:9px; width:100%; padding:9px 10px; border-radius:10px;
   border:none; background:transparent; color:var(--text-dim); font-size:12.5px; font-weight:700;
-  cursor:pointer; text-align:left; transition:.12s ease;
+  cursor:pointer; text-align:left; transition:background .12s var(--ease), color .12s var(--ease);
 }
 .npComboItem:hover{ background:rgba(255,255,255,.06); color:#fff; }
-.npComboItem.on{ background:rgba(47,212,198,.14); color:#bdfff6; }
+.npComboItem.on{ background:rgba(47,212,198,.14); color:#a6f5ea; }
 .npComboItem img{ width:20px; height:20px; border-radius:50%; object-fit:cover; flex-shrink:0; background:#0e0f14; }
 .npComboItemDot{ width:8px; height:8px; border-radius:50%; background:var(--cyan); flex-shrink:0; }
 
