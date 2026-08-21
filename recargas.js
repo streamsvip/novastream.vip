@@ -1,64 +1,16 @@
-/* =========================================================
-   NOVASTREAM.VIP — recargas.js (v6)
-   ✅ CONECTADO A FIREBASE · compatible con las reglas RTDB v5
-
-   v6 (esta actualización):
-   - NUEVO: menú de usuario en escritorio (mismo comportamiento
-     que el de catalogo.html): abre/cierra el desplegable, pinta
-     avatar/nombre/correo/saldo y permite cerrar sesión.
-   - FIX: la pantalla "Verificando tu sesión..." ya NO se oculta
-     apenas se registra el listener del historial. Antes se
-     ocultaba justo después de llamar a .on(...) sobre /recargas,
-     sin esperar ni el primer snapshot del historial NI que el
-     perfil (saldo/nombre) ya hubiera llegado — por eso el saldo
-     y el nombre podían "aparecer" después de que la pantalla de
-     carga ya se había ido. Ahora espera a que PERFIL
-     (nrPerfilListo) Y HISTORIAL (nrHistorialListo) estén listos.
-   - Red de seguridad: si algo se cuelga, el loader igual se
-     oculta a los 6s (forzado), para que nunca quede pegado.
-
-   ─────────────────────────────────────────────────────────
-   QUÉ HACE
-   ─────────────────────────────────────────────────────────
-   1. Protege la página: sin sesión → login.html.
-      Si el usuario es admin lo manda a su panel.
-   2. Lee el saldo en vivo desde usuarios/{uid}/saldoUsd.
-   3. Lee los datos de pago desde configuracion/metodosPago
-      (lectura pública). Si el admin no los configuró, usa los
-      valores por defecto de este archivo.
-   4. Sube el comprobante a Storage: comprobantes/{uid}/archivo.
-      Si Storage está bloqueado, guarda una miniatura comprimida
-      directo en la base (para que el flujo nunca se rompa).
-   5. Crea la solicitud en /recargas con el formato EXACTO que
-      exigen las reglas:
-         clienteId === auth.uid
-         estado === "pendiente"
-         montoUsd > 0
-   6. Lee el historial con query obligatoria:
-         recargas.orderByChild("clienteId").equalTo(uid)
-      (leer el nodo completo daría PERMISSION_DENIED)
-
-   ─────────────────────────────────────────────────────────
-   IMPORTANTE
-   ─────────────────────────────────────────────────────────
-   El cliente NO puede aprobar su propia recarga: las reglas
-   solo le permiten crearla en estado "pendiente". El saldo lo
-   acredita el administrador desde su panel.
-   ========================================================= */
-
 /* =========================
    CONFIG
 ========================= */
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCwMr1Ie2DmAePzI0X4qsSR5jE70OKbRkA",
-  authDomain: "novastream-f3e15.firebaseapp.com",
-  databaseURL: "https://novastream-f3e15-default-rtdb.firebaseio.com",
-  projectId: "novastream-f3e15",
-  storageBucket: "novastream-f3e15.firebasestorage.app",
-  messagingSenderId: "356156093772",
-  appId: "1:356156093772:web:58fb86ad38d8560fc50be9",
-  measurementId: "G-FVSMQBXNDX"
+  apiKey: "AIzaSyAFTFc35Dqm8St1bA7ffAcBRlk4DHkNljI",
+  authDomain: "novastream-aeb9d.firebaseapp.com",
+  databaseURL: "https://novastream-aeb9d-default-rtdb.firebaseio.com",
+  projectId: "novastream-aeb9d",
+  storageBucket: "novastream-aeb9d.firebasestorage.app",
+  messagingSenderId: "101726393403",
+  appId: "1:101726393403:web:65b43413b89d7c9968781e",
+  measurementId: "G-WX6PRVKMB8"
 };
 
 const NR_LOGIN_URL = "login.html";
