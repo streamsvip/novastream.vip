@@ -3,14 +3,14 @@
 ========================= */
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCwMr1Ie2DmAePzI0X4qsSR5jE70OKbRkA",
-  authDomain: "novastream-f3e15.firebaseapp.com",
-  databaseURL: "https://novastream-f3e15-default-rtdb.firebaseio.com",
-  projectId: "novastream-f3e15",
-  storageBucket: "novastream-f3e15.firebasestorage.app",
-  messagingSenderId: "356156093772",
-  appId: "1:356156093772:web:58fb86ad38d8560fc50be9",
-  measurementId: "G-FVSMQBXNDX"
+  apiKey: "AIzaSyAFTFc35Dqm8St1bA7ffAcBRlk4DHkNljI",
+  authDomain: "novastream-aeb9d.firebaseapp.com",
+  databaseURL: "https://novastream-aeb9d-default-rtdb.firebaseio.com",
+  projectId: "novastream-aeb9d",
+  storageBucket: "novastream-aeb9d.firebasestorage.app",
+  messagingSenderId: "101726393403",
+  appId: "1:101726393403:web:65b43413b89d7c9968781e",
+  measurementId: "G-WX6PRVKMB8"
 };
 
 const NS_LOGIN_URL = "login.html";
