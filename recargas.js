@@ -427,6 +427,43 @@ function comprimirImagen(file, maxLado){
   });
 }
 
+/* =========================================================
+   ⭐ NUEVO (v7): TIMEOUT DE SEGURIDAD
+   Envuelve cualquier promesa (subida a Storage, escritura en la
+   base de datos, etc). Si no se resuelve/rechaza dentro del
+   tiempo dado, se rechaza con un error "TIMEOUT_<etiqueta>".
+   Esto es lo que evita que el botón se quede colgado para
+   siempre en "Subiendo comprobante..." cuando la red bloquea o
+   demora la conexión con Firebase Storage / Database.
+========================================================= */
+
+function nrConTimeout(promesa, ms, etiqueta){
+  return new Promise((resolve, reject) => {
+    let resuelto = false;
+
+    const temporizador = setTimeout(() => {
+      if (resuelto) return;
+      resuelto = true;
+      reject(new Error("TIMEOUT_" + (etiqueta || "operacion")));
+    }, ms);
+
+    Promise.resolve(promesa).then(
+      (valor) => {
+        if (resuelto) return;
+        resuelto = true;
+        clearTimeout(temporizador);
+        resolve(valor);
+      },
+      (error) => {
+        if (resuelto) return;
+        resuelto = true;
+        clearTimeout(temporizador);
+        reject(error);
+      }
+    );
+  });
+}
+
 async function subirComprobante(file){
   const ts = Date.now();
   const limpio = String(file.name || "comprobante.jpg").replace(/[^a-zA-Z0-9._-]/g, "_").slice(-40);
@@ -435,15 +472,19 @@ async function subirComprobante(file){
   if (nrStorage){
     try {
       const ref = nrStorage.ref(ruta);
-      await ref.put(file);
-      const url = await ref.getDownloadURL();
+      /* ⭐ Si Storage tarda más de 9s (reglas mal configuradas, CORS
+         bloqueado, o la red del usuario bloquea
+         firebasestorage.googleapis.com), NO nos quedamos colgados:
+         pasamos directo al plan B (miniatura embebida en la BD). */
+      await nrConTimeout(ref.put(file), 9000, "storage_put");
+      const url = await nrConTimeout(ref.getDownloadURL(), 9000, "storage_url");
       return { url, path: ruta };
     } catch (e){
-      console.warn("Storage no disponible, se usa miniatura embebida:", e.message);
+      console.warn("Storage no disponible o lento, se usa miniatura embebida:", e && e.message);
     }
   }
 
-  const dataUrl = await comprimirImagen(file, 900);
+  const dataUrl = await nrConTimeout(comprimirImagen(file, 900), 9000, "comprimir_imagen");
   return { url: dataUrl, path: "" };
 }
 
@@ -498,7 +539,7 @@ async function enviarSolicitud(e){
 
     /* Formato EXACTO que exigen las reglas:
        clienteId === auth.uid · estado 'pendiente' · montoUsd > 0 */
-    await nrDb.ref("recargas").push({
+    await nrConTimeout(nrDb.ref("recargas").push({
       clienteId:      nrUid,
       clienteNombre:  nrPerfil.nombre,
       clienteCorreo:  nrPerfil.correo,
@@ -512,7 +553,7 @@ async function enviarSolicitud(e){
       comprobantePath: comp.path,
       estado:         "pendiente",
       fecha:          Date.now()
-    });
+    }), 12000, "guardar_recarga");
 
     msg("✅ Solicitud enviada. Quedará pendiente hasta que el administrador valide tu comprobante.", "success");
     toast("Recarga registrada · " + fmtUSD(montoUsd) + " (pendiente)");
@@ -524,7 +565,9 @@ async function enviarSolicitud(e){
   } catch (err){
     console.error(err);
     const t = String(err.message || "");
-    if (/permission/i.test(t)){
+    if (/^TIMEOUT_/.test(t)){
+      msg("La conexión está muy lenta o bloqueada y la solicitud tardó demasiado. Verifica tu internet e inténtalo de nuevo.", "error");
+    } else if (/permission/i.test(t)){
       msg("El servidor rechazó la solicitud. Verifica el monto e intenta de nuevo.", "error");
     } else {
       msg("No se pudo enviar la solicitud: " + t, "error");
