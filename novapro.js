@@ -1328,7 +1328,7 @@ function renderCuentasProducto(){
 
   if (!pid) {
     if (tbDisp) tbDisp.innerHTML = '<tr><td colspan="7" class="npTdEmpty"><div class="npEmpty">Selecciona un producto para ver su stock.</div></td></tr>';
-    if (tbUsad) tbUsad.innerHTML = '<tr><td colspan="6" class="npTdEmpty"><div class="npEmpty">Selecciona un producto para ver su historial.</div></td></tr>';
+    if (tbUsad) tbUsad.innerHTML = '<tr><td colspan="7" class="npTdEmpty"><div class="npEmpty">Selecciona un producto para ver su historial.</div></td></tr>';
     if (selCorreo) selCorreo.innerHTML = '<option value="">Selecciona producto primero</option>';
     setTxt("npMiniTotalCuentas","0"); setTxt("npMiniDisponibles","0"); setTxt("npMiniUsadas","0");
     return;
@@ -1370,7 +1370,7 @@ function renderCuentasProducto(){
   /* ---- Usadas ---- */
   if (tbUsad) {
     if (!usad.length) {
-      tbUsad.innerHTML = '<tr><td colspan="6" class="npTdEmpty"><div class="npEmpty">No hay cuentas usadas todavía.</div></td></tr>';
+      tbUsad.innerHTML = '<tr><td colspan="7" class="npTdEmpty"><div class="npEmpty">No hay cuentas usadas todavía.</div></td></tr>';
     } else {
       usad.sort((a,b) => ts(cuentas[b].fechaVenta) - ts(cuentas[a].fechaVenta));
       const dur = num(npProductos[pid].duracionDias);
@@ -1387,6 +1387,9 @@ function renderCuentasProducto(){
           '<td>' + esc(fechaCorta(c.fechaVenta)) + '</td>' +
           '<td>' + (vence ? esc(fechaCorta(vence)) : "-") + '</td>' +
           '<td>' + badge(expirada ? "Expirada" : "Activa") + '</td>' +
+          '<td><div class="npActionRow">' +
+            '<button class="npBtnMini edit" onclick="abrirModalEditarCuenta(\'' + escJS(pid) + '\',\'' + escJS(cid) + '\')">Editar</button>' +
+          '</div></td>' +
         '</tr>';
       }).join("");
     }
