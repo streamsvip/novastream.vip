@@ -1074,11 +1074,23 @@ async function guardarProducto(event){
       fechaCreacion:   editando ? (num(ant.fechaCreacion) || Date.now()) : Date.now()
     };
 
-    const updates = {};
-    updates["productos/" + id] = data;
-    if (!ilimitado) updates["stock/" + id] = data.stock;
+    try {
+  await db.ref("productos/" + id).set(data);
+  console.log("✅ productos OK");
+} catch (e) {
+  console.error("❌ FALLÓ EN productos:", e.message);
+  throw e;
+}
 
-    await db.ref().update(updates);
+if (!ilimitado) {
+  try {
+    await db.ref("stock/" + id).set(data.stock);
+    console.log("✅ stock OK");
+  } catch (e) {
+    console.error("❌ FALLÓ EN stock:", e.message);
+    throw e;
+  }
+}
 
     ok(editando ? "Producto actualizado correctamente."
                 : "Producto publicado. Ahora carga su stock en la pestaña «Cuentas».");
