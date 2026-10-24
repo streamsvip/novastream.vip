@@ -917,3 +917,76 @@ table.npTable{ width:100%; min-width:900px; border-collapse:separate; border-spa
   font-size:12px; font-weight:700; margin-top:4px;
 }
 .npComboEmpty{ padding:14px 10px; font-size:11.5px; color:var(--text-faint); text-align:center; line-height:1.5; }
+/* =========================================================
+   v11 — Aviso de vencimientos que se puede cerrar,
+   modal con «Renovó / No renovó», nombre de tienda
+   ========================================================= */
+
+.npAvisoVencimientos{ position:relative; padding-right:52px; }
+.npAvisoVencCerrar{
+  position:absolute; top:10px; right:10px;
+  width:28px; height:28px; border-radius:9px; border:1px solid var(--line);
+  background:rgba(0,0,0,.25); color:var(--text-dim); font-size:12px; cursor:pointer;
+  display:grid; place-items:center; transition:background .15s var(--ease), color .15s var(--ease);
+}
+.npAvisoVencCerrar:hover{ background:rgba(255,255,255,.12); color:#fff; }
+.npAvisoVencimientos .npAvisoVencFlecha{ margin-right:6px; }
+.npAvisoVencimientos.npAvisoOk .npAvisoVencCerrar{ display:none; }
+.npAvisoVencimientos.npAvisoOk{ padding-right:17px; }
+
+.npAvisoVencimientos.npAvisoSoloClave{
+  background:linear-gradient(135deg, rgba(47,212,198,.12), rgba(243,165,60,.06));
+  border-color:rgba(47,212,198,.28);
+}
+.npAvisoVencimientos.npAvisoSoloClave .npAvisoVencIcono{ background:linear-gradient(135deg, var(--cyan-2), #1fa89c); color:#03211d; }
+
+/* Barra superior del modal */
+.npVencToolbar{
+  display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;
+  margin-bottom:12px; padding:10px 12px; border-radius:12px;
+  background:rgba(255,255,255,.025); border:1px solid var(--line);
+}
+.npVencResumen{ display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; color:var(--text-faint); font-weight:700; }
+.npVencResumen b{ font-family:var(--font-mono); color:#fff; font-size:13px; margin-right:3px; }
+.npVencToolbarBtns{ display:flex; gap:6px; flex-wrap:wrap; }
+
+/* Botones Renovó / No renovó siempre con color */
+.npVencRenovadoBtn.si{ background:rgba(47,212,198,.10); border-color:rgba(47,212,198,.32); color:#a6f5ea; }
+.npVencRenovadoBtn.si:hover{ background:rgba(47,212,198,.24); }
+.npVencRenovadoBtn.no{ background:rgba(255,93,115,.10); border-color:rgba(255,93,115,.32); color:#ffd3da; }
+.npVencRenovadoBtn.no:hover{ background:rgba(255,93,115,.24); }
+
+/* Bloque «Renovaron» */
+.npVencRenovaron{
+  margin-top:4px; padding:11px; border-radius:12px;
+  background:rgba(47,212,198,.06); border:1px dashed rgba(47,212,198,.32);
+  display:flex; flex-direction:column; gap:7px;
+}
+.npVencRenovaronHead{ font-size:11.5px; font-weight:800; color:#a6f5ea; }
+.npVencRenChip{
+  display:flex; justify-content:space-between; align-items:center; gap:8px;
+  padding:7px 10px; border-radius:9px; background:rgba(255,255,255,.03); border:1px solid var(--line);
+  font-size:12px; font-weight:700; color:#fff;
+}
+.npVencRenChip button{
+  border:none; background:none; color:var(--text-faint); font-size:11px; font-weight:700; cursor:pointer; text-decoration:underline;
+}
+.npVencRenChip button:hover{ color:#ffd3da; }
+.npVencSinClave{
+  align-self:flex-start; border:none; background:none; padding:2px 0;
+  color:var(--text-faint); font-size:11.5px; font-weight:700; cursor:pointer; text-decoration:underline;
+}
+.npVencSinClave:hover{ color:#fff; }
+
+.npVencDescartadas{ opacity:.85; border-style:dashed; }
+.npVencDescartadas .npVencGrupoHead p{ font-family:var(--font-body); }
+
+/* Nombre de tienda en el perfil */
+.npTiendaNombreWrap{ display:flex; align-items:center; gap:8px; min-width:0; justify-content:flex-end; flex-wrap:wrap; }
+.npTiendaNombreWrap strong{ color:var(--amber-2); }
+
+@media (max-width:640px){
+  .npVencRenovadoToggle{ width:100%; }
+  .npVencRenovadoBtn{ flex:1; padding:9px 8px; }
+  .npTiendaNombreWrap{ justify-content:flex-start; }
+}
