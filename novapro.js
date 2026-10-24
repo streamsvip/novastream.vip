@@ -74,8 +74,6 @@ let npImagenProducto = "";
 let npCuentaEditPid = null;
 let npPanelIniciado = false;
 
-/* Estado local del modal de vencimientos: { "pid|cid": true/false } */
-let npRenovoLocal = {};
 
 /* =========================================================
    UTILIDADES
@@ -290,6 +288,7 @@ function aplicarPerfil(p){
 
   setTxt("npPerfilNombre", npPerfil.nombre);
   setTxt("npPerfilCorreo", npPerfil.correo || "-");
+  pintarNombreTienda();
   pintarSaldos();
 }
 
@@ -316,7 +315,8 @@ function iniciarPanel(){
   db.ref("proveedoresPublicos/" + npUid).on("value", (s) => {
     npPublico = s.val() || {};
     prepararFormSoporte();
-  }, () => { npPublico = {}; });
+    pintarNombreTienda();
+  }, () => { npPublico = {}; pintarNombreTienda(); });
 
   /* Categorías (lectura pública) → combo de plataformas.
      Esta es la MISMA lista que crea el administrador desde su
@@ -394,7 +394,7 @@ function sincronizarListenersCuentas(){
       renderTablaProductos();
       renderCuentasProducto();
       renderResumen();
-      renderAvisoVencimientos();
+      refrescarVencimientos();
     }, () => { npCuentas[pid] = {}; });
   });
 
@@ -573,18 +573,38 @@ function renderMovimientos(){
 }
 
 /* =========================================================
-   AVISO DE VENCIMIENTOS
+   AVISO DE VENCIMIENTOS  (v11)
+
+   Cada cuenta entregada que vence dentro de NP_DIAS_AVISO días
+   (o que ya venció) aparece en el aviso y en el modal hasta que
+   el proveedor decide:
+
+   · «Renovó»    → pasa a la lista «Renovaron» de su correo. Ahí
+                   se aplica la nueva contraseña SOLO a las que
+                   renovaron de ese correo y se reinicia su
+                   vigencia. Luego desaparecen del modal.
+   · «No renovó» → se descarta y desaparece del modal. No se le
+                   cambia nada. Vuelve a aparecer solo si su
+                   vigencia cambia (p. ej. si se renueva después).
+
+   Campos que se guardan en /cuentas/{pid}/{cid}:
+     renovado (true/false), avisoNoRenovo, avisoCicloVence
+     (la fecha de vencimiento que se descartó), avisoFecha.
 ========================================================= */
 
+const NP_MS_DIA = 24 * 60 * 60 * 1000;
+let npVencVerDescartadas = false;
+
+/* Todas las cuentas entregadas por vencer o vencidas,
+   con su estado de decisión. */
 function cuentasPorVencer(){
   const lista = [];
   const ahora = Date.now();
-  const dia = 24 * 60 * 60 * 1000;
 
   Object.keys(npProductos).forEach(pid => {
     const p = npProductos[pid];
     const dur = num(p.duracionDias);
-    if (dur <= 0) return;
+    if (dur <= 0 || dur >= 3650) return;      // sin vencimiento / permanente
 
     const cuentas = npCuentas[pid] || {};
     Object.keys(cuentas).forEach(cid => {
@@ -592,49 +612,104 @@ function cuentasPorVencer(){
       if (estadoDe(c.estado, "disponible") !== "usada") return;
       if (!c.fechaVenta) return;
 
-      const vence = ts(c.fechaVenta) + dur * dia;
-      const dias = Math.ceil((vence - ahora) / dia);
+      const vence = ts(c.fechaVenta) + dur * NP_MS_DIA;
+      const dias = Math.ceil((vence - ahora) / NP_MS_DIA);
+      if (dias > NP_DIAS_AVISO) return;
 
-      if (dias <= NP_DIAS_AVISO) {
-        lista.push({
-          pid, cid,
-          producto: p.nombre || pid,
-          correo: c.correo || "-",
-          clave: c.clave || "",
-          perfil: c.perfil || "",
-          comprador: c.compradorNombre || "Cliente",
-          vence, dias,
-          renovado: c.renovado === true
-        });
-      }
+      const descartada = c.avisoNoRenovo === true && num(c.avisoCicloVence) === vence;
+
+      lista.push({
+        pid, cid,
+        producto: p.nombre || pid,
+        correo: c.correo || "-",
+        perfil: c.perfil || "",
+        comprador: c.compradorNombre || "Cliente",
+        vence, dias,
+        renovado: c.renovado === true && !descartada,
+        descartada
+      });
     });
   });
 
   return lista.sort((a,b) => a.vence - b.vence);
 }
 
+/* ---------- Aviso del Resumen (se puede cerrar) ---------- */
+
+function claveAvisoOculto(){ return "np_aviso_venc_oculto_" + (npUid || ""); }
+
+/* Firma de lo que hay pendiente: si aparece algo nuevo, el aviso vuelve */
+function firmaAvisoVenc(lista){
+  return lista.filter(x => !x.descartada).map(x => x.pid + "|" + x.cid + "|" + x.vence + "|" + (x.renovado ? 1 : 0)).sort().join(",");
+}
+
+function ocultarAvisoVencimientos(event){
+  if (event) event.stopPropagation();
+  try { localStorage.setItem(claveAvisoOculto(), firmaAvisoVenc(cuentasPorVencer())); } catch(e){}
+  renderAvisoVencimientos();
+  info("Aviso ocultado. Volverá a aparecer cuando haya cuentas nuevas por vencer.");
+}
+
 function renderAvisoVencimientos(){
-  const lista = cuentasPorVencer();
-  const box  = $("npAvisoVencimientos");
+  const box = $("npAvisoVencimientos");
   if (!box) return;
 
+  const lista = cuentasPorVencer();
+  const pendientes = lista.filter(x => !x.descartada && !x.renovado);
+  const renovados  = lista.filter(x => x.renovado);
   const icono = $("npAvisoVencIcono");
 
-  if (!lista.length) {
+  if (!pendientes.length && !renovados.length) {
+    box.style.display = "";
     box.classList.add("npAvisoOk");
+    box.classList.remove("npAvisoSoloClave");
     if (icono) icono.textContent = "✓";
     setTxt("npAvisoVencTitulo", "Todo al día");
-    setTxt("npAvisoVencSubtitulo", "No tienes cuentas entregadas por vencer en los próximos días.");
+    setTxt("npAvisoVencSubtitulo", "No tienes cuentas entregadas por vencer pendientes de revisar.");
     return;
   }
 
-  const criticas = lista.filter(x => x.dias <= 1).length;
+  /* ¿El proveedor lo cerró y no hay nada nuevo desde entonces? */
+  let oculto = "";
+  try { oculto = localStorage.getItem(claveAvisoOculto()) || ""; } catch(e){}
+  if (oculto && oculto === firmaAvisoVenc(lista)) {
+    box.style.display = "none";
+    return;
+  }
+  box.style.display = "";
+
   box.classList.remove("npAvisoOk");
-  if (icono) icono.textContent = "!";
-  setTxt("npAvisoVencTitulo", lista.length + " cuenta(s) por vencer");
-  setTxt("npAvisoVencSubtitulo",
-    (criticas ? criticas + " vencen hoy o mañana. " : "") +
-    "Toca aquí para marcar quién renovó y cambiar la contraseña.");
+  box.classList.toggle("npAvisoSoloClave", !pendientes.length && renovados.length > 0);
+
+  const vencidas = pendientes.filter(x => x.dias < 0).length;
+  const criticas = pendientes.filter(x => x.dias >= 0 && x.dias <= 1).length;
+
+  if (pendientes.length) {
+    if (icono) icono.textContent = "!";
+    setTxt("npAvisoVencTitulo",
+      pendientes.length + " cuenta(s) por revisar" + (vencidas ? " · " + vencidas + " vencida(s)" : ""));
+    setTxt("npAvisoVencSubtitulo",
+      (criticas ? criticas + " vencen hoy o mañana. " : "") +
+      (renovados.length ? renovados.length + " renovaron y esperan nueva contraseña. " : "") +
+      "Toca aquí para marcar quién renovó y quién no.");
+  } else {
+    if (icono) icono.textContent = "🔑";
+    setTxt("npAvisoVencTitulo", renovados.length + " renovación(es) esperando nueva contraseña");
+    setTxt("npAvisoVencSubtitulo", "Toca aquí para aplicar la nueva contraseña a quienes renovaron.");
+  }
+}
+
+/* ---------- Modal ---------- */
+
+function idGrupoVenc(pid, correo){
+  return "g" + Array.from(pid + "|" + correo).reduce((a,c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0).toString(36).replace("-", "n");
+}
+
+function textoDias(x){
+  if (x.dias < 0)  return "vencida hace " + Math.abs(x.dias) + " día(s)";
+  if (x.dias === 0) return "vence hoy";
+  if (x.dias === 1) return "vence mañana";
+  return "vence en " + x.dias + " días";
 }
 
 function renderVencimientosModal(){
@@ -642,106 +717,324 @@ function renderVencimientosModal(){
   if (!cont) return;
 
   const lista = cuentasPorVencer();
+  const activos = lista.filter(x => !x.descartada);
+  const descartadas = lista.filter(x => x.descartada);
+  const vencidasPend = activos.filter(x => !x.renovado && x.dias < 0).length;
 
-  if (!lista.length) {
-    cont.innerHTML = '<div class="npEmpty">No hay cuentas por vencer.</div>';
+  /* Barra superior */
+  let html =
+    '<div class="npVencToolbar">' +
+      '<div class="npVencResumen">' +
+        '<span><b>' + activos.filter(x => !x.renovado).length + '</b> por decidir</span>' +
+        '<span><b>' + activos.filter(x => x.renovado).length + '</b> renovaron</span>' +
+        '<span><b>' + descartadas.length + '</b> no renovaron</span>' +
+      '</div>' +
+      '<div class="npVencToolbarBtns">' +
+        (vencidasPend
+          ? '<button type="button" class="npBtnMini del" onclick="vaciarVencidas()">Vaciar vencidas (' + vencidasPend + ')</button>'
+          : '') +
+        (descartadas.length
+          ? '<button type="button" class="npBtnMini toggle" onclick="toggleVerDescartadas()">' +
+              (npVencVerDescartadas ? "Ocultar descartadas" : "Ver descartadas (" + descartadas.length + ")") + '</button>'
+          : '') +
+      '</div>' +
+    '</div>';
+
+  if (!activos.length && !(npVencVerDescartadas && descartadas.length)) {
+    cont.innerHTML = html + '<div class="npEmpty">✓ No hay cuentas por vencer pendientes. Todo revisado.</div>';
     return;
   }
 
+  /* Agrupar por producto + correo */
   const grupos = {};
-  lista.forEach(x => {
+  activos.forEach(x => {
     const k = x.pid + "||" + x.correo;
-    if (!grupos[k]) grupos[k] = { pid: x.pid, producto: x.producto, correo: x.correo, items: [] };
-    grupos[k].items.push(x);
+    if (!grupos[k]) grupos[k] = { pid: x.pid, producto: x.producto, correo: x.correo, pend: [], ren: [] };
+    (x.renovado ? grupos[k].ren : grupos[k].pend).push(x);
   });
 
-  cont.innerHTML = Object.keys(grupos).map(k => {
+  html += Object.keys(grupos).map(k => {
     const g = grupos[k];
-    const gid = "g_" + Math.abs(k.split("").reduce((a,c)=>a+c.charCodeAt(0),0)) + "_" + g.items.length;
+    const gid = idGrupoVenc(g.pid, g.correo);
 
-    const clientes = g.items.map(x => {
-      const key = x.pid + "|" + x.cid;
-      const marcado = npRenovoLocal[key] !== undefined ? npRenovoLocal[key] : x.renovado;
-      const clase = x.dias <= 1 ? "critico" : "pronto";
-      const txtDias = x.dias < 0 ? "vencida" : (x.dias === 0 ? "vence hoy" : "en " + x.dias + " día(s)");
-
-      return '<div class="npVencCliente">' +
+    const filasPend = g.pend.map(x =>
+      '<div class="npVencCliente">' +
         '<div class="npVencClienteInfo">' +
           '<strong>' + esc(x.comprador) + (x.perfil ? " · " + esc(x.perfil) : "") + '</strong>' +
-          '<span class="npVencDiasBadge ' + clase + '">' + esc(txtDias) + ' · ' + esc(fechaCorta(x.vence)) + '</span>' +
+          '<span class="npVencDiasBadge ' + (x.dias <= 1 ? "critico" : "pronto") + '">' +
+            esc(textoDias(x)) + ' · ' + esc(fechaCorta(x.vence)) + '</span>' +
         '</div>' +
         '<div class="npVencRenovadoToggle">' +
-          '<button type="button" class="npVencRenovadoBtn si' + (marcado ? " on" : "") + '" ' +
-            'onclick="marcarRenovo(\'' + escJS(x.pid) + '\',\'' + escJS(x.cid) + '\',true)">Renovó</button>' +
-          '<button type="button" class="npVencRenovadoBtn no' + (!marcado ? " on" : "") + '" ' +
-            'onclick="marcarRenovo(\'' + escJS(x.pid) + '\',\'' + escJS(x.cid) + '\',false)">No</button>' +
+          '<button type="button" class="npVencRenovadoBtn si" onclick="marcarRenovo(\'' + escJS(x.pid) + '\',\'' + escJS(x.cid) + '\')">✓ Renovó</button>' +
+          '<button type="button" class="npVencRenovadoBtn no" onclick="marcarNoRenovo(\'' + escJS(x.pid) + '\',\'' + escJS(x.cid) + '\')">✕ No renovó</button>' +
         '</div>' +
-      '</div>';
-    }).join("");
+      '</div>'
+    ).join("");
+
+    const bloqueRen = g.ren.length
+      ? '<div class="npVencRenovaron">' +
+          '<div class="npVencRenovaronHead">🔁 Renovaron (' + g.ren.length + ') · la nueva contraseña se aplica solo a estas</div>' +
+          g.ren.map(x =>
+            '<div class="npVencRenChip">' +
+              '<span>' + esc(x.comprador) + (x.perfil ? " · " + esc(x.perfil) : "") + '</span>' +
+              '<button type="button" onclick="deshacerRenovo(\'' + escJS(x.pid) + '\',\'' + escJS(x.cid) + '\')">Deshacer</button>' +
+            '</div>'
+          ).join("") +
+          '<div class="npVencAplicarRow">' +
+            '<input type="text" class="npMiniInput" id="clave_' + gid + '" placeholder="Nueva contraseña para los ' + g.ren.length + ' que renovaron">' +
+            '<button type="button" class="npBtn npBtnCyan" onclick="aplicarClaveVencimiento(\'' + escJS(g.pid) + '\',\'' + escJS(g.correo) + '\',\'clave_' + gid + '\')">Aplicar y renovar</button>' +
+          '</div>' +
+          '<button type="button" class="npVencSinClave" onclick="renovarSinClave(\'' + escJS(g.pid) + '\',\'' + escJS(g.correo) + '\')">Renovar sin cambiar la contraseña</button>' +
+        '</div>'
+      : '';
 
     return '<div class="npVencGrupo">' +
       '<div class="npVencGrupoHead">' +
         '<div><h4>' + esc(g.producto) + '</h4><p>' + esc(g.correo) + '</p></div>' +
       '</div>' +
-      '<div class="npVencClientesLista">' + clientes + '</div>' +
-      '<div class="npVencAplicarRow">' +
-        '<input type="text" class="npMiniInput" id="clave_' + gid + '" placeholder="Nueva contraseña para los que renovaron">' +
-        '<button type="button" class="npBtn npBtnCyan" ' +
-          'onclick="aplicarClaveVencimiento(\'' + escJS(g.pid) + '\',\'' + escJS(g.correo) + '\',\'clave_' + gid + '\')">Aplicar</button>' +
-      '</div>' +
+      (filasPend ? '<div class="npVencClientesLista">' + filasPend + '</div>' : '') +
+      bloqueRen +
     '</div>';
   }).join("");
+
+  /* Descartadas (para corregir un clic equivocado) */
+  if (npVencVerDescartadas && descartadas.length) {
+    html += '<div class="npVencGrupo npVencDescartadas">' +
+      '<div class="npVencGrupoHead"><div><h4>No renovaron</h4><p>Ya no aparecen en el aviso. Puedes restaurarlas si te equivocaste.</p></div></div>' +
+      '<div class="npVencClientesLista">' +
+        descartadas.map(x =>
+          '<div class="npVencCliente">' +
+            '<div class="npVencClienteInfo">' +
+              '<strong>' + esc(x.comprador) + (x.perfil ? " · " + esc(x.perfil) : "") + '</strong>' +
+              '<span>' + esc(x.producto) + ' · ' + esc(x.correo) + ' · ' + esc(fechaCorta(x.vence)) + '</span>' +
+            '</div>' +
+            '<button type="button" class="npBtnMini edit" onclick="restaurarVencimiento(\'' + escJS(x.pid) + '\',\'' + escJS(x.cid) + '\')">Restaurar</button>' +
+          '</div>'
+        ).join("") +
+      '</div>' +
+    '</div>';
+  }
+
+  cont.innerHTML = html;
 }
 
-function marcarRenovo(pid, cid, valor){
-  npRenovoLocal[pid + "|" + cid] = !!valor;
-  db.ref("cuentas/" + pid + "/" + cid + "/renovado").set(!!valor)
-    .then(() => renderVencimientosModal())
+/* Refresca aviso + modal (si está abierto) */
+function refrescarVencimientos(){
+  renderAvisoVencimientos();
+  const m = $("npModalVencimientos");
+  if (m && m.classList.contains("show")) renderVencimientosModal();
+}
+
+/* Escribe en la cuenta y actualiza la caché local al instante */
+async function escribirCuenta(pid, cid, cambios){
+  const c = (npCuentas[pid] || {})[cid];
+  if (c) Object.keys(cambios).forEach(k => {
+    if (cambios[k] === null) delete c[k]; else c[k] = cambios[k];
+  });
+  refrescarVencimientos();
+  await db.ref("cuentas/" + pid + "/" + cid).update(cambios);
+}
+
+function marcarRenovo(pid, cid){
+  escribirCuenta(pid, cid, { renovado: true, avisoNoRenovo: null, avisoCicloVence: null, avisoFecha: Date.now() })
     .catch(e => err("No se pudo guardar: " + e.message));
+}
+
+function deshacerRenovo(pid, cid){
+  escribirCuenta(pid, cid, { renovado: false })
+    .catch(e => err("No se pudo guardar: " + e.message));
+}
+
+function marcarNoRenovo(pid, cid){
+  const x = cuentasPorVencer().find(i => i.pid === pid && i.cid === cid);
+  if (!x) return;
+  escribirCuenta(pid, cid, {
+    renovado: false,
+    avisoNoRenovo: true,
+    avisoCicloVence: x.vence,
+    avisoAtendido: true,
+    avisoFecha: Date.now()
+  }).catch(e => err("No se pudo guardar: " + e.message));
+}
+
+function restaurarVencimiento(pid, cid){
+  escribirCuenta(pid, cid, { avisoNoRenovo: null, avisoCicloVence: null, avisoAtendido: false })
+    .catch(e => err("No se pudo restaurar: " + e.message));
+}
+
+function toggleVerDescartadas(){
+  npVencVerDescartadas = !npVencVerDescartadas;
+  renderVencimientosModal();
+}
+
+/* Marca como «No renovó» todas las que ya vencieron y nadie revisó */
+async function vaciarVencidas(){
+  const vencidas = cuentasPorVencer().filter(x => !x.descartada && !x.renovado && x.dias < 0);
+  if (!vencidas.length) return;
+
+  const seguro = await confirmar(
+    "Vaciar vencidas",
+    "Se marcarán " + vencidas.length + " cuenta(s) ya vencidas como «No renovó» y saldrán del aviso. " +
+    "No se les cambia ningún dato. Podrás restaurarlas desde «Ver descartadas».",
+    "🧹"
+  );
+  if (!seguro) return;
+
+  const ahora = Date.now();
+  const updates = {};
+  vencidas.forEach(x => {
+    const base = "cuentas/" + x.pid + "/" + x.cid + "/";
+    updates[base + "renovado"] = false;
+    updates[base + "avisoNoRenovo"] = true;
+    updates[base + "avisoCicloVence"] = x.vence;
+    updates[base + "avisoAtendido"] = true;
+    updates[base + "avisoFecha"] = ahora;
+  });
+
+  try {
+    await db.ref().update(updates);
+    ok(vencidas.length + " cuenta(s) vencida(s) retiradas del aviso.");
+  } catch (e) { err("No se pudo vaciar: " + e.message); }
+}
+
+/* Renueva las marcadas «Renovó» de ESE correo de ESE producto */
+function updatesRenovacion(pid, objetivo, nuevaClave){
+  const updates = {};
+  const ahora = Date.now();
+  const cuentas = npCuentas[pid] || {};
+  objetivo.forEach(cid => {
+    const base = "cuentas/" + pid + "/" + cid + "/";
+    if (nuevaClave) updates[base + "clave"] = nuevaClave;
+    updates[base + "fechaVenta"] = ahora;              // reinicia la vigencia
+    updates[base + "renovado"] = false;
+    updates[base + "avisoAtendido"] = true;
+    updates[base + "avisoNoRenovo"] = null;
+    updates[base + "avisoCicloVence"] = null;
+    updates[base + "vecesRenovada"] = num((cuentas[cid] || {}).vecesRenovada) + 1;
+    updates[base + "fechaUltimaRenovacion"] = ahora;
+  });
+  return updates;
+}
+
+function renovadosDeCorreo(pid, correo){
+  return cuentasPorVencer()
+    .filter(x => x.pid === pid && x.correo === correo && x.renovado)
+    .map(x => x.cid);
 }
 
 async function aplicarClaveVencimiento(pid, correo, inputId){
   const input = $(inputId);
   const nueva = input ? String(input.value || "").trim() : "";
+  if (nueva.length < 4) { avisa("Escribe una contraseña de al menos 4 caracteres."); if (input) input.focus(); return; }
 
-  if (nueva.length < 4) { avisa("Escribe una contraseña de al menos 4 caracteres."); return; }
-
-  const cuentas = npCuentas[pid] || {};
-  const objetivo = Object.keys(cuentas).filter(cid => {
-    const c = cuentas[cid];
-    if ((c.correo || "") !== correo) return false;
-    const key = pid + "|" + cid;
-    const marcado = npRenovoLocal[key] !== undefined ? npRenovoLocal[key] : (c.renovado === true);
-    return marcado;
-  });
-
+  const objetivo = renovadosDeCorreo(pid, correo);
   if (!objetivo.length) { avisa("Marca primero quién renovó (botón «Renovó»)."); return; }
 
   const seguro = await confirmar(
-    "Cambiar contraseña",
-    "Se aplicará la nueva contraseña a " + objetivo.length + " cuenta(s) del correo " + correo +
-    ". Solo se actualizan las marcadas como «Renovó».",
+    "Aplicar nueva contraseña",
+    "Se cambiará la contraseña a " + objetivo.length + " cuenta(s) del correo " + correo +
+    " que renovaron, y se reiniciará su vigencia. Las que no renovaron no se tocan.",
     "🔑"
   );
   if (!seguro) return;
 
-  const updates = {};
-  const ahora = Date.now();
-  objetivo.forEach(cid => {
-    updates["cuentas/" + pid + "/" + cid + "/clave"] = nueva;
-    updates["cuentas/" + pid + "/" + cid + "/fechaVenta"] = ahora;   // reinicia la vigencia
-    updates["cuentas/" + pid + "/" + cid + "/renovado"] = false;
-    updates["cuentas/" + pid + "/" + cid + "/avisoAtendido"] = true;
-  });
+  try {
+    await db.ref().update(updatesRenovacion(pid, objetivo, nueva));
+    ok("Contraseña aplicada y vigencia reiniciada en " + objetivo.length + " cuenta(s).");
+  } catch (e) { err("No se pudo aplicar: " + e.message); }
+}
+
+async function renovarSinClave(pid, correo){
+  const objetivo = renovadosDeCorreo(pid, correo);
+  if (!objetivo.length) return;
+
+  const seguro = await confirmar(
+    "Renovar sin cambiar contraseña",
+    "Se reiniciará la vigencia de " + objetivo.length + " cuenta(s) del correo " + correo + " sin modificar su contraseña.",
+    "🔁"
+  );
+  if (!seguro) return;
 
   try {
+    await db.ref().update(updatesRenovacion(pid, objetivo, ""));
+    ok("Vigencia reiniciada en " + objetivo.length + " cuenta(s).");
+  } catch (e) { err("No se pudo renovar: " + e.message); }
+}
+
+/* =========================================================
+   NOMBRE DE LA TIENDA (v11)
+   El nombre público del proveedor vive en
+   /proveedoresPublicos/{uid}/nombre. Al cambiarlo:
+   · se actualiza proveedorNombre en TODOS tus productos,
+   · los productos nuevos ya lo toman (guardarProducto usa
+     npPublico.nombre),
+   · retiros y soporte también usan el nombre nuevo.
+   Las ventas y compras ya realizadas conservan el nombre
+   con el que se hicieron (son historial).
+========================================================= */
+
+function nombreTiendaActual(){ return npPublico.nombre || npPerfil.nombre || "Proveedor"; }
+
+function pintarNombreTienda(){
+  setTxt("npPerfilTienda", nombreTiendaActual());
+}
+
+function abrirModalNombreTienda(){
+  const inp = $("npNombreTiendaInput");
+  if (inp) inp.value = nombreTiendaActual();
+  setTxt("npNombreTiendaConteo", Object.keys(npProductos).length + " producto(s) se actualizarán con el nuevo nombre.");
+  abrirModal("npModalNombreTienda");
+  if (inp) setTimeout(() => { inp.focus(); inp.select(); }, 60);
+}
+function cerrarModalNombreTienda(){ cerrarModal("npModalNombreTienda"); }
+
+async function guardarNombreTienda(event){
+  if (event) event.preventDefault();
+
+  const inp = $("npNombreTiendaInput");
+  const nuevo = String((inp || {}).value || "").replace(/\s+/g, " ").trim();
+  const actual = nombreTiendaActual();
+
+  if (nuevo.length < 3)  { avisa("El nombre debe tener al menos 3 caracteres."); return; }
+  if (nuevo.length > 40) { avisa("El nombre puede tener como máximo 40 caracteres."); return; }
+  if (nuevo === actual)  { avisa("Ese ya es tu nombre actual."); return; }
+
+  const btn = $("npBtnGuardarNombreTienda");
+  if (btn) { btn.disabled = true; btn.textContent = "Guardando..."; }
+
+  try {
+    /* No permitir el mismo nombre que otro proveedor */
+    const snap = await db.ref("proveedoresPublicos").get();
+    const todos = snap.val() || {};
+    const repetido = Object.keys(todos).some(uid => uid !== npUid && norm((todos[uid] || {}).nombre) === norm(nuevo));
+    if (repetido) { avisa("Ya existe otro proveedor con ese nombre. Elige uno distinto."); return; }
+
+    const seguro = await confirmar(
+      "Cambiar nombre de tienda",
+      "Tu tienda pasará de «" + actual + "» a «" + nuevo + "». Se actualizarán tus " +
+      Object.keys(npProductos).length + " producto(s) y los nuevos usarán este nombre.",
+      "🏬"
+    );
+    if (!seguro) return;
+
+    const ahora = Date.now();
+    const updates = {};
+    updates["proveedoresPublicos/" + npUid + "/nombre"] = nuevo;
+    updates["proveedoresPublicos/" + npUid + "/actualizado"] = ahora;
+    Object.keys(npProductos).forEach(pid => {
+      updates["productos/" + pid + "/proveedorNombre"] = nuevo;
+    });
+
     await db.ref().update(updates);
-    if (input) input.value = "";
-    objetivo.forEach(cid => { delete npRenovoLocal[pid + "|" + cid]; });
-    ok("Contraseña aplicada a " + objetivo.length + " cuenta(s) y vigencia reiniciada.");
-    renderVencimientosModal();
+
+    npPublico.nombre = nuevo;
+    pintarNombreTienda();
+    cerrarModalNombreTienda();
+    ok("Ahora tu tienda se llama «" + nuevo + "». " + Object.keys(npProductos).length + " producto(s) actualizados.");
   } catch (e) {
-    err("No se pudo aplicar: " + e.message);
+    err("No se pudo cambiar el nombre: " + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Guardar nombre"; }
   }
 }
 
@@ -2062,6 +2355,8 @@ async function resolverRenovacion(id, nuevoEstado){
     updates[base + "avisoAtendido"] = true;
     updates[base + "vecesRenovada"] = num(cAct.vecesRenovada) + 1;
     updates[base + "fechaUltimaRenovacion"] = ahora;
+    updates[base + "avisoNoRenovo"] = null;
+    updates[base + "avisoCicloVence"] = null;
   }
 
   try {
@@ -2366,6 +2661,16 @@ function prepararFormularios(){
     if (hid) hid.value = b.dataset.metodo;
   });
 
+  /* --- Nombre de tienda --- */
+  const fNom = $("formNombreTienda");
+  if (fNom) fNom.addEventListener("submit", guardarNombreTienda);
+
+  const btnNom = $("npBtnCambiarNombreTienda");
+  if (btnNom) btnNom.addEventListener("click", abrirModalNombreTienda);
+
+  const btnNomMenu = $("npBtnNombreTiendaMenu");
+  if (btnNomMenu) btnNomMenu.addEventListener("click", () => { cerrarMenuMovil(); abrirModalNombreTienda(); });
+
   /* --- Soporte --- */
   const fSop = $("formSoporte");
   if (fSop) fSop.addEventListener("submit", guardarSoporte);
@@ -2394,14 +2699,14 @@ function prepararFormularios(){
   });
 
   /* --- Cerrar modales al hacer clic fuera --- */
-  ["npModalSoporte","npModalTienda","npModalVencimientos","npModalEditarCuenta"].forEach(id => {
+  ["npModalSoporte","npModalTienda","npModalVencimientos","npModalEditarCuenta","npModalNombreTienda"].forEach(id => {
     const m = $(id);
     if (m) m.addEventListener("mousedown", (e) => { if (e.target === m) m.classList.remove("show"); });
   });
 
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
-    ["npModalSoporte","npModalTienda","npModalVencimientos","npModalEditarCuenta","npConfirmOverlay"]
+    ["npModalSoporte","npModalTienda","npModalVencimientos","npModalEditarCuenta","npModalNombreTienda","npConfirmOverlay"]
       .forEach(id => { const m = $(id); if (m) m.classList.remove("show"); });
     cerrarMenuMovil();
   });
@@ -2435,5 +2740,14 @@ window.resolverRenovacion    = resolverRenovacion;
 window.resolverReembolso     = resolverReembolso;
 window.marcarRenovo          = marcarRenovo;
 window.aplicarClaveVencimiento = aplicarClaveVencimiento;
+window.marcarNoRenovo        = marcarNoRenovo;
+window.deshacerRenovo        = deshacerRenovo;
+window.restaurarVencimiento  = restaurarVencimiento;
+window.toggleVerDescartadas  = toggleVerDescartadas;
+window.vaciarVencidas        = vaciarVencidas;
+window.renovarSinClave       = renovarSinClave;
+window.ocultarAvisoVencimientos = ocultarAvisoVencimientos;
+window.abrirModalNombreTienda   = abrirModalNombreTienda;
+window.cerrarModalNombreTienda  = cerrarModalNombreTienda;
 window.capturarProductoTienda  = capturarProductoTienda;
 window.elegirCategoriaPlataforma = elegirCategoriaPlataforma;
