@@ -1324,3 +1324,42 @@ body.nsInvitado .nsModalGuestCta.nsSoloInvitado{ display:block !important; }
 @media (max-width:600px){
   .nsBadgeProveedor{ font-size: 9px; padding: 3px 7px; }
 }
+
+/* =========================================================
+   TARJETAS DEL CATÁLOGO DEL MISMO TAMAÑO — v10
+   Pegar AL FINAL de novastream.css
+
+   - El título ocupa siempre el mismo alto (máx. 3 líneas;
+     si es más largo se corta con "…"). El nombre completo
+     se sigue viendo en el modal al tocar la tarjeta.
+   - El precio y los botones se empujan al fondo de la
+     tarjeta, así el botón "Ingresar"/"Agregar" queda
+     siempre a la misma altura en toda la fila.
+   ========================================================= */
+
+.nsGrid{ align-items:stretch; }
+.nsCard{ height:100%; }
+
+.nsCardTitulo{
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:3;
+  line-clamp:3;
+  overflow:hidden;
+  line-height:1.3;
+  height:calc(1.3em * 3);
+  min-height:0;
+  word-break:break-word;
+}
+
+/* Precio + botones siempre abajo */
+.nsCardPrecio{ margin-top:auto; }
+.nsCardBtns{ margin-top:4px; }
+
+/* La fila de badges reserva su espacio aunque esté vacía */
+.nsBadgesFila{ display:flex; gap:6px; flex-wrap:wrap; min-height:22px; align-items:center; }
+
+@media (max-width:600px){
+  .nsCardTitulo{ line-height:1.25; height:calc(1.25em * 3); }
+  .nsBadgesFila{ min-height:18px; }
+}
