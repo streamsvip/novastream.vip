@@ -133,7 +133,7 @@
   }
 
   /* =========================================================
-    FILTRO POR PLATAFORMA (chips con avatar, igual espíritu que catálogo)
+    FILTRO POR PLATAFORMA
     ========================================================= */
 
   .mcPlataformas{
@@ -179,7 +179,7 @@
 
   .mcListado{ width:100%; }
 
-  /* ---- Modo tarjetas (diseño original, sin cambios) ---- */
+  /* ---- Modo tarjetas ---- */
 
   .mcListado.vista-tarjetas{
     display:grid;
@@ -316,9 +316,6 @@
 
   .mcBtnSoporte:hover{ border-color:var(--line-strong); color:var(--text); }
 
-  /* ⭐ NUEVO (v3): estado deshabilitado, usado por el botón de
-    reembolso (↩️) en la lista cuando ese acceso ya no admite
-    reembolso (fuera de plazo, ya solicitado, o no aplica). */
   .mcBtnSoporte:disabled{
     opacity:.4;
     cursor:not-allowed;
@@ -331,8 +328,6 @@
 
   /* =========================================================
     MODO COMPACTO — tabla profesional
-    (misma tabla en escritorio y en celular: en celular hace
-    scroll horizontal en vez de apretarse o volverse tarjetas)
     ========================================================= */
 
   .mcListado.vista-compacto{
@@ -468,7 +463,7 @@
   }
 
   /* =========================================================
-    MODAL VER CUENTA (extiende .nsModal / .nsModalBox de novastream.css)
+    MODAL VER CUENTA
     ========================================================= */
 
   .mcModalBox{ max-width:520px; }
@@ -514,7 +509,7 @@
   .mcBtnCopiar:hover{ color:var(--text); border-color:var(--teal); }
 
   /* =========================================================
-    CLIENTE (registrar / editar) — dentro del modal Ver cuenta
+    CLIENTE (registrar / editar)
     ========================================================= */
 
   .mcClienteBox{
@@ -549,7 +544,7 @@
   }
 
   /* =========================================================
-    CONFIRMACIÓN (renovar)
+    CONFIRMACIÓN
     ========================================================= */
 
   .mcConfirmOverlay{
@@ -561,10 +556,11 @@
   .mcConfirmOverlay.show{ display:flex; }
 
   .mcConfirmCard{
-    width:100%; max-width:380px;
+    width:100%; max-width:420px;
     background:var(--bg-1); border:1px solid var(--line);
     border-radius:var(--radius-l);
     padding:24px; text-align:center;
+    max-height:92vh; overflow:auto;
   }
 
   .mcConfirmIcono{ font-size:30px; margin-bottom:10px; }
@@ -586,11 +582,6 @@
     ========================================================= */
 
   @media (max-width:768px){
-    /* El switch sigue disponible en celular: el usuario puede elegir
-      compacto si lo prefiere. Sigue siendo tabla horizontal —
-      nunca se convierte en tarjetas — con más ancho por columna
-      para que los datos no se amontonen, y scroll lateral. */
-
     .mcCompactScrollHint{ display:block; }
 
     .mcCompactHead,
@@ -607,9 +598,6 @@
     .mcCompactCell{ font-size:13px; }
     .mcCompactTiempo{ font-size:12.5px; }
 
-    /* El badge de estado (ej. "POR VENCER") es el texto más largo
-      de su columna; se achica un poco para que respire dentro de
-      su columna y no quede pegado a la columna de precio. */
     .mcCompactCell .mcBadge{
       font-size:9.5px;
       padding:3px 8px;
@@ -628,7 +616,8 @@
     .mcSelect{ width:100%; }
     .mcVistaSwitch{ width:100%; justify-content:center; }
   }
-  /* ===== v3 · Loader, resumen, chips de reembolso, motivo ===== */
+
+  /* ===== Loader, resumen, chips de reembolso, motivo ===== */
 
   .rgBooting{
     position:fixed; inset:0; z-index:99999;
@@ -675,7 +664,7 @@
   .mcConfirmCampo label{
     display:block; margin-bottom:6px;
     font-size:10.5px; font-weight:800; text-transform:uppercase;
-    letter-spacing:.4px; color:var(--text-faint);   
+    letter-spacing:.4px; color:var(--text-faint);
   }
   .mcConfirmCampo textarea{
     width:100%; padding:10px 12px; border-radius:var(--radius-s);
@@ -685,16 +674,6 @@
   }
   .mcConfirmCampo textarea:focus{ border-color:var(--teal); }
 
-  /* ⭐ FIX (corrección de este pedido): el JS ya agrega la clase
-     ".error" al textarea del motivo y la clase ".show" al mensaje
-     de aviso #mcConfirmMotivoError cuando el motivo tiene menos de
-     8 caracteres (ver mcConfirmAceptar en mis-compras.js), pero
-     estas dos clases nunca estaban definidas en el CSS. Sin esto,
-     el textarea nunca se marcaba en rojo y el mensaje de ayuda no
-     tenía un estado "oculto por defecto / visible con .show"
-     confiable. Se agrega acá para que el aviso funcione como se
-     espera: el modal se queda abierto, el campo se pone en rojo y
-     aparece el texto de ayuda debajo. */
   .mcConfirmCampo textarea.error{
     border-color:#ff5d73;
     background:rgba(255,93,115,.06);
@@ -710,30 +689,116 @@
   }
   .mcConfirmMotivoError.show{ display:block; }
 
-  /* =========================================================
-    NOTA DEL CLIENTE — modo edición
-    (los IDs ya existían en el HTML/JS; faltaban sus reglas de
-    layout específicas más allá del display:none/flex genérico
-    de arriba, para que "Registrar"/"Guardar" se vean prolijos
-    en la misma fila que el input cuando están visibles)
-    ========================================================= */
-
   #mcModalClienteInput.mcClienteInput{ display:none; }
   #mcBtnGuardarCliente.mcBtnCopiar{ display:none; }
 
   .nsSaldoValorPen{ display:block; font-size:10px; color:var(--text-faint); font-weight:700; }
-  /* ⭐ NUEVO: estado deshabilitado para "Ver cuenta" cuando el
-   acceso ya fue reembolsado (aprobado). Antes solo existía este
-   estilo para .mcBtnSoporte, y .mcBtnVer se quedaba con su
-   apariencia normal aunque tuviera el atributo disabled. */
-.mcBtnVer:disabled{
-  opacity:.45;
-  cursor:not-allowed;
-  background:var(--panel-2);
-  color:var(--text-faint);
+
+  .mcBtnVer:disabled{
+    opacity:.45;
+    cursor:not-allowed;
+    background:var(--panel-2);
+    color:var(--text-faint);
+  }
+  .mcBtnVer:disabled:hover{
+    background:var(--panel-2);
+    color:var(--text-faint);
+    border-color:var(--line);
+  }
+
+/* =========================================================
+   v7 — Reembolsada, cuenta reemplazada, renovada, avisos
+   ========================================================= */
+
+/* ---------- Estado REEMBOLSADA ---------- */
+.mcBadge.reembolsada{
+  background:rgba(139,124,255,.14); color:#c9c0ff; border-color:rgba(139,124,255,.32);
 }
-.mcBtnVer:disabled:hover{
-  background:var(--panel-2);
-  color:var(--text-faint);
-  border-color:var(--line);
+.mcCard.reembolsada::before{ background:linear-gradient(90deg,#8b7cff,#5f4dd6); }
+.mcCard.reembolsada{ opacity:.92; }
+.mcCompactRow.reembolsada{ border-left:3px solid #8b7cff; opacity:.85; }
+.mcCompactTiempo.reembolsada{ color:#c9c0ff; font-family:var(--font-body); }
+
+/* ---------- Cuenta REEMPLAZADA (acento) ---------- */
+.mcCard.reemplazada{ border-color:rgba(47,212,198,.38); box-shadow:0 0 0 1px rgba(47,212,198,.12); }
+.mcCompactRow.reemplazada{ box-shadow:inset 0 0 0 1px rgba(47,212,198,.22); }
+
+/* ---------- Chips de estado extra ---------- */
+.mcChips{ display:flex; flex-wrap:wrap; gap:6px; }
+.mcChips.compacto{ margin-top:6px; gap:4px; }
+
+.mcChip{
+  display:inline-flex; align-items:center; gap:5px;
+  padding:4px 10px; border-radius:999px;
+  font-size:10.5px; font-weight:800; letter-spacing:.2px; white-space:nowrap;
+  border:1px solid transparent;
 }
+.mcChips.compacto .mcChip{ padding:2px 8px; font-size:9.5px; }
+
+.mcChip.reemplazo  { background:rgba(47,212,198,.12);  color:#7ff0e4; border-color:rgba(47,212,198,.32); }
+.mcChip.actualizado{ background:rgba(47,212,198,.08);  color:#a6f5ea; border-color:rgba(47,212,198,.22); }
+.mcChip.renovada   { background:rgba(33,230,193,.12);  color:var(--teal); border-color:rgba(33,230,193,.30); }
+.mcChip.pendiente  { background:rgba(255,179,0,.12);   color:#ffcf66; border-color:rgba(255,179,0,.30); }
+.mcChip.rechazado  { background:rgba(255,93,115,.12);  color:#ff9aa8; border-color:rgba(255,93,115,.30); }
+.mcChip.reembolso  { background:rgba(139,124,255,.14); color:#c9c0ff; border-color:rgba(139,124,255,.32); }
+
+/* ---------- Aviso de reembolso dentro de la tarjeta ---------- */
+.mcAvisoReemb{
+  display:flex; gap:11px; align-items:flex-start;
+  padding:12px; border-radius:var(--radius-s);
+  background:linear-gradient(135deg, rgba(139,124,255,.14), rgba(139,124,255,.05));
+  border:1px solid rgba(139,124,255,.30);
+}
+.mcAvisoReembIcono{
+  width:32px; height:32px; border-radius:10px; flex-shrink:0;
+  display:grid; place-items:center; font-size:15px;
+  background:rgba(139,124,255,.22);
+}
+.mcAvisoReemb strong{ display:block; font-size:12.5px; color:#e1dcff; margin-bottom:3px; }
+.mcAvisoReemb span{ display:block; font-size:11.5px; line-height:1.5; color:var(--text-dim); }
+
+/* ---------- Botones ---------- */
+.mcBtnVer.nuevo{
+  border-color:rgba(47,212,198,.45);
+  background:rgba(47,212,198,.12);
+  color:#7ff0e4;
+}
+.mcBtnVer.nuevo:hover{ background:var(--ribbon); color:#04060a; }
+
+/* Botón de reembolso "apagado" pero clicable (muestra el porqué) */
+.mcBtnSoporte[data-off]{ opacity:.4; cursor:help; }
+.mcBtnSoporte[data-off]:hover{ border-color:var(--line); color:var(--text-dim); }
+
+/* ---------- Avisos en el modal "Ver cuenta" ---------- */
+.mcModalAvisos{ display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
+.mcModalAvisos:empty{ display:none; }
+
+.mcModalAviso{
+  padding:11px 13px; border-radius:var(--radius-s);
+  border:1px solid var(--line); background:var(--panel-2);
+}
+.mcModalAviso strong{ display:block; font-size:12.5px; margin-bottom:3px; }
+.mcModalAviso span{ display:block; font-size:11.5px; line-height:1.5; color:var(--text-dim); }
+
+.mcModalAviso.reemplazo  { background:rgba(47,212,198,.09);  border-color:rgba(47,212,198,.32); }
+.mcModalAviso.reemplazo strong{ color:#7ff0e4; }
+.mcModalAviso.actualizado{ background:rgba(47,212,198,.06);  border-color:rgba(47,212,198,.22); }
+.mcModalAviso.actualizado strong{ color:#a6f5ea; }
+.mcModalAviso.renovada   { background:rgba(33,230,193,.08);  border-color:rgba(33,230,193,.26); }
+.mcModalAviso.renovada strong{ color:var(--teal); }
+.mcModalAviso.pendiente  { background:rgba(255,179,0,.08);   border-color:rgba(255,179,0,.26); }
+.mcModalAviso.pendiente strong{ color:#ffcf66; }
+.mcModalAviso.rechazado  { background:rgba(255,93,115,.08);  border-color:rgba(255,93,115,.26); }
+.mcModalAviso.rechazado strong{ color:#ff9aa8; }
+
+/* ---------- Select de motivo de reembolso ---------- */
+.mcConfirmSelect{
+  width:100%; height:42px; padding:0 12px;
+  border-radius:var(--radius-s);
+  background:var(--panel-2); border:1px solid var(--line);
+  color:var(--text); font-size:13px; font-weight:600; font-family:var(--font-body);
+  outline:none;
+}
+.mcConfirmSelect:focus{ border-color:var(--teal); }
+.mcConfirmSelect option{ background:#161923; color:#fff; }
+.mcConfirmSelect.error{ border-color:#ff5d73; background:rgba(255,93,115,.06); }
