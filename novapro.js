@@ -2164,6 +2164,22 @@ function renderReembolsos(){
   }).join("");
 }
 
+/* =========================================================
+   resolverReembolso (v12)
+   El dueño del producto acepta o rechaza desde su panel.
+
+   Al ACEPTAR, en UNA sola operación atómica (todo o nada):
+     1. reembolso → estado "aprobado"
+     2. proveedor → se le resta el monto de su saldo + movimiento "-"
+     3. cliente   → se le suma el monto a su saldo + movimiento "+"
+                    (marca usuarios/{cliente}/ultimoReembolso = id,
+                    que es lo que las reglas usan para autorizarlo)
+     4. la cuenta entregada vuelve al stock del proveedor
+
+   Las reglas de Firebase solo permiten subir el saldo del cliente
+   si en esa misma escritura el dueño del producto aprueba un
+   reembolso PENDIENTE de ese cliente, y por su monto como máximo.
+========================================================= */
 async function resolverReembolso(id, nuevoEstado){
   const r = npReembolsos[id];
   if (!r || estadoDe(r.estado) !== "pendiente") return;
@@ -2179,25 +2195,44 @@ async function resolverReembolso(id, nuevoEstado){
   }
 
   const monto = red(num(r.montoUsd));
-  let saldoReal = npPerfil.saldoUsd;
 
+  if (aceptar && !r.clienteId) {
+    err("Esta solicitud no tiene el cliente asociado. Pide a administración que la revise.");
+    return;
+  }
+  if (aceptar && !(monto > 0)) {
+    err("El monto del reembolso no es válido.");
+    return;
+  }
+
+  /* Saldos REALES del servidor (no la caché) */
+  let saldoProv = npPerfil.saldoUsd;
+  let saldoCli = 0;
   if (aceptar) {
     try {
-      const s = await db.ref("usuarios/" + npUid + "/saldoUsd").get();
-      saldoReal = num(s.val());
-    } catch (e) { err("No se pudo verificar tu saldo."); return; }
+      const [sp, sc] = await Promise.all([
+        db.ref("usuarios/" + npUid + "/saldoUsd").get(),
+        db.ref("usuarios/" + r.clienteId + "/saldoUsd").get()
+      ]);
+      saldoProv = num(sp.val());
+      saldoCli  = num(sc.val());
+    } catch (e) { err("No se pudo verificar los saldos: " + e.message); return; }
 
-    if (saldoReal < monto) {
-      avisa("Tu saldo actual (" + usd(saldoReal) + ") no alcanza para cubrir este reembolso de " + usd(monto) + ".");
+    if (saldoProv < monto) {
+      avisa("Tu saldo actual (" + usd(saldoProv) + ") no alcanza para cubrir este reembolso de " + usd(monto) + ".");
       return;
     }
   }
 
+  const devuelveCuenta = aceptar && r.productoId && r.cuentaId &&
+                         npCuentas[r.productoId] && npCuentas[r.productoId][r.cuentaId];
+
   const seguro = await confirmar(
     aceptar ? "Aceptar reembolso" : "Rechazar reembolso",
     aceptar
-      ? "Se descontará " + usd(monto) + " de tu saldo y se le devolverá a " + (r.clienteNombre || "el cliente") + ". Esta acción no se puede deshacer." +
-        (r.productoId && r.cuentaId ? " La cuenta entregada volverá a tu stock disponible." : "")
+      ? "Se descontará " + usd(monto) + " de tu saldo y se acreditará a " + (r.clienteNombre || "el cliente") +
+        " en este momento. Esta acción no se puede deshacer." +
+        (devuelveCuenta ? " La cuenta entregada volverá a tu stock disponible." : "")
       : "El reembolso quedará marcado como rechazado y el cliente verá el motivo que escribiste.",
     aceptar ? "✓" : "✕"
   );
@@ -2211,65 +2246,69 @@ async function resolverReembolso(id, nuevoEstado){
   updates["reembolsos/" + id + "/resueltoPor"] = "proveedor";
   if (!aceptar) updates["reembolsos/" + id + "/motivoRechazo"] = motivoRechazo;
 
-  let cuentaDevuelta = false;
-
   if (aceptar) {
+    const detalleProd = r.productoNombre || "producto";
+
+    /* 2. Proveedor: resta + movimiento */
     const movProvKey = db.ref("movimientosSaldo/" + npUid).push().key;
-    updates["usuarios/" + npUid + "/saldoUsd"] = red(saldoReal - monto);
+    updates["usuarios/" + npUid + "/saldoUsd"] = red(saldoProv - monto);
     updates["movimientosSaldo/" + npUid + "/" + movProvKey] = {
       tipo: "reembolso",
-      detalle: "Reembolso · " + (r.productoNombre || "producto") + " · " + (r.clienteNombre || "cliente"),
+      detalle: "Reembolso · " + detalleProd + " · " + (r.clienteNombre || "cliente"),
       montoUsd: monto,
       signo: "-",
+      reembolsoId: id,
       fecha: ahora
     };
 
-    if (r.productoId && r.cuentaId &&
-        npCuentas[r.productoId] && npCuentas[r.productoId][r.cuentaId]) {
-      const pid = r.productoId, cid = r.cuentaId;
+    /* 3. Cliente: suma + marca + movimiento */
+    const movCliKey = db.ref("movimientosSaldo/" + r.clienteId).push().key;
+    updates["usuarios/" + r.clienteId + "/saldoUsd"] = red(saldoCli + monto);
+    updates["usuarios/" + r.clienteId + "/ultimoReembolso"] = id;
+    updates["movimientosSaldo/" + r.clienteId + "/" + movCliKey] = {
+      tipo: "reembolso",
+      detalle: "Reembolso · " + detalleProd,
+      montoUsd: monto,
+      signo: "+",
+      reembolsoId: id,
+      fecha: ahora
+    };
+    updates["reembolsos/" + id + "/acreditadoCliente"] = true;
+    updates["reembolsos/" + id + "/fechaAcreditacion"] = ahora;
 
-      updates["cuentas/" + pid + "/" + cid + "/estado"] = "disponible";
-      updates["cuentas/" + pid + "/" + cid + "/compradorId"] = null;
-      updates["cuentas/" + pid + "/" + cid + "/compradorNombre"] = null;
-      updates["cuentas/" + pid + "/" + cid + "/fechaVenta"] = null;
-      updates["cuentas/" + pid + "/" + cid + "/renovado"] = null;
-      updates["cuentas/" + pid + "/" + cid + "/avisoAtendido"] = null;
+    /* 4. Devolver la cuenta al stock */
+    if (devuelveCuenta) {
+      const pid = r.productoId, cid = r.cuentaId;
+      const base = "cuentas/" + pid + "/" + cid + "/";
+      updates[base + "estado"] = "disponible";
+      updates[base + "compradorId"] = null;
+      updates[base + "compradorNombre"] = null;
+      updates[base + "fechaVenta"] = null;
+      updates[base + "renovado"] = null;
+      updates[base + "avisoAtendido"] = null;
+      updates[base + "avisoNoRenovo"] = null;
+      updates[base + "avisoCicloVence"] = null;
 
       if (npProductos[pid] && !esIlimitado(npProductos[pid])) {
         const nuevoStock = stockReal(pid) + 1;
         updates["productos/" + pid + "/stock"] = nuevoStock;
         updates["stock/" + pid] = nuevoStock;
       }
-      cuentaDevuelta = true;
     }
   }
 
   try {
     await db.ref().update(updates);
-
-    if (aceptar && r.clienteId) {
-      try {
-        await db.ref("usuarios/" + r.clienteId + "/saldoUsd").transaction(a => red(num(a) + monto));
-        const movCliKey = db.ref("movimientosSaldo/" + r.clienteId).push().key;
-        await db.ref("movimientosSaldo/" + r.clienteId + "/" + movCliKey).set({
-          tipo: "reembolso",
-          detalle: "Reembolso · " + (r.productoNombre || "producto"),
-          montoUsd: monto,
-          signo: "+",
-          fecha: Date.now()
-        });
-      } catch (e) {
-        console.error("No se pudo acreditar al cliente:", e);
-        avisa("El reembolso se descontó de tu saldo, pero no se pudo acreditar al cliente automáticamente. Contacta a administración.");
-      }
-    }
-
     ok(aceptar
-      ? "Reembolso aceptado. Se descontaron " + usd(monto) + " de tu saldo y se devolvieron al cliente." +
-        (cuentaDevuelta ? " La cuenta volvió a tu stock disponible." : "")
+      ? "Reembolso aceptado. Se descontaron " + usd(monto) + " de tu saldo y ya se acreditaron a " +
+        (r.clienteNombre || "el cliente") + "." + (devuelveCuenta ? " La cuenta volvió a tu stock disponible." : "")
       : "Reembolso rechazado.");
   } catch (e) {
-    err("No se pudo procesar: " + e.message + " (revisa que las reglas de Firebase permitan esta actualización)");
+    const permiso = /permission/i.test(e.message || "");
+    err(permiso
+      ? "Firebase rechazó la operación. Revisa que hayas publicado las reglas nuevas (v12). " +
+        "Si el cliente hizo un movimiento justo ahora, vuelve a intentarlo. No se aplicó ningún cambio."
+      : "No se pudo procesar: " + e.message + ". No se aplicó ningún cambio.");
   }
 }
 
