@@ -11,7 +11,7 @@
 
   <link rel="icon" type="image/png" href="img/logo.png">
   <link rel="stylesheet" href="novastream.css?v=8">
-  <link rel="stylesheet" href="mis-compras.css?v=6">
+  <link rel="stylesheet" href="mis-compras.css?v=7">
 </head>
 
 <body class="nsBody">
@@ -43,7 +43,6 @@
           <span id="saldoUsuarioPen" class="nsSaldoValorPen">S/ 0.00</span>
         </div>
 
-        <!-- Menú de usuario (escritorio) — mismo lenguaje visual que catalogo.html -->
         <div class="nsUserMenu nsSoloAuth" id="nsUserMenu">
           <button type="button" class="nsUserMenuBtn" id="btnUserMenu" aria-haspopup="true" aria-expanded="false">
             <span class="nsUserAvatar" id="nsUserAvatarChip">N</span>
@@ -108,13 +107,14 @@
     <section class="mcHero">
       <span class="mcHeroBadge">TUS ACCESOS</span>
       <h1>Mis compras</h1>
-      <p>Consulta tus accesos, revisa cuánto tiempo les queda y renueva cuando estén por vencer.</p>
+      <p>Consulta tus accesos, revisa cuánto tiempo les queda, renueva cuando estén por vencer y solicita reembolso mientras estén vigentes.</p>
     </section>
 
     <div class="mcResumen" id="mcResumen">
       <div class="mcResumenItem"><span>Accesos activos</span><strong id="mcStatActivos">0</strong></div>
       <div class="mcResumenItem"><span>Por vencer</span><strong id="mcStatPorVencer">0</strong></div>
       <div class="mcResumenItem"><span>Expirados</span><strong id="mcStatExpirados">0</strong></div>
+      <div class="mcResumenItem"><span>Reembolsados</span><strong id="mcStatReembolsados">0</strong></div>
       <div class="mcResumenItem"><span>Total invertido</span><strong id="mcStatInvertido">$0.00</strong></div>
     </div>
 
@@ -129,6 +129,7 @@
         <option value="activa">Activas</option>
         <option value="porVencer">Por vencer</option>
         <option value="expirada">Expiradas</option>
+        <option value="reembolsada">Reembolsadas</option>
       </select>
 
       <div class="mcVistaSwitch" id="mcVistaSwitch">
@@ -165,6 +166,9 @@
           <span id="mcModalEstadoBadge" class="mcBadge">-</span>
         </div>
       </div>
+
+      <!-- Avisos: cuenta reemplazada, renovada, reembolso en revisión... -->
+      <div id="mcModalAvisos" class="mcModalAvisos"></div>
 
       <div class="mcModalGrid">
         <div class="mcDato full">
@@ -236,9 +240,20 @@
       <p id="mcConfirmTexto">¿Deseas continuar?</p>
 
       <div class="mcConfirmCampo" id="mcConfirmCampo">
-        <label for="mcConfirmMotivo">Motivo</label>
-        <textarea id="mcConfirmMotivo" rows="3" maxlength="380" placeholder="Explica brevemente el problema..."></textarea>
-        <span class="mcConfirmMotivoError" id="mcConfirmMotivoError">Escribe un poco más de detalle (mínimo 8 caracteres) para poder enviar la solicitud.</span>
+        <label for="mcConfirmMotivoTipo">Motivo principal</label>
+        <select id="mcConfirmMotivoTipo" class="mcConfirmSelect">
+          <option value="">Selecciona un motivo...</option>
+          <option value="no_funciona">La cuenta no funciona / no deja ingresar</option>
+          <option value="clave_cambiada">Cambiaron la contraseña o el correo</option>
+          <option value="perfil_ocupado">El perfil está ocupado o fue eliminado</option>
+          <option value="pantallas">Límite de pantallas o dispositivos</option>
+          <option value="calidad">No es el plan o la calidad prometida</option>
+          <option value="otro">Otro motivo</option>
+        </select>
+
+        <label for="mcConfirmMotivo" style="margin-top:12px;">Cuéntale al proveedor qué pasó</label>
+        <textarea id="mcConfirmMotivo" rows="3" maxlength="380" placeholder="Ej: desde ayer me sale 'contraseña incorrecta' al entrar al perfil 2..."></textarea>
+        <span class="mcConfirmMotivoError" id="mcConfirmMotivoError">Escribe un poco más de detalle (mínimo 8 caracteres).</span>
       </div>
 
       <div class="mcConfirmActions">
@@ -261,6 +276,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
-  <script src="mis-compras.js?v=7"></script>
+  <script src="mis-compras.js?v=8"></script>
 </body>
 </html>
