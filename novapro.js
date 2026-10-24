@@ -38,6 +38,16 @@ const NP_NIVELES = [
   { min: 1500, max: null, nombre: "💎 Proveedor Diamante",clase: "lvl-top" }
 ];
 
+/* Motivos de reembolso que puede elegir el cliente (Mis compras) */
+const NP_MOTIVOS_REEMBOLSO = {
+  no_funciona:    "La cuenta no funciona / no deja ingresar",
+  clave_cambiada: "Cambiaron la contraseña o el correo",
+  perfil_ocupado: "El perfil está ocupado o fue eliminado",
+  pantallas:      "Límite de pantallas o dispositivos",
+  calidad:        "No es el plan o la calidad prometida",
+  otro:           "Otro motivo"
+};
+
 /* =========================
    ESTADO
 ========================= */
@@ -310,8 +320,7 @@ function iniciarPanel(){
 
   /* Categorías (lectura pública) → combo de plataformas.
      Esta es la MISMA lista que crea el administrador desde su
-     panel en /categorias. El proveedor ya no puede escribir
-     plataformas "libres" que no existan ahí. */
+     panel en /categorias. */
   db.ref("categorias").on("value", (s) => {
     npCategorias = s.val() || {};
     renderDatalistPlataformas();
@@ -355,17 +364,18 @@ function iniciarPanel(){
     renderMovimientos();
   }, () => { npMovimientos = {}; renderMovimientos(); });
 
-  /* Reembolsos que me afectan (el proveedor ACEPTA/RECHAZA;
-     el ajuste de saldo lo termina de aplicar el admin) */
+  /* Reembolsos que me afectan */
   db.ref("reembolsos").orderByChild("proveedorId").equalTo(npUid).on("value", (s) => {
     npReembolsos = s.val() || {};
     renderReembolsos();
+    renderResumen();
   }, () => { npReembolsos = {}; renderReembolsos(); });
 
   /* Renovaciones de mis productos */
   db.ref("renovaciones").orderByChild("proveedorId").equalTo(npUid).on("value", (s) => {
     npRenovaciones = s.val() || {};
     renderRenovaciones();
+    renderResumen();
   }, () => { npRenovaciones = {}; renderRenovaciones(); });
 
   generarNuevoIdProducto();
@@ -466,7 +476,6 @@ function pintarSaldos(){
   setTxt("npStatSaldoRenovaciones", usd(s));
   setTxt("npRetiroDisponibleTexto", usd(disp));
 
-  /* Aviso de congelado en la sección Retiros */
   const noticia = $("npRetencionNoticeRetiros");
   if (noticia) {
     noticia.style.display = cong > 0 ? "flex" : "none";
@@ -567,7 +576,6 @@ function renderMovimientos(){
    AVISO DE VENCIMIENTOS
 ========================================================= */
 
-/* Devuelve las cuentas vendidas que vencen dentro de NP_DIAS_AVISO */
 function cuentasPorVencer(){
   const lista = [];
   const ahora = Date.now();
@@ -640,8 +648,6 @@ function renderVencimientosModal(){
     return;
   }
 
-  /* Se agrupan por producto + correo: así una cuenta compartida
-     con varios perfiles se ve como un solo bloque. */
   const grupos = {};
   lista.forEach(x => {
     const k = x.pid + "||" + x.correo;
@@ -750,8 +756,6 @@ function generarNuevoIdProducto(){
 
 /* =========================================================
    COMBO DE PLATAFORMA (categorías del admin)
-   Desplegable compacto tipo buscador: no genera basura
-   visual aunque el admin cree muchas categorías nuevas.
 ========================================================= */
 
 function categoriasOrdenadas(){
@@ -822,9 +826,6 @@ function elegirCategoriaPlataforma(nombre){
   inp.value = nombre;
   actualizarIndicadorPlataforma();
   cerrarComboPlataforma();
-  /* No se vuelve a enfocar el input: si lo hiciéramos, el
-     listener de "focus" reabriría el panel justo después de
-     elegir una categoría. */
 }
 
 function actualizarIndicadorPlataforma(){
@@ -1075,22 +1076,22 @@ async function guardarProducto(event){
     };
 
     try {
-  await db.ref("productos/" + id).set(data);
-  console.log("✅ productos OK");
-} catch (e) {
-  console.error("❌ FALLÓ EN productos:", e.message);
-  throw e;
-}
+      await db.ref("productos/" + id).set(data);
+      console.log("✅ productos OK");
+    } catch (e) {
+      console.error("❌ FALLÓ EN productos:", e.message);
+      throw e;
+    }
 
-if (!ilimitado) {
-  try {
-    await db.ref("stock/" + id).set(data.stock);
-    console.log("✅ stock OK");
-  } catch (e) {
-    console.error("❌ FALLÓ EN stock:", e.message);
-    throw e;
-  }
-}
+    if (!ilimitado) {
+      try {
+        await db.ref("stock/" + id).set(data.stock);
+        console.log("✅ stock OK");
+      } catch (e) {
+        console.error("❌ FALLÓ EN stock:", e.message);
+        throw e;
+      }
+    }
 
     ok(editando ? "Producto actualizado correctamente."
                 : "Producto publicado. Ahora carga su stock en la pestaña «Cuentas».");
@@ -1121,7 +1122,6 @@ function editarProducto(id){
   setToggle("npGrupoReembolso", "reembolso", "prodAplicaReembolso", p.aplicaReembolso || "si");
   setToggle("npGrupoEsRenovable", "renovable", "prodEsRenovable", p.esRenovable === false ? "no" : "si");
 
-  /* Duración: si coincide con una opción del select la usamos, si no → personalizada */
   const dias = String(num(p.duracionDias));
   const sel = $("prodDuracion");
   const existe = Array.from(sel.options).some(o => o.value === dias);
@@ -1264,7 +1264,6 @@ function parsearLineaCuenta(linea){
   let perfil = buscar(["perfil","profile"]);
   let pin    = buscar(["pin","c[oó]digo"]);
 
-  /* Si no encontró etiquetas, se asume separación por | ; , o tab */
   if (!correo && !clave) {
     const partes = original.split(/[|;,\t]+/).map(x => x.trim()).filter(Boolean);
     correo = partes[0] || "";
@@ -1318,6 +1317,8 @@ async function cargarCuentasMasivo(event){
   }
 }
 
+/* En "Cuentas usadas" se muestran las marcas "Reemplazada xN" y
+   "Renovada xN", y el botón dice "Reemplazar". */
 function renderCuentasProducto(){
   const pid = String(($("npCuentaProducto")||{}).value || "").trim();
   const tbDisp = $("npTablaCuentasDisponibles");
@@ -1380,15 +1381,25 @@ function renderCuentasProducto(){
         const vence = c.fechaVenta && dur > 0 ? ts(c.fechaVenta) + dur*24*60*60*1000 : 0;
         const expirada = vence && vence < Date.now();
 
+        const marcas = [];
+        if (num(c.reemplazos) > 0) {
+          marcas.push('<span class="npBadge info" title="Último cambio: ' + esc(fechaLarga(c.fechaReemplazo)) + '">Reemplazada' +
+            (num(c.reemplazos) > 1 ? " x" + num(c.reemplazos) : "") + '</span>');
+        }
+        if (num(c.vecesRenovada) > 0) {
+          marcas.push('<span class="npBadge ok" title="Última: ' + esc(fechaLarga(c.fechaUltimaRenovacion)) + '">Renovada' +
+            (num(c.vecesRenovada) > 1 ? " x" + num(c.vecesRenovada) : "") + '</span>');
+        }
+
         return '<tr>' +
           '<td>' + esc(c.correo || "-") + '</td>' +
           '<td>' + esc(c.perfil || "-") + '</td>' +
           '<td class="txt">' + esc(c.compradorNombre || "-") + '</td>' +
           '<td>' + esc(fechaCorta(c.fechaVenta)) + '</td>' +
           '<td>' + (vence ? esc(fechaCorta(vence)) : "-") + '</td>' +
-          '<td>' + badge(expirada ? "Expirada" : "Activa") + '</td>' +
+          '<td><div style="display:flex;gap:5px;flex-wrap:wrap;">' + badge(expirada ? "Expirada" : "Activa") + marcas.join("") + '</div></td>' +
           '<td><div class="npActionRow">' +
-            '<button class="npBtnMini edit" onclick="abrirModalEditarCuenta(\'' + escJS(pid) + '\',\'' + escJS(cid) + '\')">Editar</button>' +
+            '<button class="npBtnMini edit" onclick="abrirModalEditarCuenta(\'' + escJS(pid) + '\',\'' + escJS(cid) + '\')">🔄 Reemplazar</button>' +
           '</div></td>' +
         '</tr>';
       }).join("");
@@ -1414,6 +1425,8 @@ function renderCuentasProducto(){
   }
 }
 
+/* Si la cuenta YA fue entregada, el modal pasa a modo
+   "Reemplazar cuenta entregada". */
 function abrirModalEditarCuenta(pid, cid){
   const c = (npCuentas[pid] || {})[cid];
   if (!c) return;
@@ -1426,9 +1439,27 @@ function abrirModalEditarCuenta(pid, cid){
   $("ecPin").value         = c.pin || "";
   $("ecObservacion").value = c.observacion || "";
 
+  const entregada = estadoDe(c.estado, "disponible") !== "disponible";
+  const h3 = document.querySelector("#npModalEditarCuenta .npModalHead h3");
+  const p  = document.querySelector("#npModalEditarCuenta .npModalHead p");
+  const ic = document.querySelector("#npModalEditarCuenta .npCuentaModalIcono");
+
+  if (h3) h3.textContent = entregada ? "Reemplazar cuenta entregada" : "Editar cuenta";
+  if (p)  p.textContent  = entregada
+    ? "Entregada a " + (c.compradorNombre || "un cliente") + ". Al guardar, verá los datos nuevos en «Mis compras» con la marca de cuenta reemplazada."
+    : "Actualiza los datos de esta unidad de stock.";
+  if (ic) ic.textContent = entregada ? "🔄" : "✏️";
+
+  const obs = $("ecObservacion");
+  if (obs) obs.placeholder = entregada ? "Motivo del reemplazo (opcional)" : "";
+
   abrirModal("npModalEditarCuenta");
 }
 
+/* Si la cuenta está entregada se guarda la marca de reemplazo
+   (reemplazada, tipoCambio, fechaReemplazo, reemplazos e
+   historialReemplazos). Mis compras la lee EN VIVO y muestra
+   "Cuenta reemplazada" / "Datos actualizados". */
 async function guardarCuentaEditada(event){
   if (event) event.preventDefault();
 
@@ -1436,18 +1467,57 @@ async function guardarCuentaEditada(event){
   const cid = String(($("ecCuentaId")||{}).value || "");
   if (!pid || !cid) return;
 
-  const correo = String(($("ecCorreo")||{}).value || "").trim();
+  const actual = (npCuentas[pid] || {})[cid] || {};
+
+  const correo      = String(($("ecCorreo")||{}).value || "").trim();
+  const clave       = String(($("ecClave")||{}).value || "").trim();
+  const perfil      = String(($("ecPerfil")||{}).value || "").trim();
+  const pin         = String(($("ecPin")||{}).value || "").trim();
+  const observacion = String(($("ecObservacion")||{}).value || "").trim();
+
   if (!correo) { avisa("El correo no puede quedar vacío."); return; }
 
+  const entregada    = estadoDe(actual.estado, "disponible") !== "disponible";
+  const cambioCorreo = correo !== (actual.correo || "");
+  const cambioDatos  = cambioCorreo ||
+                       clave  !== (actual.clave  || "") ||
+                       perfil !== (actual.perfil || "") ||
+                       pin    !== (actual.pin    || "");
+
+  const data = { correo, clave, perfil, pin, observacion };
+
+  if (entregada && cambioDatos) {
+    const seguro = await confirmar(
+      cambioCorreo ? "Reemplazar cuenta entregada" : "Actualizar datos de la cuenta entregada",
+      (actual.compradorNombre || "El cliente") + " verá los datos nuevos en «Mis compras» y el acceso aparecerá marcado como " +
+      (cambioCorreo ? "«Cuenta reemplazada»." : "«Datos actualizados»."),
+      "🔄"
+    );
+    if (!seguro) return;
+
+    const ahora = Date.now();
+    const histKey = db.ref("cuentas/" + pid + "/" + cid + "/historialReemplazos").push().key;
+
+    data.reemplazada    = true;
+    data.tipoCambio     = cambioCorreo ? "cuenta" : "credenciales";
+    data.fechaReemplazo = ahora;
+    data.reemplazos     = num(actual.reemplazos) + 1;
+    data["historialReemplazos/" + histKey] = {
+      tipo:           data.tipoCambio,
+      correoAnterior: actual.correo || "",
+      perfilAnterior: actual.perfil || "",
+      correoNuevo:    correo,
+      perfilNuevo:    perfil,
+      nota:           observacion,
+      fecha:          ahora
+    };
+  }
+
   try {
-    await db.ref("cuentas/" + pid + "/" + cid).update({
-      correo: correo,
-      clave: String(($("ecClave")||{}).value || "").trim(),
-      perfil: String(($("ecPerfil")||{}).value || "").trim(),
-      pin: String(($("ecPin")||{}).value || "").trim(),
-      observacion: String(($("ecObservacion")||{}).value || "").trim()
-    });
-    ok("Cuenta actualizada.");
+    await db.ref("cuentas/" + pid + "/" + cid).update(data);
+    ok(entregada && cambioDatos
+      ? (cambioCorreo ? "Cuenta reemplazada. El cliente ya ve los datos nuevos." : "Datos actualizados. El cliente ya ve el cambio.")
+      : "Cuenta actualizada.");
     cerrarModalEditarCuenta();
   } catch (e) {
     err("No se pudo guardar: " + e.message);
@@ -1540,7 +1610,6 @@ async function cambiarClavePorCorreo(event){
   try {
     await db.ref().update(updates);
 
-    /* Resumen visual de lo aplicado */
     const wrap = $("npCorreoResultadoWrap");
     const box  = $("npCorreoResultadoBox");
     if (wrap && box) {
@@ -1652,8 +1721,6 @@ async function solicitarRetiro(event){
   if (!seguro) return;
 
   try {
-    /* Estructura EXACTA que exigen las reglas:
-       comisionUsd ≥ 20% · netoUsd ≤ 80% · estado 'pendiente' · proveedorId propio */
     await db.ref("retirosProveedores").push({
       proveedorId:        npUid,
       proveedorNombre:    npPublico.nombre || npPerfil.nombre,
@@ -1724,40 +1791,28 @@ function renderTablaRetiros(){
 
 /* =========================================================
    REEMBOLSOS
-   El proveedor ve el motivo del cliente y puede ACEPTAR o
-   RECHAZAR (con su propio motivo). El ajuste de saldo real
-   (descontar al proveedor / devolver al cliente) lo termina
-   de aplicar el administrador — el proveedor nunca escribe
-   saldoUsd directamente.
+   El proveedor ve el motivo elegido por el cliente, su mensaje,
+   la cuenta afectada, la fecha de compra y la vigencia que le
+   quedaba. Puede ACEPTAR o RECHAZAR (con motivo).
+   Al ACEPTAR, si la solicitud trae productoId + cuentaId, esa
+   cuenta vuelve al stock disponible y el stock se actualiza.
 
-   ⭐ Al ACEPTAR un reembolso, si la solicitud trae productoId
-   y cuentaId (la cuenta puntual que se entregó al cliente),
-   esa cuenta vuelve automáticamente al stock disponible del
-   proveedor (estado "disponible", se limpian sus datos de
-   venta) y el contador de stock del producto se actualiza.
-   Si el reembolso no trae esos datos, el ajuste de saldo se
-   aplica igual pero no hay forma de saber qué cuenta devolver.
-
-   ⚠️ IMPORTANTE: para que resolverReembolso() funcione hace
-   falta que las reglas de Firebase permitan, en
-   /reembolsos/{id}, que el proveedor dueño (proveedorId ===
-   auth.uid) actualice SOLO estado/motivoRechazo/
-   fechaResolucion/resueltoPor mientras el estado actual sea
-   "pendiente". Si las reglas actuales dicen que reembolsos es
-   de solo lectura para el proveedor, hay que ampliarlas.
-   Además, para devolver la cuenta a stock, las reglas de
-   /cuentas/{pid}/{cid} deben permitir que el mismo proveedor
-   dueño del producto escriba estado/compradorId/
-   compradorNombre/fechaVenta/renovado/avisoAtendido — no
-   solo cuando crea stock nuevo, sino también al revertir una
-   venta por reembolso.
+   ⚠️ Las reglas de Firebase deben permitir que el proveedor
+   dueño actualice /reembolsos/{id} (estado, motivoRechazo,
+   fechaResolucion, resueltoPor) mientras esté "pendiente", y
+   que escriba en /cuentas/{pid}/{cid} al revertir la venta.
 ========================================================= */
 
 function renderReembolsos(){
   const cont = $("npListaReembolsos");
   if (!cont) return;
 
-  const ids = Object.keys(npReembolsos).sort((a,b) => ts(npReembolsos[b].fecha) - ts(npReembolsos[a].fecha));
+  const ids = Object.keys(npReembolsos).sort((a,b) => {
+    const pa = estadoDe(npReembolsos[a].estado) === "pendiente" ? 0 : 1;
+    const pb = estadoDe(npReembolsos[b].estado) === "pendiente" ? 0 : 1;
+    if (pa !== pb) return pa - pb;                       // pendientes primero
+    return ts(npReembolsos[b].fecha) - ts(npReembolsos[a].fecha);
+  });
 
   if (!ids.length) {
     cont.innerHTML = '<div class="npEmpty">No hay solicitudes de reembolso por ahora.</div>';
@@ -1767,6 +1822,17 @@ function renderReembolsos(){
   cont.innerHTML = ids.map(id => {
     const r = npReembolsos[id];
     const estado = estadoDe(r.estado);
+    const titulo = r.motivoTitulo || NP_MOTIVOS_REEMBOLSO[r.motivoTipo] || "Motivo no especificado";
+
+    const datos =
+      '<div class="npDataList" style="margin-top:10px;">' +
+        '<div class="npDataRow"><span>Motivo</span><strong>' + esc(titulo) + '</strong></div>' +
+        (r.cuentaCorreo ? '<div class="npDataRow"><span>Cuenta</span><strong>' + esc(r.cuentaCorreo) +
+          (r.cuentaPerfil ? ' · ' + esc(r.cuentaPerfil) : '') + '</strong></div>' : '') +
+        (r.fechaCompra ? '<div class="npDataRow"><span>Comprado</span><strong>' + esc(fechaLarga(r.fechaCompra)) + '</strong></div>' : '') +
+        (r.diasRestantes !== undefined ? '<div class="npDataRow"><span>Vigencia restante al pedirlo</span><strong>' +
+          num(r.diasRestantes) + ' día(s)</strong></div>' : '') +
+      '</div>';
 
     const acciones = estado === "pendiente"
       ? '<div class="npVencAplicarRow" style="grid-template-columns:1fr;margin-top:10px;">' +
@@ -1790,12 +1856,13 @@ function renderReembolsos(){
           badge(estado) +
         '</div>' +
       '</div>' +
+      datos +
       '<div class="npNotice" style="margin-top:8px;">' +
-        '<strong>Motivo del cliente:</strong> ' + esc(r.motivo || "Sin especificar") +
+        '<strong>Mensaje del cliente:</strong> ' + esc(r.motivo || "Sin especificar") +
         (estado === "pendiente"
-          ? '<br><br>⏳ Revisa el motivo y decide si aceptas o rechazas esta solicitud.'
+          ? '<br><br>⏳ Revisa el motivo y decide. Si aceptas, la cuenta vuelve a tu stock: verifica que funcione antes de revenderla, o bórrala si está caída.'
           : (estado === "aprobado"
-              ? '<br><br>↩️ Reembolso aceptado. El administrador aplicará el ajuste de saldo correspondiente.'
+              ? '<br><br>↩️ Reembolso aceptado. El cliente ya lo ve como «Reembolsado» y no puede ver la cuenta.'
               : '<br><br>✓ Reembolso rechazado. El cliente verá el motivo que escribiste.')) +
         (r.motivoRechazo ? '<br><span style="color:#ffb8c1;">Motivo del rechazo: ' + esc(r.motivoRechazo) + '</span>' : "") +
       '</div>' +
@@ -1819,9 +1886,8 @@ async function resolverReembolso(id, nuevoEstado){
   }
 
   const monto = red(num(r.montoUsd));
-  let saldoReal = npPerfil.saldoUsd; // valor por defecto (caso rechazo, no se usa)
+  let saldoReal = npPerfil.saldoUsd;
 
-  /* ⭐ CORREGIDO: guardamos saldoReal fuera del if para reutilizarlo al escribir */
   if (aceptar) {
     try {
       const s = await db.ref("usuarios/" + npUid + "/saldoUsd").get();
@@ -1856,7 +1922,6 @@ async function resolverReembolso(id, nuevoEstado){
 
   if (aceptar) {
     const movProvKey = db.ref("movimientosSaldo/" + npUid).push().key;
-    /* ⭐ CORREGIDO: usa saldoReal (fresco), no npPerfil.saldoUsd (caché) */
     updates["usuarios/" + npUid + "/saldoUsd"] = red(saldoReal - monto);
     updates["movimientosSaldo/" + npUid + "/" + movProvKey] = {
       tipo: "reembolso",
@@ -1866,10 +1931,6 @@ async function resolverReembolso(id, nuevoEstado){
       fecha: ahora
     };
 
-    /* ⭐ Devolver la cuenta vendida al stock disponible.
-       Solo si el reembolso trae la referencia exacta de qué
-       cuenta se entregó (productoId + cuentaId) y esa cuenta
-       todavía existe en el nodo /cuentas del proveedor. */
     if (r.productoId && r.cuentaId &&
         npCuentas[r.productoId] && npCuentas[r.productoId][r.cuentaId]) {
       const pid = r.productoId, cid = r.cuentaId;
@@ -1918,6 +1979,7 @@ async function resolverReembolso(id, nuevoEstado){
     err("No se pudo procesar: " + e.message + " (revisa que las reglas de Firebase permitan esta actualización)");
   }
 }
+
 /* =========================================================
    RENOVACIONES
 ========================================================= */
@@ -1961,7 +2023,7 @@ function renderRenovaciones(){
         (estado === "pendiente"
           ? '<br><br>💰 El cliente ya pagó. El monto está acreditado en tu saldo. Solo confirma que extendiste su acceso.'
           : (estado === "aceptada"
-              ? '<br><br>✓ Renovación confirmada.'
+              ? '<br><br>✓ Renovación confirmada. El cliente la ve como «Cuenta renovada».'
               : '<br><br>✕ Renovación cancelada. El administrador devolverá el saldo al cliente.')) +
       '</div>' +
       acciones +
@@ -1969,6 +2031,8 @@ function renderRenovaciones(){
   }).join("");
 }
 
+/* Al confirmar, además de reiniciar la vigencia, guarda
+   vecesRenovada y fechaUltimaRenovacion en la cuenta. */
 async function resolverRenovacion(id, nuevoEstado){
   const r = npRenovaciones[id];
   if (!r || estadoDe(r.estado) !== "pendiente") return;
@@ -1978,26 +2042,31 @@ async function resolverRenovacion(id, nuevoEstado){
   const seguro = await confirmar(
     aceptar ? "Confirmar renovación" : "Cancelar renovación",
     aceptar
-      ? "¿Ya extendiste el acceso de " + (r.clienteNombre || "el cliente") + " por " + num(r.duracionDias) + " días?"
+      ? "¿Ya extendiste el acceso de " + (r.clienteNombre || "el cliente") + " por " + num(r.duracionDias) + " días? " +
+        "El cliente verá su acceso marcado como «Cuenta renovada»."
       : "El administrador devolverá el saldo al cliente y se te descontará el monto acreditado.",
     aceptar ? "✓" : "✕"
   );
   if (!seguro) return;
 
+  const ahora = Date.now();
   const updates = {};
   updates["renovaciones/" + id + "/estado"] = nuevoEstado;
-  updates["renovaciones/" + id + "/fechaResolucion"] = Date.now();
+  updates["renovaciones/" + id + "/fechaResolucion"] = ahora;
 
-  /* Si conocemos la cuenta, reiniciamos su vigencia */
   if (aceptar && r.productoId && r.cuentaId && npProductos[r.productoId]) {
-    updates["cuentas/" + r.productoId + "/" + r.cuentaId + "/renovado"] = false;
-    updates["cuentas/" + r.productoId + "/" + r.cuentaId + "/fechaVenta"] = Date.now();
-    updates["cuentas/" + r.productoId + "/" + r.cuentaId + "/avisoAtendido"] = true;
+    const base = "cuentas/" + r.productoId + "/" + r.cuentaId + "/";
+    const cAct = (npCuentas[r.productoId] || {})[r.cuentaId] || {};
+    updates[base + "renovado"] = false;
+    updates[base + "fechaVenta"] = ahora;
+    updates[base + "avisoAtendido"] = true;
+    updates[base + "vecesRenovada"] = num(cAct.vecesRenovada) + 1;
+    updates[base + "fechaUltimaRenovacion"] = ahora;
   }
 
   try {
     await db.ref().update(updates);
-    ok(aceptar ? "Renovación confirmada. Vigencia reiniciada." : "Renovación cancelada.");
+    ok(aceptar ? "Renovación confirmada. El cliente ya la ve como «Cuenta renovada»." : "Renovación cancelada.");
   } catch (e) {
     err("No se pudo procesar: " + e.message);
   }
@@ -2116,9 +2185,7 @@ function renderTienda(){
   }).join("");
 }
 
-/* Captura SOLO la tarjeta del producto indicado (no toda la tienda).
-   El botón de captura y el badge "Tuyo" llevan data-html2canvas-ignore
-   para no salir en la imagen final. */
+/* Captura SOLO la tarjeta del producto indicado */
 async function capturarProductoTienda(id){
   const card = document.querySelector('.npTiendaCard[data-id="' + id + '"]');
   if (!card) { err("No se encontró la tarjeta del producto."); return; }
@@ -2155,6 +2222,7 @@ async function capturarProductoTienda(id){
     if (btn) { btn.disabled = false; btn.textContent = textoOriginal || "📸 Captura de este producto"; }
   }
 }
+
 /* =========================================================
    SUBPANELES (Productos / Cuentas)
 ========================================================= */
