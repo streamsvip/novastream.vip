@@ -19,8 +19,24 @@ const MC_ADMIN_URL = "novaadmin.html";
 const MC_TIPO_CAMBIO   = 3.40;
 const MC_DIAS_RENOVAR  = 3;                        // se puede renovar con <= 3 días
 const MC_MS_DIA        = 24 * 60 * 60 * 1000;
-const MC_LIMITE_REEMB  = 24 * 60 * 60 * 1000;      // reembolso dentro de 24 h
 const MC_WSP_FALLBACK  = "51900000000";
+
+/* ⭐ v8: el reembolso ya NO está limitado a 24 h.
+   Se puede pedir mientras el acceso siga vigente. */
+
+/* Motivos predefinidos de reembolso (se envían al proveedor) */
+const MC_MOTIVOS_REEMBOLSO = {
+  no_funciona:    "La cuenta no funciona / no deja ingresar",
+  clave_cambiada: "Cambiaron la contraseña o el correo",
+  perfil_ocupado: "El perfil está ocupado o fue eliminado",
+  pantallas:      "Límite de pantallas o dispositivos",
+  calidad:        "No es el plan o la calidad prometida",
+  otro:           "Otro motivo"
+};
+
+/* ⭐ v8: vista según dispositivo (celular → tarjetas, PC → compacto).
+   Se incluye tablets/celulares en horizontal con pantalla táctil. */
+const MC_MQ_MOVIL = "(max-width:768px), (hover:none) and (pointer:coarse) and (max-width:1024px)";
 
 /* =========================
    ESTADO
@@ -35,6 +51,14 @@ let mcRenovaciones = {};   // renovaciones del cliente
 let mcReembolsos   = {};   // reembolsos del cliente
 let mcProveedores  = {};   // proveedoresPublicos (para el WhatsApp)
 
+/* ⭐ v8: datos EN VIVO de cada cuenta entregada (/cuentas/{pid}/{cid}).
+   Así, si el proveedor reemplaza la cuenta o cambia la clave,
+   el cliente ve los datos nuevos y la marca "Cuenta reemplazada". */
+let mcCuentasVivas     = {};   // { cuentaId: {...} }
+let mcCuentasRefs      = {};   // { "pid/cid": ref }
+let mcCuentasDenegadas = {};   // { "pid/cid": true } si las reglas no dejan leer
+let mcTimerReconstruir = null;
+
 let mcFilas = [];          // lista plana de accesos
 
 let filtroTexto = "";
@@ -44,8 +68,6 @@ let filtroPlataforma = "todos";
 let mcFilaModal = null;
 let mcAccionPendiente = null;   // { tipo:'renovar'|'reembolso', fila }
 
-/* banderas para sincronizar el loader con los
-   datos reales, en vez de ocultarlo apenas se registra un listener */
 let mcPerfilListo = false;
 let mcComprasListo = false;
 
@@ -76,20 +98,21 @@ function fechaCorta(ts){
   return d.toLocaleDateString("es-PE", { day:"2-digit", month:"short", year:"numeric" });
 }
 
+function diasRestantesDe(f){
+  return Math.max(0, Math.ceil((f.fechaExpira - Date.now()) / MC_MS_DIA));
+}
+
 function toast(msg){
   const el = mcEl("toastAviso");
   if (!el) return;
   el.textContent = msg;
   el.classList.add("visible");
   clearTimeout(el._t);
-  el._t = setTimeout(() => el.classList.remove("visible"), 2800);
+  el._t = setTimeout(() => el.classList.remove("visible"), 3200);
 }
 
 /* =========================================================
-   LOADER "CARGANDO TUS COMPRAS..."
-   Solo se oculta cuando el PERFIL (saldo/nombre) Y las COMPRAS
-   ya se pintaron al menos una vez. Con forzar=true se ignora
-   la condición (red de seguridad, para que nunca quede colgado).
+   LOADER
 ========================================================= */
 
 function mcIntentarOcultarBooting(forzar){
@@ -112,8 +135,12 @@ function mcInit(){
   mcAuth = firebase.auth();
   mcDb   = firebase.database();
 
-  /* Proveedores públicos: lectura pública (para el botón de soporte) */
-  mcDb.ref("proveedoresPublicos").on("value", s => { mcProveedores = s.val() || {}; });
+  /* Proveedores públicos: soporte y nombre de tienda EN VIVO
+     (si el proveedor cambia su nombre, se ve también en compras antiguas) */
+  mcDb.ref("proveedoresPublicos").on("value", s => {
+    mcProveedores = s.val() || {};
+    if (mcUid) programarReconstruccion();
+  });
 
   mcAuth.onAuthStateChanged(async (user) => {
     if (!user){ window.location.replace(MC_LOGIN_URL); return; }
@@ -136,12 +163,8 @@ function mcInit(){
     }
 
     mcUid = user.uid;
-
-    /* Página protegida: si llegamos hasta aquí, hay sesión válida.
-       Se activa el estado visual (muestra el menú de usuario). */
     document.body.classList.add("nsAutenticado");
 
-    /* Perfil en vivo */
     mcDb.ref("usuarios/" + mcUid).on("value", s => {
       const p = s.val() || {};
       if (String(p.estado || "activo").toLowerCase() === "bloqueado"){
@@ -159,7 +182,6 @@ function mcInit(){
       mcIntentarOcultarBooting();
     });
 
-    /* Compras: lectura directa permitida */
     mcDb.ref("compras/" + mcUid).on("value", s => {
       mcComprasRaw = s.val() || {};
       reconstruirFilas();
@@ -173,12 +195,10 @@ function mcInit(){
       mcIntentarOcultarBooting();
     });
 
-    /* Renovaciones propias · query OBLIGATORIA */
     mcDb.ref("renovaciones").orderByChild("clienteId").equalTo(mcUid)
       .on("value", s => { mcRenovaciones = s.val() || {}; reconstruirFilas(); },
           () => { mcRenovaciones = {}; });
 
-    /* Reembolsos propios · query OBLIGATORIA */
     mcDb.ref("reembolsos").orderByChild("clienteId").equalTo(mcUid)
       .on("value", s => { mcReembolsos = s.val() || {}; reconstruirFilas(); },
           () => { mcReembolsos = {}; });
@@ -194,29 +214,16 @@ function pintarPerfil(){
   const da = mcEl("drawerAvatar");   if (da) da.textContent = String(mcPerfil.nombre || "N").trim().charAt(0).toUpperCase();
 }
 
-/* Pinta el menú de usuario de escritorio
-   (avatar, nombre, correo y saldo), igual que en catalogo.html */
 function pintarUserMenu(){
   const inicial = String(mcPerfil.nombre || "N").trim().charAt(0).toUpperCase();
-
-  const avatarChip = mcEl("nsUserAvatarChip");
-  const avatarDrop = mcEl("nsUserAvatarDropdown");
-  const nombreChip = mcEl("nsUserNombreChip");
-  const nombreDrop = mcEl("nsUserNombreDropdown");
-  const correoDrop = mcEl("nsUserCorreoDropdown");
-  const saldoDrop  = mcEl("nsUserDropdownSaldoValor");
-
-  if (avatarChip) avatarChip.textContent = inicial;
-  if (avatarDrop) avatarDrop.textContent = inicial;
-  if (nombreChip) nombreChip.textContent = mcPerfil.nombre;
-  if (nombreDrop) nombreDrop.textContent = mcPerfil.nombre;
-  if (correoDrop) correoDrop.textContent = mcPerfil.correo || "";
-  if (saldoDrop)  saldoDrop.textContent  = fmt(mcPerfil.saldoUsd);
+  const set = (id, v) => { const el = mcEl(id); if (el) el.textContent = v; };
+  set("nsUserAvatarChip", inicial);
+  set("nsUserAvatarDropdown", inicial);
+  set("nsUserNombreChip", mcPerfil.nombre);
+  set("nsUserNombreDropdown", mcPerfil.nombre);
+  set("nsUserCorreoDropdown", mcPerfil.correo || "");
+  set("nsUserDropdownSaldoValor", fmt(mcPerfil.saldoUsd));
 }
-
-/* =========================================================
-   CERRAR SESIÓN (usado por el drawer móvil y el menú de escritorio)
-========================================================= */
 
 async function mcCerrarSesion(){
   const overlay = mcEl("nsDrawerOverlay");
@@ -232,28 +239,86 @@ async function mcCerrarSesion(){
 }
 
 /* =========================================================
-   RECONSTRUIR LA LISTA PLANA DE ACCESOS
+   CUENTAS EN VIVO (detección de reemplazo)
 ========================================================= */
 
-function diasRenovadosDe(cuentaId){
-  let dias = 0;
-  Object.values(mcRenovaciones).forEach(r => {
-    if (!r || r.cuentaId !== cuentaId) return;
-    /* Solo cuentan las aceptadas (o pendientes, que ya se pagaron) */
-    const est = String(r.estado || "").toLowerCase();
-    if (est === "aceptada" || est === "pendiente") dias += num(r.duracionDias);
-  });
-  return dias;
+function programarReconstruccion(){
+  clearTimeout(mcTimerReconstruir);
+  mcTimerReconstruir = setTimeout(reconstruirFilas, 80);
 }
 
-function estadoReembolsoDe(cuentaId){
-  let est = null;
+function escucharCuentaViva(pid, cid){
+  if (!mcDb || !pid || !cid) return;
+  const k = pid + "/" + cid;
+  if (mcCuentasRefs[k] || mcCuentasDenegadas[k]) return;
+
+  const ref = mcDb.ref("cuentas/" + k);
+  mcCuentasRefs[k] = ref;
+
+  ref.on("value", s => {
+    mcCuentasVivas[cid] = s.val();
+    programarReconstruccion();
+  }, () => {
+    /* Las reglas no permiten leerla: se usa la copia guardada en la compra */
+    mcCuentasDenegadas[k] = true;
+    delete mcCuentasRefs[k];
+    delete mcCuentasVivas[cid];
+  });
+}
+
+/* Solo se usa la cuenta viva si sigue asignada a ESTE cliente.
+   (Si fue reembolsada y volvió al stock, ya no le pertenece.) */
+function cuentaVivaDe(pid, cid){
+  if (!pid || !cid) return null;
+  escucharCuentaViva(pid, cid);
+  const v = mcCuentasVivas[cid];
+  if (!v || v.compradorId !== mcUid) return null;
+  return v;
+}
+
+/* =========================================================
+   RENOVACIONES Y REEMBOLSOS POR CUENTA
+========================================================= */
+
+function infoRenovaciones(cuentaId){
+  const info = { dias: 0, aceptadas: 0, pendientes: 0, canceladas: 0, ultimaFecha: 0 };
+  Object.values(mcRenovaciones).forEach(r => {
+    if (!r || r.cuentaId !== cuentaId) return;
+    const est = String(r.estado || "").toLowerCase();
+    if (est === "aceptada"){
+      info.aceptadas++;
+      info.dias += num(r.duracionDias);
+      info.ultimaFecha = Math.max(info.ultimaFecha, num(r.fechaResolucion) || num(r.fecha));
+    } else if (est === "pendiente"){
+      info.pendientes++;
+      info.dias += num(r.duracionDias);   // ya está pagada
+    } else if (est === "cancelada"){
+      info.canceladas++;
+    }
+  });
+  return info;
+}
+
+/* Devuelve la solicitud de reembolso MÁS RECIENTE de esa cuenta */
+function infoReembolso(cuentaId){
+  let ultimo = null;
   Object.values(mcReembolsos).forEach(r => {
     if (!r || r.cuentaId !== cuentaId) return;
-    est = String(r.estado || "pendiente").toLowerCase();
+    if (!ultimo || num(r.fecha) > num(ultimo.fecha)) ultimo = r;
   });
-  return est;
+  if (!ultimo) return null;
+  return {
+    estado: String(ultimo.estado || "pendiente").toLowerCase(),
+    monto: num(ultimo.montoUsd),
+    fecha: num(ultimo.fecha),
+    fechaResolucion: num(ultimo.fechaResolucion),
+    motivoRechazo: ultimo.motivoRechazo || ""
+  };
 }
+
+/* =========================================================
+   RECONSTRUIR LA LISTA PLANA DE ACCESOS
+========================================================= */
 
 function reconstruirFilas(){
   mcFilas = [];
@@ -263,23 +328,51 @@ function reconstruirFilas(){
     if (!c || !Array.isArray(c.items)) return;
 
     c.items.forEach((it, iIdx) => {
+      if (!it) return;
       const accesos = Array.isArray(it.accesos) && it.accesos.length
         ? it.accesos
         : [{ cuentaId: "", correo: "", clave: "", perfil: "", pin: "" }];
 
       accesos.forEach((a, aIdx) => {
-        const cuentaId = a.cuentaId || (it.productoId + "_" + compraId + "_" + aIdx);
-        const dias = num(it.duracionDias) + diasRenovadosDe(cuentaId);
+        if (!a) return;
+        const cuentaReal = a.cuentaId || "";
+        const cuentaId = cuentaReal || (it.productoId + "_" + compraId + "_" + aIdx);
+        const fechaCompra = num(c.fecha);
+
+        const ren = infoRenovaciones(cuentaId);
+        const reemb = infoReembolso(cuentaId);
+        const dias = num(it.duracionDias) + ren.dias;
+
+        /* Datos de acceso: copia de la compra, o los vivos si existen */
+        let correo = a.correo || "", clave = a.clave || "", perfil = a.perfil || "", pin = a.pin || "";
+        let reemplazada = false, datosActualizados = false, fechaCambio = 0;
+
+        const viva = cuentaVivaDe(it.productoId, cuentaReal);
+        if (viva){
+          const vCorreo = viva.correo || "", vClave = viva.clave || "", vPerfil = viva.perfil || "", vPin = viva.pin || "";
+          const flagReemplazo = viva.reemplazada === true && num(viva.fechaReemplazo) > fechaCompra;
+          const cambioCorreo = vCorreo && vCorreo !== correo;
+          const cambioOtros = vClave !== clave || vPerfil !== perfil || vPin !== pin;
+
+          if (cambioCorreo || (flagReemplazo && viva.tipoCambio === "cuenta")) reemplazada = true;
+          else if (cambioOtros || flagReemplazo) datosActualizados = true;
+
+          if (flagReemplazo) fechaCambio = num(viva.fechaReemplazo);
+
+          correo = vCorreo || correo;
+          clave  = vClave  || clave;
+          perfil = vPerfil;
+          pin    = vPin;
+        }
 
         mcFilas.push({
-          /* rutas para poder escribir la nota del cliente */
           compraId, iIdx, aIdx,
 
           cuentaId,
           productoId:      it.productoId || "",
           servicio:        it.productoNombre || "Producto",
           plataforma:      it.plataforma || it.productoNombre || "Otros",
-          proveedor:       it.proveedor || "NovaStream",
+          proveedor:       (mcProveedores[it.proveedorId] || {}).nombre || it.proveedor || "NovaStream",
           proveedorId:     it.proveedorId || "",
           imagen:          it.imagen || "",
           precio:          num(it.precioUnitarioUsd),
@@ -287,15 +380,16 @@ function reconstruirFilas(){
           aplicaReembolso: it.aplicaReembolso || "si",
           reglas:          it.reglas || "",
 
-          correo: a.correo || "",
-          clave:  a.clave  || "",
-          perfil: a.perfil || "",
-          pin:    a.pin    || "",
+          correo, clave, perfil, pin,
           nombreCliente: a.nombreCliente || "",
 
-          fechaCompra: num(c.fecha),
-          fechaExpira: dias > 0 ? num(c.fecha) + dias * MC_MS_DIA : num(c.fecha),
-          reembolso:   estadoReembolsoDe(cuentaId)
+          fechaCompra,
+          fechaExpira: dias > 0 ? fechaCompra + dias * MC_MS_DIA : fechaCompra,
+
+          reembolso:     reemb ? reemb.estado : null,
+          reembolsoInfo: reemb,
+          renov:         ren,
+          reemplazada, datosActualizados, fechaCambio
         });
       });
     });
@@ -303,6 +397,13 @@ function reconstruirFilas(){
 
   renderPlataformas();
   renderCompras();
+
+  /* Si el modal está abierto, se refresca con los datos nuevos */
+  if (mcFilaModal){
+    const f = buscarFila(claveFila(mcFilaModal));
+    if (f && f.reembolso !== "aprobado") pintarModal(f, true);
+    else if (f && f.reembolso === "aprobado"){ cerrarModal(); toast("Este acceso fue reembolsado."); }
+  }
 }
 
 /* =========================================================
@@ -310,7 +411,7 @@ function reconstruirFilas(){
 ========================================================= */
 
 function obtenerEstado(f){
-  if (f.reembolso === "aprobado") return "expirada";
+  if (f.reembolso === "aprobado") return "reembolsada";
   const restante = f.fechaExpira - Date.now();
   if (restante <= 0) return "expirada";
   if (restante <= MC_DIAS_RENOVAR * MC_MS_DIA) return "porVencer";
@@ -318,8 +419,9 @@ function obtenerEstado(f){
 }
 
 function etiquetaEstado(e){
-  if (e === "porVencer") return "Por vencer";
-  if (e === "expirada")  return "Expirada";
+  if (e === "porVencer")   return "Por vencer";
+  if (e === "expirada")    return "Expirada";
+  if (e === "reembolsada") return "Reembolsada";
   return "Activa";
 }
 
@@ -338,14 +440,20 @@ function tiempoRestante(fechaExpira){
 
 function puedeRenovar(f, estado){
   if (f.reembolso === "pendiente" || f.reembolso === "aprobado") return false;
+  if (f.renov && f.renov.pendientes > 0) return false;   // ya hay una en curso
   return estado === "porVencer" || estado === "expirada";
 }
 
-function puedeReembolsar(f){
-  if (f.aplicaReembolso === "no") return false;
-  if (f.reembolso) return false;                    // ya solicitado
-  return (Date.now() - f.fechaCompra) <= MC_LIMITE_REEMB;
+/* ⭐ v8: el reembolso se puede pedir durante TODA la vigencia */
+function motivoSinReembolso(f){
+  if (f.aplicaReembolso === "no")   return "Este producto no admite reembolso.";
+  if (f.reembolso === "aprobado")   return "Este acceso ya fue reembolsado.";
+  if (f.reembolso === "pendiente")  return "Ya tienes una solicitud de reembolso en revisión.";
+  if (f.fechaExpira <= Date.now())  return "El acceso ya venció. El reembolso solo aplica mientras está vigente.";
+  return "";
 }
+
+function puedeReembolsar(f){ return !motivoSinReembolso(f); }
 
 /* =========================================================
    FILTROS
@@ -391,26 +499,75 @@ function coincide(f){
 
 /* =========================================================
    VISTA (compacto / tarjetas)
+   ⭐ v8: al entrar SIEMPRE se abre según el dispositivo:
+   celular → tarjetas · PC → compacto. El switch cambia la
+   vista solo durante la visita (no se guarda).
 ========================================================= */
 
-const MC_KEY_MOVIL = "ns_vista_compras_movil";
-const MC_KEY_ESCRIT = "ns_vista_compras_escritorio";
+function esMovil(){ return window.matchMedia(MC_MQ_MOVIL).matches; }
+function vistaPorDispositivo(){ return esMovil() ? "tarjetas" : "compacto"; }
 
-function esMovil(){ return window.matchMedia("(max-width:768px)").matches; }
-function claveVista(){ return esMovil() ? MC_KEY_MOVIL : MC_KEY_ESCRIT; }
+/* Limpia preferencias viejas que forzaban otra vista */
+try {
+  localStorage.removeItem("ns_vista_compras_movil");
+  localStorage.removeItem("ns_vista_compras_escritorio");
+} catch(e){}
 
-function vistaInicial(){
-  const g = localStorage.getItem(claveVista());
-  if (g === "compacto" || g === "tarjetas") return g;
-  return esMovil() ? "tarjetas" : "compacto";
+let vistaActual = vistaPorDispositivo();
+
+function aplicarVista(v){
+  vistaActual = v;
+  document.querySelectorAll(".mcVistaBtn").forEach(b => b.classList.toggle("activo", b.dataset.vista === v));
 }
 
-let vistaActual = vistaInicial();
+/* =========================================================
+   CHIPS / AVISOS
+========================================================= */
 
-function aplicarVista(v, guardar){
-  vistaActual = v;
-  if (guardar) localStorage.setItem(claveVista(), v);
-  document.querySelectorAll(".mcVistaBtn").forEach(b => b.classList.toggle("activo", b.dataset.vista === v));
+function chipsExtra(f, compacto){
+  const chips = [];
+
+  if (f.reembolso === "aprobado"){
+    chips.push('<span class="mcChip reembolso">↩️ Reembolsado</span>');
+  } else {
+    if (f.reemplazada){
+      chips.push('<span class="mcChip reemplazo" title="El proveedor te entregó una cuenta nueva' +
+        (f.fechaCambio ? " el " + esc(fechaCorta(f.fechaCambio)) : "") + '">🔄 Cuenta reemplazada</span>');
+    } else if (f.datosActualizados){
+      chips.push('<span class="mcChip actualizado" title="El proveedor actualizó la contraseña o el perfil">🔑 Datos actualizados</span>');
+    }
+
+    if (f.renov.aceptadas > 0){
+      chips.push('<span class="mcChip renovada">🔁 Renovada' + (f.renov.aceptadas > 1 ? " x" + f.renov.aceptadas : "") + '</span>');
+    }
+    if (f.renov.pendientes > 0){
+      chips.push('<span class="mcChip pendiente">⏳ Renovación en proceso</span>');
+    }
+
+    if (f.reembolso === "pendiente"){
+      chips.push('<span class="mcChip pendiente">↩️ Reembolso en revisión</span>');
+    } else if (f.reembolso === "rechazado"){
+      chips.push('<span class="mcChip rechazado" title="' + esc(f.reembolsoInfo && f.reembolsoInfo.motivoRechazo || "") + '">✕ Reembolso rechazado</span>');
+    }
+  }
+
+  if (!chips.length) return "";
+  return '<div class="mcChips' + (compacto ? " compacto" : "") + '">' + chips.join("") + '</div>';
+}
+
+function avisoReembolsoHTML(f){
+  const info = f.reembolsoInfo || {};
+  const monto = info.monto || f.precio;
+  const fecha = info.fechaResolucion || info.fecha;
+  return '<div class="mcAvisoReemb">' +
+    '<div class="mcAvisoReembIcono">↩️</div>' +
+    '<div>' +
+      '<strong>Acceso reembolsado</strong>' +
+      '<span>Se devolvieron ' + fmt(monto) + ' (' + fmtPEN(monto) + ') a tu saldo' +
+      (fecha ? ' el ' + esc(fechaCorta(fecha)) : '') +
+      '. Por seguridad, los datos de esta cuenta ya no están disponibles.</span>' +
+    '</div>' +
+  '</div>';
 }
 
 /* =========================================================
@@ -425,19 +582,22 @@ function renderCompras(){
   document.querySelectorAll(".mcVistaBtn").forEach(b => b.classList.toggle("activo", b.dataset.vista === vistaActual));
 
   /* Resumen */
-  let act = 0, pv = 0, exp = 0, inv = 0;
+  let act = 0, pv = 0, exp = 0, rmb = 0, inv = 0;
   mcFilas.forEach(f => {
     const e = obtenerEstado(f);
     if (e === "activa") act++;
     else if (e === "porVencer") pv++;
+    else if (e === "reembolsada") rmb++;
     else exp++;
-    inv += f.precio;
+    if (e !== "reembolsada") inv += f.precio;
   });
 
-  const sa = mcEl("mcStatActivos");    if (sa) sa.textContent = String(act);
-  const sp = mcEl("mcStatPorVencer");  if (sp) sp.textContent = String(pv);
-  const se = mcEl("mcStatExpirados");  if (se) se.textContent = String(exp);
-  const si = mcEl("mcStatInvertido");  if (si) si.textContent = fmt(inv);
+  const set = (id, v) => { const el = mcEl(id); if (el) el.textContent = v; };
+  set("mcStatActivos", String(act));
+  set("mcStatPorVencer", String(pv));
+  set("mcStatExpirados", String(exp));
+  set("mcStatReembolsados", String(rmb));
+  set("mcStatInvertido", fmt(inv));
 
   const visibles = mcFilas.filter(coincide);
 
@@ -461,8 +621,7 @@ function renderCompras(){
     return;
   }
 
-  /* Ordena: por vencer primero, luego activas, luego expiradas */
-  const peso = { porVencer: 0, activa: 1, expirada: 2 };
+  const peso = { porVencer: 0, activa: 1, expirada: 2, reembolsada: 3 };
   visibles.sort((a,b) => {
     const pa = peso[obtenerEstado(a)], pb = peso[obtenerEstado(b)];
     if (pa !== pb) return pa - pb;
@@ -471,10 +630,9 @@ function renderCompras(){
 
   cont.innerHTML = vistaActual === "compacto" ? plantillaCompacta(visibles) : plantillaTarjetas(visibles);
 
-  cont.querySelectorAll(".mcBtnVer").forEach(b => b.addEventListener("click", () => abrirModal(b.dataset.k)));
+  cont.querySelectorAll(".mcBtnVer:not([disabled])").forEach(b => b.addEventListener("click", () => abrirModal(b.dataset.k)));
   cont.querySelectorAll(".mcBtnRenovar.activo").forEach(b => b.addEventListener("click", () => pedirRenovacion(b.dataset.k)));
   cont.querySelectorAll(".mcBtnSoporte:not(.mcBtnReembolsoFila)").forEach(b => b.addEventListener("click", () => soporte(b.dataset.k)));
-  /* ⭐ NUEVO (v5): botón de reembolso directo en cada fila */
   cont.querySelectorAll(".mcBtnReembolsoFila").forEach(b => b.addEventListener("click", () => pedirReembolsoDesdeFila(b.dataset.k)));
 }
 
@@ -484,12 +642,20 @@ function buscarFila(k){
   return mcFilas.find(f => f.compraId === p[0] && String(f.iIdx) === p[1] && String(f.aIdx) === p[2]) || null;
 }
 
-function chipReembolso(f){
-  if (!f.reembolso) return "";
-  const txt = f.reembolso === "aprobado" ? "Reembolsado"
-            : f.reembolso === "rechazado" ? "Reemb. rechazado"
-            : "Reemb. en revisión";
-  return '<span class="mcChipReemb ' + esc(f.reembolso) + '">' + esc(txt) + '</span>';
+function botonVer(f, corto){
+  if (f.reembolso === "aprobado"){
+    return '<button type="button" class="mcBtnVer" disabled>🔒 ' + (corto ? "Reemb." : "Reembolsado") + '</button>';
+  }
+  const nuevo = f.reemplazada || f.datosActualizados;
+  const txt = nuevo ? (corto ? "👁 Nuevos datos" : "👁 Ver nuevos datos") : (corto ? "👁 Ver" : "👁 Ver cuenta");
+  return '<button type="button" class="mcBtnVer' + (nuevo ? " nuevo" : "") + '" data-k="' + esc(claveFila(f)) + '">' + txt + '</button>';
+}
+
+function botonReembolso(f){
+  const re = puedeReembolsar(f);
+  const titulo = re ? "Solicitar reembolso" : motivoSinReembolso(f);
+  return '<button type="button" class="mcBtnSoporte mcBtnReembolsoFila" data-k="' + esc(claveFila(f)) + '" title="' + esc(titulo) + '"' +
+    (re ? "" : ' aria-disabled="true" data-off="1"') + '>↩️</button>';
 }
 
 function plantillaTarjetas(lista){
@@ -497,10 +663,10 @@ function plantillaTarjetas(lista){
     const e = obtenerEstado(f);
     const k = claveFila(f);
     const rn = puedeRenovar(f, e);
-    const re = puedeReembolsar(f);
-    const yaReembolsado = f.reembolso === "aprobado";   /* ⭐ NUEVO */
+    const reemb = e === "reembolsada";
+    const extraClase = (!reemb && f.reemplazada) ? " reemplazada" : "";
 
-    return '<div class="mcCard ' + e + '">' +
+    return '<div class="mcCard ' + e + extraClase + '">' +
       '<div class="mcCardTop">' +
         '<div class="mcCardAvatar"><img src="' + esc(f.imagen) + '" alt="" onerror="this.style.opacity=0"></div>' +
         '<div>' +
@@ -511,35 +677,38 @@ function plantillaTarjetas(lista){
         '<span class="mcBadge ' + e + '">' + esc(etiquetaEstado(e)) + '</span>' +
       '</div>' +
       '<div class="mcCardBody">' +
-        chipReembolso(f) +
+        chipsExtra(f, false) +
         '<div class="mcCardRow"><span>Precio</span>' +
           '<span class="mcPrecio"><span class="mcPrecioUsd">' + fmt(f.precio) + '</span>' +
           '<span class="mcPrecioPen">' + fmtPEN(f.precio) + '</span></span></div>' +
         '<div class="mcCardRow"><span>Proveedor</span><strong>' + esc(f.proveedor) + '</strong></div>' +
-        '<div class="mcCardRow"><span>Vence</span><strong>' + esc(fechaCorta(f.fechaExpira)) + '</strong></div>' +
-        '<div class="mcTiempoBox ' + e + '">' +
-          '<span class="mcTiempoLabel">Tiempo restante</span>' +
-          '<span class="mcTiempoValor ' + e + '" data-expira="' + f.fechaExpira + '">' + esc(tiempoRestante(f.fechaExpira)) + '</span>' +
-        '</div>' +
+        (reemb
+          ? avisoReembolsoHTML(f)
+          : '<div class="mcCardRow"><span>Vence</span><strong>' + esc(fechaCorta(f.fechaExpira)) + '</strong></div>' +
+            '<div class="mcTiempoBox ' + e + '">' +
+              '<span class="mcTiempoLabel">Tiempo restante</span>' +
+              '<span class="mcTiempoValor ' + e + '" data-expira="' + f.fechaExpira + '">' + esc(tiempoRestante(f.fechaExpira)) + '</span>' +
+            '</div>') +
         '<div class="mcCardBtns">' +
-          '<button type="button" class="mcBtnVer" data-k="' + esc(k) + '"' + (yaReembolsado ? " disabled" : "") + '>' + (yaReembolsado ? "🚫 Reembolsado" : "👁 Ver cuenta") + '</button>' +
+          botonVer(f, false) +
           '<button type="button" class="mcBtnRenovar ' + (rn ? "activo" : "") + '" data-k="' + esc(k) + '" ' + (rn ? "" : "disabled") + '>🔄 Renovar</button>' +
           '<button type="button" class="mcBtnSoporte" data-k="' + esc(k) + '" title="Soporte">🎧</button>' +
-          '<button type="button" class="mcBtnSoporte mcBtnReembolsoFila" data-k="' + esc(k) + '" title="Reembolso"' + (re ? "" : " disabled") + '>↩️</button>' +
+          botonReembolso(f) +
         '</div>' +
       '</div>' +
     '</div>';
   }).join("");
 }
+
 function plantillaCompacta(lista){
   const filas = lista.map(f => {
     const e = obtenerEstado(f);
     const k = claveFila(f);
     const rn = puedeRenovar(f, e);
-    const re = puedeReembolsar(f);
-    const yaReembolsado = f.reembolso === "aprobado";   /* ⭐ NUEVO */
+    const reemb = e === "reembolsada";
+    const extraClase = (!reemb && f.reemplazada) ? " reemplazada" : "";
 
-    return '<div class="mcCompactRow ' + e + '">' +
+    return '<div class="mcCompactRow ' + e + extraClase + '">' +
       '<div class="mcCompactServicio">' +
         '<div class="mcCompactAvatar"><img src="' + esc(f.imagen) + '" alt="" onerror="this.style.opacity=0"></div>' +
         '<div class="mcCompactServicioTexto">' +
@@ -547,16 +716,19 @@ function plantillaCompacta(lista){
           '<div class="mcCompactFecha">👤 ' + esc(f.nombreCliente || "Sin registrar") + '</div>' +
         '</div>' +
       '</div>' +
-      '<div class="mcCompactCell"><span class="mcBadge ' + e + '">' + esc(etiquetaEstado(e)) + '</span>' + chipReembolso(f) + '</div>' +
+      '<div class="mcCompactCell"><span class="mcBadge ' + e + '">' + esc(etiquetaEstado(e)) + '</span>' + chipsExtra(f, true) + '</div>' +
       '<div class="mcCompactCell"><div class="mcCompactPrecio">' +
         '<span class="usd">' + fmt(f.precio) + '</span><span class="pen">' + fmtPEN(f.precio) + '</span></div></div>' +
-      '<div class="mcCompactCell"><strong>' + esc(fechaCorta(f.fechaExpira)) + '</strong></div>' +
-      '<div class="mcCompactCell"><span class="mcCompactTiempo ' + e + '" data-expira="' + f.fechaExpira + '">' + esc(tiempoRestante(f.fechaExpira)) + '</span></div>' +
+      '<div class="mcCompactCell"><strong>' + (reemb ? "—" : esc(fechaCorta(f.fechaExpira))) + '</strong></div>' +
+      '<div class="mcCompactCell">' + (reemb
+        ? '<span class="mcCompactTiempo reembolsada">Saldo devuelto</span>'
+        : '<span class="mcCompactTiempo ' + e + '" data-expira="' + f.fechaExpira + '">' + esc(tiempoRestante(f.fechaExpira)) + '</span>') +
+      '</div>' +
       '<div class="mcCompactAcciones">' +
-        '<button type="button" class="mcBtnVer" data-k="' + esc(k) + '"' + (yaReembolsado ? " disabled" : "") + '>' + (yaReembolsado ? "🚫 Reemb." : "👁 Ver") + '</button>' +
+        botonVer(f, true) +
         '<button type="button" class="mcBtnRenovar ' + (rn ? "activo" : "") + '" data-k="' + esc(k) + '" ' + (rn ? "" : "disabled") + '>🔄 Renovar</button>' +
         '<button type="button" class="mcBtnSoporte" data-k="' + esc(k) + '" title="Soporte">🎧</button>' +
-        '<button type="button" class="mcBtnSoporte mcBtnReembolsoFila" data-k="' + esc(k) + '" title="Reembolso"' + (re ? "" : " disabled") + '>↩️</button>' +
+        botonReembolso(f) +
       '</div>' +
     '</div>';
   }).join("");
@@ -582,16 +754,58 @@ function actualizarContadores(){
    MODAL VER CUENTA
 ========================================================= */
 
+function avisosModalHTML(f){
+  const av = [];
+
+  if (f.reemplazada){
+    av.push('<div class="mcModalAviso reemplazo"><strong>🔄 Cuenta reemplazada</strong>' +
+      '<span>El proveedor te entregó una cuenta nueva' + (f.fechaCambio ? " el " + esc(fechaCorta(f.fechaCambio)) : "") +
+      '. Los datos que ves abajo ya son los nuevos; deja de usar los anteriores.</span></div>');
+  } else if (f.datosActualizados){
+    av.push('<div class="mcModalAviso actualizado"><strong>🔑 Datos actualizados</strong>' +
+      '<span>El proveedor cambió la contraseña o el perfil' + (f.fechaCambio ? " el " + esc(fechaCorta(f.fechaCambio)) : "") +
+      '. Usa los datos que ves abajo.</span></div>');
+  }
+
+  if (f.renov.aceptadas > 0){
+    av.push('<div class="mcModalAviso renovada"><strong>🔁 Cuenta renovada</strong>' +
+      '<span>Renovada ' + f.renov.aceptadas + (f.renov.aceptadas === 1 ? " vez" : " veces") +
+      (f.renov.ultimaFecha ? " · última el " + esc(fechaCorta(f.renov.ultimaFecha)) : "") +
+      '. Nueva fecha de vencimiento: ' + esc(fechaCorta(f.fechaExpira)) + '.</span></div>');
+  }
+  if (f.renov.pendientes > 0){
+    av.push('<div class="mcModalAviso pendiente"><strong>⏳ Renovación en proceso</strong>' +
+      '<span>Ya pagaste la renovación. El proveedor está extendiendo tu acceso.</span></div>');
+  }
+
+  if (f.reembolso === "pendiente"){
+    av.push('<div class="mcModalAviso pendiente"><strong>↩️ Reembolso en revisión</strong>' +
+      '<span>El proveedor está revisando tu solicitud. Te avisaremos aquí mismo.</span></div>');
+  } else if (f.reembolso === "rechazado"){
+    const m = f.reembolsoInfo && f.reembolsoInfo.motivoRechazo;
+    av.push('<div class="mcModalAviso rechazado"><strong>✕ Reembolso rechazado</strong>' +
+      '<span>' + (m ? "Motivo del proveedor: " + esc(m) : "El proveedor rechazó la solicitud.") +
+      ' Si el problema continúa, puedes contactar a soporte o enviar una nueva solicitud.</span></div>');
+  }
+
+  return av.join("");
+}
+
 function abrirModal(k){
   const f = buscarFila(k);
   if (!f) return;
 
-  /* ⭐ NUEVO: si ya fue reembolsado, no se muestra la cuenta */
   if (f.reembolso === "aprobado"){
-    toast("Este acceso ya fue reembolsado y ya no está disponible.");
+    toast("Este acceso fue reembolsado: el saldo ya volvió a tu cuenta y los datos ya no están disponibles.");
     return;
   }
 
+  pintarModal(f, false);
+  mcEl("mcModalCuenta").style.display = "flex";
+}
+
+/* refresco=true → solo actualiza datos sin tocar la edición de la nota */
+function pintarModal(f, refresco){
   mcFilaModal = f;
   const e = obtenerEstado(f);
 
@@ -602,6 +816,9 @@ function abrirModal(k){
   badge.textContent = etiquetaEstado(e);
   badge.className = "mcBadge " + e;
 
+  const avisos = mcEl("mcModalAvisos");
+  if (avisos) avisos.innerHTML = avisosModalHTML(f);
+
   mcEl("mcModalCorreo").textContent = f.correo || "-";
   mcEl("mcModalClave").textContent  = f.clave  || "-";
   mcEl("mcModalPerfil").textContent = f.perfil || "-";
@@ -609,7 +826,7 @@ function abrirModal(k){
   mcEl("mcModalVence").textContent  = fechaCorta(f.fechaExpira) + " · " + tiempoRestante(f.fechaExpira);
   mcEl("mcModalProveedor").textContent = f.proveedor;
 
-  clienteModoVista(f.nombreCliente);
+  if (!refresco) clienteModoVista(f.nombreCliente);
 
   const obsWrap = mcEl("mcModalObsWrap");
   if (f.reglas){
@@ -623,13 +840,13 @@ function abrirModal(k){
   if (btnReemb){
     const ok = puedeReembolsar(f);
     btnReemb.disabled = !ok;
-    btnReemb.textContent = f.reembolso
-      ? "↩️ Reembolso " + f.reembolso
-      : (f.aplicaReembolso === "no" ? "↩️ Sin reembolso"
-        : ok ? "↩️ Solicitar reembolso" : "↩️ Plazo vencido (24 h)");
+    btnReemb.title = ok ? "" : motivoSinReembolso(f);
+    btnReemb.textContent =
+      f.reembolso === "pendiente" ? "↩️ Reembolso en revisión" :
+      f.aplicaReembolso === "no"  ? "↩️ Sin reembolso" :
+      !ok                          ? "↩️ Acceso vencido" :
+                                     "↩️ Solicitar reembolso";
   }
-
-  mcEl("mcModalCuenta").style.display = "flex";
 }
 
 function cerrarModal(){
@@ -645,8 +862,6 @@ async function copiarTexto(t){
 
 /* =========================================================
    NOTA DEL CLIENTE
-   Se guarda en compras/{uid}/{compraId}/items/{i}/accesos/{j}/nombreCliente
-   Las reglas permiten al dueño actualizar su propia compra.
 ========================================================= */
 
 function clienteModoVista(nombre){
@@ -664,17 +879,12 @@ function clienteModoVista(nombre){
   bg.style.display = "none";
 }
 
-/* ⭐ FIX (v5): antes usaba style.display = "" para "mostrar" el
-   input/botón, pero el CSS los define con display:none por
-   regla de clase/ID, así que "" no los sobreescribe y nunca
-   aparecían. Ahora se fuerza el display correcto. */
 function clienteModoEdicion(){
   mcEl("mcModalClienteTexto").style.display = "none";
   mcEl("mcBtnEditarCliente").style.display = "none";
   const i = mcEl("mcModalClienteInput");
   i.style.display = "block";
-  const bg = mcEl("mcBtnGuardarCliente");
-  bg.style.display = "inline-block";
+  mcEl("mcBtnGuardarCliente").style.display = "inline-block";
   i.focus();
 }
 
@@ -701,31 +911,31 @@ async function guardarCliente(){
    CONFIRMACIÓN GENÉRICA
 ========================================================= */
 
+function mostrarErrorMotivo(texto, campo){
+  const err = mcEl("mcConfirmMotivoError");
+  if (err){ err.textContent = texto; err.classList.add("show"); }
+  if (campo){ campo.classList.add("error"); campo.focus(); }
+}
+
+function limpiarErrorMotivo(){
+  const err = mcEl("mcConfirmMotivoError");
+  if (err) err.classList.remove("show");
+  const t = mcEl("mcConfirmMotivo");     if (t) t.classList.remove("error");
+  const s = mcEl("mcConfirmMotivoTipo"); if (s) s.classList.remove("error");
+}
+
 function abrirConfirm(opts){
   mcEl("mcConfirmIcono").textContent = opts.icono || "❓";
   mcEl("mcConfirmTitulo").textContent = opts.titulo || "Confirmar";
   mcEl("mcConfirmTexto").textContent = opts.texto || "";
   mcEl("mcConfirmAceptar").textContent = opts.aceptar || "Confirmar";
 
-  const campo = mcEl("mcConfirmCampo");
-  /* ⭐ FIX: display:"" no sobreescribe el display:none que trae
-     la clase .mcConfirmCampo desde el CSS, así que el campo de
-     motivo (y su mensaje de error, que vive adentro) se quedaban
-     invisibles SIEMPRE, incluso con pedirMotivo:true. Sin poder
-     ver ni escribir el motivo, la validación de "mínimo 8
-     caracteres" fallaba siempre y el botón "Confirmar" parecía
-     no responder. Se fuerza "block" explícitamente para que sí
-     se muestre. */
-  campo.style.display = opts.pedirMotivo ? "block" : "none";
+  mcEl("mcConfirmCampo").style.display = opts.pedirMotivo ? "block" : "none";
 
-  /* ⭐ FIX: se limpia también el estado de error de intentos
-     anteriores, para que el modal se vea "fresco" cada vez que
-     se abre (por ejemplo, al reintentar un reembolso). */
-  const motivoInput = mcEl("mcConfirmMotivo");
-  motivoInput.value = "";
-  motivoInput.classList.remove("error");
-  const motivoErr = mcEl("mcConfirmMotivoError");
-  if (motivoErr) motivoErr.classList.remove("show");
+  mcEl("mcConfirmMotivo").value = "";
+  const tipo = mcEl("mcConfirmMotivoTipo");
+  if (tipo) tipo.value = "";
+  limpiarErrorMotivo();
 
   mcAccionPendiente = opts.accion || null;
   mcEl("mcConfirm").classList.add("show");
@@ -738,8 +948,6 @@ function cerrarConfirm(){
 
 /* =========================================================
    RENOVACIÓN
-   Se cobra al solicitar (las reglas no dejan que el proveedor
-   toque el saldo del cliente). Ver nota de cabecera.
 ========================================================= */
 
 function pedirRenovacion(k){
@@ -764,7 +972,6 @@ function pedirRenovacion(k){
 async function ejecutarRenovacion(f){
   const monto = red(f.precio);
 
-  /* Saldo real del servidor */
   let saldoReal = 0;
   try {
     const s = await mcDb.ref("usuarios/" + mcUid + "/saldoUsd").get();
@@ -784,23 +991,21 @@ async function ejecutarRenovacion(f){
 
   const updates = {};
 
-  /* 1. Solicitud (estado obligatorio 'pendiente') */
   updates["renovaciones/" + renId] = {
-    clienteId:      mcUid,
-    clienteNombre:  mcPerfil.nombre,
-    proveedorId:    f.proveedorId,
+    clienteId:       mcUid,
+    clienteNombre:   mcPerfil.nombre,
+    proveedorId:     f.proveedorId,
     proveedorNombre: f.proveedor,
-    productoId:     f.productoId,
-    productoNombre: f.servicio,
-    cuentaId:       f.cuentaId,
-    compraId:       f.compraId,
-    montoUsd:       monto,
-    duracionDias:   f.duracionDias,
-    estado:         "pendiente",
-    fecha:          ahora
+    productoId:      f.productoId,
+    productoNombre:  f.servicio,
+    cuentaId:        f.cuentaId,
+    compraId:        f.compraId,
+    montoUsd:        monto,
+    duracionDias:    f.duracionDias,
+    estado:          "pendiente",
+    fecha:           ahora
   };
 
-  /* 2. Cobro al cliente (solo puede bajar su propio saldo) */
   updates["usuarios/" + mcUid + "/saldoUsd"] = red(saldoReal - monto);
   updates["movimientosSaldo/" + mcUid + "/" + movCli] = {
     tipo: "compra",
@@ -808,7 +1013,6 @@ async function ejecutarRenovacion(f){
     montoUsd: monto, signo: "-", fecha: ahora
   };
 
-  /* 3. Movimiento del proveedor (tipo 'venta' es lo que permiten las reglas) */
   updates["movimientosSaldo/" + f.proveedorId + "/" + movProv] = {
     tipo: "venta",
     detalle: "Renovación · " + f.servicio + " · " + mcPerfil.nombre,
@@ -818,11 +1022,8 @@ async function ejecutarRenovacion(f){
   try {
     await mcDb.ref().update(updates);
 
-    /* 4. Acreditar al proveedor (transacción aparte para no pisar saldos) */
     try {
-      await mcDb.ref("usuarios/" + f.proveedorId + "/saldoUsd").transaction(
-        a => red(num(a) + monto)
-      );
+      await mcDb.ref("usuarios/" + f.proveedorId + "/saldoUsd").transaction(a => red(num(a) + monto));
     } catch(e){ console.error("No se pudo acreditar al proveedor:", e); }
 
     toast("🔄 Renovación solicitada. El proveedor la confirmará pronto.");
@@ -833,77 +1034,75 @@ async function ejecutarRenovacion(f){
 }
 
 /* =========================================================
-   REEMBOLSO — solo crea la solicitud
+   REEMBOLSO — crea la solicitud que ve el proveedor
 ========================================================= */
 
 function pedirReembolso(){
   const f = mcFilaModal;
   if (!f) return;
-  if (!puedeReembolsar(f)) return;
+  const motivoNo = motivoSinReembolso(f);
+  if (motivoNo){ toast(motivoNo); return; }
+
+  const dias = diasRestantesDe(f);
 
   abrirConfirm({
     icono: "↩️",
     titulo: "Solicitar reembolso",
-    texto: "Se enviará una solicitud de reembolso por " + fmt(f.precio) + " del acceso \"" + f.servicio +
-           "\". El administrador la revisará y, si procede, devolverá el saldo a tu cuenta.",
+    texto: "Se enviará tu solicitud al proveedor " + f.proveedor + " por " + fmt(f.precio) + " (" + fmtPEN(f.precio) +
+           ") del acceso \"" + f.servicio + "\". Te quedan " + dias + " día(s) de vigencia. " +
+           "Elige el motivo y explica qué pasó para que pueda revisarlo.",
     aceptar: "Enviar solicitud",
     pedirMotivo: true,
     accion: { tipo: "reembolso", fila: f }
   });
 }
 
-/* ⭐ NUEVO (v5): permite pedir el reembolso directo desde el
-   botón ↩️ de cada fila del listado, sin tener que abrir antes
-   el modal "Ver cuenta". Reutiliza la misma validación
-   (puedeReembolsar) y el mismo flujo (pedirReembolso) que ya
-   usa el modal, solo que primero fija mcFilaModal con la fila
-   de la lista sobre la que se hizo clic. */
 function pedirReembolsoDesdeFila(k){
   const f = buscarFila(k);
   if (!f) return;
 
-  if (!puedeReembolsar(f)){
-    if (f.reembolso){
-      toast("Ya existe una solicitud de reembolso para este acceso.");
-    } else if (f.aplicaReembolso === "no"){
-      toast("Este producto no admite reembolso.");
-    } else {
-      toast("El plazo de reembolso (24 h) ya venció.");
-    }
-    return;
-  }
+  const motivoNo = motivoSinReembolso(f);
+  if (motivoNo){ toast(motivoNo); return; }
 
   mcFilaModal = f;
   pedirReembolso();
 }
 
-async function ejecutarReembolso(f, motivo){
-  /* Red de seguridad: el click de "Aceptar" ya valida el largo del
-     motivo antes de llegar aquí (ver listener de mcConfirmAceptar),
-     así que en el flujo normal esto nunca debería dispararse. */
-  if (!motivo || motivo.trim().length < 8){
-    toast("Explica el motivo con un poco más de detalle (mínimo 8 caracteres).");
+async function ejecutarReembolso(f, tipo, motivo){
+  const detalle = String(motivo || "").trim();
+  if (!MC_MOTIVOS_REEMBOLSO[tipo] || detalle.length < 8){
+    toast("Elige un motivo y explica con un poco más de detalle.");
     return;
   }
 
+  /* Revalidación por si cambió el estado mientras escribía */
+  const motivoNo = motivoSinReembolso(f);
+  if (motivoNo){ toast(motivoNo); return; }
+
   try {
-    /* Estado obligatorio 'pendiente'. El cliente NUNCA puede aprobarlo. */
     await mcDb.ref("reembolsos").push({
-      clienteId:      mcUid,
-      clienteNombre:  mcPerfil.nombre,
-      proveedorId:    f.proveedorId || "",
+      clienteId:       mcUid,
+      clienteNombre:   mcPerfil.nombre,
+      proveedorId:     f.proveedorId || "",
       proveedorNombre: f.proveedor || "",
-      productoId:     f.productoId || "",
-      productoNombre: f.servicio,
-      cuentaId:       f.cuentaId || "",
-      compraId:       f.compraId,
-      montoUsd:       red(f.precio),
-      motivo:         motivo.trim().slice(0, 380),
-      estado:         "pendiente",
-      fecha:          Date.now()
+      productoId:      f.productoId || "",
+      productoNombre:  f.servicio,
+      cuentaId:        f.cuentaId || "",
+      compraId:        f.compraId,
+      montoUsd:        red(f.precio),
+      motivoTipo:      tipo,
+      motivoTitulo:    MC_MOTIVOS_REEMBOLSO[tipo],
+      motivo:          detalle.slice(0, 380),
+      cuentaCorreo:    f.correo || "",
+      cuentaPerfil:    f.perfil || "",
+      diasRestantes:   diasRestantesDe(f),
+      fechaCompra:     f.fechaCompra,
+      fechaExpira:     f.fechaExpira,
+      estado:          "pendiente",
+      fecha:           Date.now()
     });
 
-    toast("↩️ Solicitud enviada. Te responderemos en breve.");
+    toast("↩️ Solicitud enviada al proveedor. Verás la respuesta aquí mismo.");
     cerrarModal();
   } catch(err){
     console.error(err);
@@ -927,13 +1126,13 @@ function numeroSoporte(proveedorId){
 function soporte(k){
   const f = buscarFila(k) || mcFilaModal;
   if (!f) return;
-  const num = numeroSoporte(f.proveedorId);
+  const numero = numeroSoporte(f.proveedorId);
   const txt = encodeURIComponent(
     "Hola, necesito soporte con mi compra en NovaStream:\n" +
     "Producto: " + f.servicio + "\n" +
-    "Cuenta: " + (f.correo || "-")
+    "Cuenta: " + (f.reembolso === "aprobado" ? "(reembolsada)" : (f.correo || "-"))
   );
-  window.open("https://wa.me/" + num + "?text=" + txt, "_blank");
+  window.open("https://wa.me/" + numero + "?text=" + txt, "_blank");
 }
 
 /* =========================================================
@@ -955,7 +1154,7 @@ window.addEventListener("resize", ajustarAlturaNav);
 
 document.addEventListener("DOMContentLoaded", () => {
 
-  /* Drawer aislado primero */
+  /* Drawer */
   try {
     const btnMenu = mcEl("btnMenuMovil");
     const overlay = mcEl("nsDrawerOverlay");
@@ -965,13 +1164,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (btnMenu && overlay) btnMenu.addEventListener("click", () => overlay.classList.add("activo"));
     if (btnClose && overlay) btnClose.addEventListener("click", () => overlay.classList.remove("activo"));
     if (overlay) overlay.addEventListener("click", e => { if (e.target.id === "nsDrawerOverlay") overlay.classList.remove("activo"); });
-
-    if (salir){
-      salir.addEventListener("click", e => {
-        e.preventDefault();
-        mcCerrarSesion();
-      });
-    }
+    if (salir) salir.addEventListener("click", e => { e.preventDefault(); mcCerrarSesion(); });
   } catch(err){ console.error("Drawer:", err); }
 
   /* Menú de usuario en escritorio */
@@ -996,26 +1189,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const btnCerrarSesionDesktop = mcEl("btnCerrarSesionDesktop");
     if (btnCerrarSesionDesktop){
-      btnCerrarSesionDesktop.addEventListener("click", (e) => {
-        e.preventDefault();
-        mcCerrarSesion();
-      });
+      btnCerrarSesionDesktop.addEventListener("click", (e) => { e.preventDefault(); mcCerrarSesion(); });
     }
   } catch(err){ console.error("Menú de usuario:", err); }
 
   ajustarAlturaNav();
-  aplicarVista(vistaActual, false);
+  aplicarVista(vistaPorDispositivo());
   setInterval(actualizarContadores, 1000);
 
-  /* Vista */
+  /* Vista: el switch cambia solo durante esta visita */
   document.querySelectorAll(".mcVistaBtn").forEach(b => {
-    b.addEventListener("click", function(){ aplicarVista(this.dataset.vista, true); renderCompras(); });
+    b.addEventListener("click", function(){ aplicarVista(this.dataset.vista); renderCompras(); });
   });
 
+  /* Si se pasa de celular a PC (o al revés) se vuelve a la vista por defecto */
   let eraMovil = esMovil();
   window.addEventListener("resize", () => {
     const ahora = esMovil();
-    if (ahora !== eraMovil){ eraMovil = ahora; aplicarVista(vistaInicial(), false); renderCompras(); }
+    if (ahora !== eraMovil){ eraMovil = ahora; aplicarVista(vistaPorDispositivo()); renderCompras(); }
   });
 
   /* Filtros */
@@ -1026,7 +1217,7 @@ document.addEventListener("DOMContentLoaded", () => {
   mcEl("mcCerrarModalCuenta").addEventListener("click", cerrarModal);
   mcEl("mcModalCuenta").addEventListener("click", e => { if (e.target.id === "mcModalCuenta") cerrarModal(); });
 
-  document.querySelectorAll(".mcBtnCopiar").forEach(btn => {
+  document.querySelectorAll(".mcBtnCopiar[data-copy-target]").forEach(btn => {
     btn.addEventListener("click", async function(){
       const t = this.dataset.copyTarget;
       if (!t) return;
@@ -1071,39 +1262,33 @@ document.addEventListener("DOMContentLoaded", () => {
   mcEl("mcConfirmAceptar").addEventListener("click", async () => {
     const a = mcAccionPendiente;
     const motivoInput = mcEl("mcConfirmMotivo");
+    const tipoInput = mcEl("mcConfirmMotivoTipo");
     const motivo = motivoInput ? motivoInput.value : "";
+    const tipo = tipoInput ? tipoInput.value : "";
 
-    /* ⭐ FIX: antes esto cerraba el modal SIEMPRE y recién después
-       ejecutarReembolso() revisaba el largo del motivo, mostrando
-       un toast sin ninguna forma de volver a escribir. Ahora se
-       valida ANTES de cerrar: si el motivo es muy corto, el modal
-       se queda abierto, se marca el campo en rojo y el cliente
-       puede seguir escribiendo en el mismo lugar. */
-    if (a && a.tipo === "reembolso" && motivo.trim().length < 8){
-      if (motivoInput) motivoInput.classList.add("error");
-      const motivoErr = mcEl("mcConfirmMotivoError");
-      if (motivoErr) motivoErr.classList.add("show");
-      if (motivoInput) motivoInput.focus();
-      return;
+    /* Validación ANTES de cerrar: el modal queda abierto si falta algo */
+    if (a && a.tipo === "reembolso"){
+      if (!MC_MOTIVOS_REEMBOLSO[tipo]){
+        mostrarErrorMotivo("Elige el motivo principal del reembolso.", tipoInput);
+        return;
+      }
+      if (motivo.trim().length < 8){
+        mostrarErrorMotivo("Describe el problema con un poco más de detalle (mínimo 8 caracteres).", motivoInput);
+        return;
+      }
     }
 
     cerrarConfirm();
     if (!a) return;
 
     if (a.tipo === "renovar")   await ejecutarRenovacion(a.fila);
-    if (a.tipo === "reembolso") await ejecutarReembolso(a.fila, motivo);
+    if (a.tipo === "reembolso") await ejecutarReembolso(a.fila, tipo, motivo);
   });
 
-  /* Al escribir, se quita el estado de error para que el cliente
-     vea que su corrección ya cuenta. */
-  const mcMotivoInput = mcEl("mcConfirmMotivo");
-  if (mcMotivoInput){
-    mcMotivoInput.addEventListener("input", function(){
-      this.classList.remove("error");
-      const motivoErr = mcEl("mcConfirmMotivoError");
-      if (motivoErr) motivoErr.classList.remove("show");
-    });
-  }
+  ["mcConfirmMotivo", "mcConfirmMotivoTipo"].forEach(id => {
+    const el = mcEl(id);
+    if (el) el.addEventListener(id === "mcConfirmMotivo" ? "input" : "change", limpiarErrorMotivo);
+  });
 
   document.addEventListener("keydown", e => {
     if (e.key === "Escape"){
@@ -1120,7 +1305,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
   mcInit();
 
-  /* Red de seguridad: pase lo que pase, el loader nunca se
-     queda colgado en pantalla. */
   setTimeout(() => mcIntentarOcultarBooting(true), 6000);
 });
