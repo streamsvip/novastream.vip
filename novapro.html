@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="novapro.css?v=8" />
+<link rel="stylesheet" href="novapro.css?v=11" />
 </head>
 <body>
 
@@ -72,6 +72,7 @@
 
     <div class="npMenuTitle">Cuenta</div>
     <div class="npMenu">
+      <button class="npMenuBtn" id="npBtnNombreTiendaMenu"><span class="npMenuIcon">🏬</span><span>Nombre de tienda</span></button>
       <button class="npMenuBtn" id="npBtnSoporte"><span class="npMenuIcon">📞</span><span>Soporte WhatsApp</span></button>
       <button class="npMenuBtn" id="npBtnCerrarSesion"><span class="npMenuIcon">🚪</span><span>Cerrar sesión</span></button>
     </div>
@@ -143,6 +144,7 @@
           <span id="npAvisoVencSubtitulo">No tienes cuentas entregadas por vencer en los próximos días.</span>
         </div>
         <div class="npAvisoVencFlecha">›</div>
+        <button type="button" class="npAvisoVencCerrar" id="npAvisoVencCerrar" onclick="ocultarAvisoVencimientos(event)" aria-label="Cerrar aviso" title="Ocultar aviso">✕</button>
       </div>
 
       <div class="npGridStats">
@@ -177,7 +179,14 @@
             <div><h3>Tu perfil de proveedor</h3><p>Datos visibles para administración.</p></div>
           </div>
           <div class="npDataList">
-            <div class="npDataRow"><span>Nombre</span><strong id="npPerfilNombre">-</strong></div>
+            <div class="npDataRow npDataRowTienda">
+              <span>Nombre de tienda</span>
+              <div class="npTiendaNombreWrap">
+                <strong id="npPerfilTienda">-</strong>
+                <button type="button" class="npBtnMini edit" id="npBtnCambiarNombreTienda">✏️ Cambiar</button>
+              </div>
+            </div>
+            <div class="npDataRow"><span>Titular</span><strong id="npPerfilNombre">-</strong></div>
             <div class="npDataRow"><span>Correo</span><strong id="npPerfilCorreo">-</strong></div>
             <div class="npDataRow"><span>Comisión de venta</span><strong>0%</strong></div>
             <div class="npDataRow"><span>Comisión de retiro</span><strong>20%</strong></div>
@@ -638,10 +647,40 @@
 <div class="npModalBase" id="npModalVencimientos">
   <div class="npModalBox" style="max-width:720px;">
     <div class="npModalHead">
-      <div><h3>Cuentas por vencer</h3><p>El cambio de contraseña se aplica solo a los marcados como "Renovó".</p></div>
+      <div><h3>Cuentas por vencer</h3><p>Marca quién renovó y quién no. Las que marques salen de esta lista; la nueva contraseña se aplica solo a las que renovaron de ese correo.</p></div>
       <button class="npModalX" onclick="cerrarModalVencimientos()">✕</button>
     </div>
     <div id="npListaVencimientos"><div class="npEmpty">No hay cuentas por vencer.</div></div>
+  </div>
+</div>
+
+<!-- ===================== MODAL NOMBRE DE TIENDA ===================== -->
+<div class="npModalBase" id="npModalNombreTienda">
+  <div class="npModalBox" style="max-width:500px;">
+    <div class="npModalHead">
+      <div class="npCuentaModalHead">
+        <div class="npCuentaModalIcono">🏬</div>
+        <div><h3>Nombre de tienda</h3><p>Es el nombre que ven tus clientes en el catálogo y en sus compras.</p></div>
+      </div>
+      <button class="npModalX" onclick="cerrarModalNombreTienda()">✕</button>
+    </div>
+    <form id="formNombreTienda" class="npFormGrid">
+      <div class="npField full">
+        <label>Nuevo nombre</label>
+        <input type="text" id="npNombreTiendaInput" maxlength="40" placeholder="Ej. XGaming Store" required />
+        <span class="npFieldHelp" id="npNombreTiendaConteo">Se actualizarán todos tus productos.</span>
+      </div>
+      <div class="npField full">
+        <div class="npNotice" style="margin-top:0;">
+          ✓ Se cambia en <strong>todos tus productos ya creados</strong> y los productos nuevos lo usarán automáticamente.
+          Las ventas ya realizadas conservan el nombre con el que se hicieron.
+        </div>
+      </div>
+      <div class="npField full npModalFooterBtns">
+        <button type="button" class="npBtn npBtnGhost" onclick="cerrarModalNombreTienda()">Cancelar</button>
+        <button type="submit" class="npBtn npBtnPrimary" id="npBtnGuardarNombreTienda">Guardar nombre</button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -677,6 +716,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 
 <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-<script src="novapro.js?v=10"></script>
+<script src="novapro.js?v=11"></script>
 </body>
 </html>
