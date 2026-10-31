@@ -34,9 +34,15 @@
   <link rel="icon" type="image/png" href="img/logo.png">
   <link rel="stylesheet" href="novastream.css?v=10">
   <link rel="stylesheet" href="recargas.css?v=6">
-  <!-- 🎃 Edición Halloween (para quitarla: borra estas 2 líneas y el <script> de halloween.js al final) -->
-  <link href="https://fonts.googleapis.com/css2?family=Creepster&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="halloween.css?v=1">
+  <!-- 🎃 Edición Halloween: se apaga sola el 10 nov 2026 (11:59 pm Perú). Para quitarla antes: borra este bloque y el <script> de halloween.js al final -->
+  <script>
+  (function(){
+    if (Date.now() >= Date.UTC(2026,10,11,5,0,0)) return; /* 11 nov 00:00 Lima */
+    ["https://fonts.googleapis.com/css2?family=Creepster&display=swap","halloween.css?v=2"].forEach(function(h){
+      var l=document.createElement("link");l.rel="stylesheet";l.href=h;document.head.appendChild(l);
+    });
+  })();
+  </script>
 </head>
 
 <body class="nsBody">
@@ -277,6 +283,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 
   <script src="recargas.js?v=6"></script>
-  <script src="halloween.js?v=1" defer></script>
+  <script src="halloween.js?v=2" defer></script>
 </body>
 </html>
