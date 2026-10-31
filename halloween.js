@@ -7,6 +7,7 @@
 (function () {
   "use strict";
   if (window.__hwOn) return;
+  if (Date.now() >= Date.UTC(2026, 10, 11, 5, 0, 0)) return; /* se apaga el 10 nov 2026 11:59 pm (Perú) */
   window.__hwOn = true;
 
   var BAT =
