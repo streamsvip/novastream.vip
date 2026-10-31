@@ -1,0 +1,344 @@
+/* =========================================================
+   NOVASTREAM · EDICIÓN HALLOWEEN
+   Se carga DESPUÉS de novastream.css / novaauth.css / mis-compras.css / recargas.css.
+   Para volver al tema normal: quita el <link> de este archivo y el <script> de halloween.js.
+   ========================================================= */
+
+:root{
+  /* Paleta: noche morada + naranja calabaza + verde "slime" para estados buenos */
+  --bg-0:#0a0610;
+  --bg-1:#130a1d;
+  --panel:#1b1027;
+  --panel-2:#241436;
+
+  --line:rgba(255,150,60,.13);
+  --line-strong:rgba(255,150,60,.28);
+
+  --teal:#ff8a1f;              /* acento principal = naranja calabaza */
+  --violet:#a66bff;            /* acento secundario = morado */
+  --ribbon:linear-gradient(90deg,#ff8a1f,#a66bff);
+
+  --text:#fbf3ea;
+  --text-dim:#b9a8cc;
+  --text-faint:#86759b;
+
+  --hw-orange:#ff8a1f;
+  --hw-purple:#a66bff;
+  --hw-green:#8dff5a;
+  --hw-blood:#ff4b4b;
+  --font-spooky:'Creepster','Space Grotesk','Inter',sans-serif;
+}
+
+/* ---------- Fondo y base ---------- */
+body.nsBody,
+body.naBody{
+  background:
+    radial-gradient(1100px 560px at 82% -8%, rgba(166,107,255,.20), transparent 62%),
+    radial-gradient(900px 520px at 0% 105%, rgba(255,138,31,.12), transparent 62%),
+    var(--bg-0) !important;
+  background-attachment:fixed !important;
+}
+::selection{background:rgba(255,138,31,.45);color:#fff}
+*{scrollbar-color:#ff8a1f #130a1d}
+::-webkit-scrollbar-thumb{background:linear-gradient(180deg,#ff8a1f,#a66bff)}
+
+/* ---------- Títulos con letra "tenebrosa" (solo títulos grandes) ---------- */
+.nsBrandText,
+.nsFooterBrandText,
+.mcHero h1,
+.rgHero h1,
+.nsAuthModalTitle,
+.naAsideTitle,
+.naAsideBrandText,
+.naCardHead h1,
+.naCardBrand span,
+.naSuccessTitle{
+  font-family:var(--font-spooky) !important;
+  letter-spacing:.8px;
+  font-weight:400 !important;
+}
+.nsBrandText{ font-size:21px; }
+.nsFooterBrandText{ font-size:22px; }
+.mcHero h1,.rgHero h1{ font-size:40px; letter-spacing:1px; }
+.mcHero h1,.rgHero h1{
+  color:#ffb15c;
+  text-shadow:0 0 22px rgba(255,138,31,.45),0 2px 0 rgba(0,0,0,.35);
+}
+.naAsideTitle{ font-size:clamp(34px,4.2vw,50px) !important; line-height:1.1 !important; }
+.naCardHead h1{ font-size:34px !important; }
+@media (max-width:600px){
+  .nsBrandText{ font-size:16px; }
+  .mcHero h1,.rgHero h1{ font-size:30px; }
+}
+
+/* Detalles con emoji (decoran sin tocar el HTML) */
+.nsBrandText::after,.nsFooterBrandText::after{ content:"🎃"; font-size:.8em; margin-left:6px; filter:drop-shadow(0 0 8px rgba(255,138,31,.7)); }
+.mcHeroBadge::before,.rgHeroBadge::before{ content:"🎃 "; }
+.mcHero h1::after,.rgHero h1::after{ content:" 👻"; -webkit-text-fill-color:initial; }
+.nsFooterCopy::after{ content:" 🦇"; }
+.naCardHead h1::after{ content:" 🎃"; }
+.naAsidePill::before{ content:"🦇 "; }
+
+/* ---------- Navbar ---------- */
+.nsNav{
+  background:rgba(10,6,16,.92) !important;
+  border-bottom:1px solid rgba(255,138,31,.30) !important;
+}
+.nsNav::after{
+  content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;pointer-events:none;
+  background:linear-gradient(90deg,transparent,#ff8a1f 30%,#a66bff 70%,transparent);
+  opacity:.85;
+}
+.nsNavLinks a:hover{ background:rgba(255,138,31,.08); }
+.nsBtnIngresar{ box-shadow:0 6px 22px rgba(255,138,31,.30); }
+.nsBtnIngresar:hover{ box-shadow:0 9px 28px rgba(166,107,255,.38); }
+.nsCartBadge{ background:#ff4b4b; }
+
+/* ---------- Banner y tarjetas ---------- */
+.nsBanner{ border-color:rgba(255,138,31,.35); box-shadow:0 14px 44px rgba(166,107,255,.18); }
+.nsCard:hover{ border-color:#ff8a1f; box-shadow:0 12px 34px rgba(255,138,31,.20); }
+.nsCardImg{ background:#14091f; }
+.nsFavBtn.activo svg{ stroke:#ff4b4b; fill:#ff4b4b; }
+.nsCatBtn:hover{ border-color:rgba(255,138,31,.45); }
+.nsCatAvatar{ background:#14091f; }
+.nsCatArrow{ background:rgba(10,6,16,.88); }
+
+/* Etiquetas de entrega / renovable */
+.nsBadgeEntrega.automatico{ background:rgba(141,255,90,.12); border-color:rgba(141,255,90,.32); color:#b6ff94; }
+.nsBadgeEntrega.manual{ background:rgba(255,138,31,.14); border-color:rgba(255,138,31,.34); color:#ffc48a; }
+
+/* Barra de invitado, drawer de invitado, CTA del modal */
+.nsGuestBar{
+  background:
+    radial-gradient(circle at 0% 0%, rgba(255,138,31,.14), transparent 45%),
+    radial-gradient(circle at 100% 100%, rgba(166,107,255,.16), transparent 48%),
+    var(--panel);
+  border-color:rgba(255,138,31,.30);
+}
+.nsGuestIcon{ background:linear-gradient(135deg,rgba(255,138,31,.22),rgba(166,107,255,.20)); border-color:rgba(255,138,31,.40); }
+.nsGuestBtnPrimary{ box-shadow:0 6px 22px rgba(255,138,31,.28); }
+.nsGuestBtnGhost:hover{ border-color:#ff8a1f; background:rgba(255,138,31,.10); }
+.nsDrawerGuest{ background:linear-gradient(160deg,rgba(255,138,31,.10),rgba(166,107,255,.10)); border-color:rgba(255,138,31,.30); }
+.nsModalGuestCta{ background:linear-gradient(135deg,rgba(255,138,31,.10),rgba(166,107,255,.10)); border-color:rgba(255,138,31,.32); }
+.nsModalGuestCta > span{ color:#ffd9b0; }
+.nsBtnAgregar.nsBloqueado{ background:linear-gradient(90deg,rgba(255,138,31,.16),rgba(166,107,255,.14)); border-color:rgba(255,138,31,.38); color:#ffe2c4; }
+
+/* Modales */
+.nsModalBox{ border-color:rgba(255,138,31,.30); box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 40px rgba(166,107,255,.12); }
+.nsAuthModalBox{
+  background:radial-gradient(circle at 50% 0%, rgba(255,138,31,.14), transparent 46%),linear-gradient(180deg,#1d1030,#0f0818);
+  border-color:rgba(255,138,31,.30);
+}
+.nsAuthModalIcon{ box-shadow:0 0 0 8px rgba(255,138,31,.12); }
+.nsAuthModalBtn{ box-shadow:0 10px 28px rgba(255,138,31,.26); }
+.nsAuthModalBtnGhost:hover{ border-color:#ff8a1f; background:rgba(255,138,31,.10); }
+
+/* Menú de usuario, toast, footer, carrito */
+.nsUserDropdownSaldo{ background:rgba(255,138,31,.10); border-color:rgba(255,138,31,.26); }
+.nsToast.nsToastClicable{ box-shadow:0 8px 24px rgba(255,138,31,.22); }
+.nsFooter{ background:linear-gradient(180deg,#14091f,#0a0610); }
+.nsFooterCredito:hover{ box-shadow:0 10px 26px rgba(255,138,31,.20); }
+.nsFooterBadge{ border-color:rgba(255,138,31,.22); }
+
+/* Pantallas de carga */
+.nsBooting,.rgBooting{ background:radial-gradient(circle at 50% 40%,#22103a,#0a0610 70%) !important; }
+.nsBootingRing,.rgBootingRing{ border-top-color:#ff8a1f !important; box-shadow:0 0 18px rgba(255,138,31,.35); }
+
+/* ---------- MIS COMPRAS ---------- */
+.mcHero{
+  background:
+    radial-gradient(circle at 12% 10%, rgba(255,138,31,.16), transparent 28%),
+    radial-gradient(circle at 92% 90%, rgba(166,107,255,.18), transparent 32%),
+    var(--panel);
+  border-color:rgba(255,138,31,.25);
+}
+.mcHeroBadge{ background:rgba(255,138,31,.12); border-color:rgba(255,138,31,.34); color:#ffb15c; }
+.mcSearchBox:focus-within{ border-color:#ff8a1f; }
+.mcCard:hover,.mcCompactRow:hover{ border-color:rgba(255,138,31,.45); }
+
+/* Estado "Activa" = verde slime (lo bueno), "Por vencer" = naranja, "Expirada" = gris, "Reembolsada" = morado */
+.mcBadge{ background:rgba(141,255,90,.10); color:#a9ff82; border-color:rgba(141,255,90,.28); }
+.mcBadge.porVencer{ background:rgba(255,138,31,.14); color:#ffb15c; border-color:rgba(255,138,31,.34); }
+.mcBadge.expirada{ background:rgba(255,255,255,.05); color:var(--text-faint); border-color:var(--line); }
+.mcBadge.reembolsada{ background:rgba(166,107,255,.16); color:#d6bcff; border-color:rgba(166,107,255,.36); }
+.mcTiempoBox{ background:rgba(141,255,90,.06); border-color:rgba(141,255,90,.18); }
+.mcTiempoBox.porVencer{ background:rgba(255,138,31,.10); border-color:rgba(255,138,31,.26); }
+.mcTiempoBox.expirada{ background:rgba(255,255,255,.03); border-color:var(--line); }
+.mcTiempoValor{ color:#a9ff82; }
+.mcTiempoValor.porVencer{ color:#ffb15c; }
+.mcTiempoValor.expirada{ color:var(--text-faint); }
+.mcCompactTiempo{ color:#a9ff82; }
+.mcCompactTiempo.porVencer{ color:#ffb15c; }
+.mcCompactTiempo.expirada{ color:var(--text-faint); }
+.mcCompactTiempo.reembolsada{ color:#d6bcff; }
+.mcCompactRow.activa{ border-left-color:#8dff5a; }
+.mcCompactRow.porVencer{ border-left-color:#ff8a1f; }
+.mcCard.porVencer::before{ background:linear-gradient(90deg,#ff8a1f,#ff4b4b); }
+.mcBtnRenovar.activo{ background:linear-gradient(90deg,#ff8a1f,#ff4b4b); }
+.mcBtnVer:hover{ background:var(--ribbon); }
+
+/* Chips y avisos */
+.mcChip.renovada{ background:rgba(141,255,90,.12); color:#a9ff82; border-color:rgba(141,255,90,.30); }
+.mcChip.reemplazo{ background:rgba(255,138,31,.13); color:#ffbb78; border-color:rgba(255,138,31,.32); }
+.mcChip.actualizado{ background:rgba(255,138,31,.09); color:#ffd0a0; border-color:rgba(255,138,31,.24); }
+.mcChip.pendiente{ background:rgba(255,200,60,.12); color:#ffd978; border-color:rgba(255,200,60,.30); }
+.mcModalAviso.renovada{ background:rgba(141,255,90,.07); border-color:rgba(141,255,90,.24); }
+.mcModalAviso.renovada strong{ color:#a9ff82; }
+.mcModalAviso.reemplazo{ background:rgba(255,138,31,.09); border-color:rgba(255,138,31,.30); }
+.mcModalAviso.reemplazo strong{ color:#ffbb78; }
+.mcModalAviso.actualizado{ background:rgba(255,138,31,.06); border-color:rgba(255,138,31,.22); }
+.mcModalAviso.actualizado strong{ color:#ffd0a0; }
+.mcCard.reemplazada{ border-color:rgba(255,138,31,.40); box-shadow:0 0 0 1px rgba(255,138,31,.14); }
+.mcCompactRow.reemplazada{ box-shadow:inset 0 0 0 1px rgba(255,138,31,.24); }
+.mcBtnVer.nuevo{ border-color:rgba(255,138,31,.48); background:rgba(255,138,31,.13); color:#ffbb78; }
+.mcBtnCopiar:hover{ border-color:#ff8a1f; }
+.mcClienteInput:focus,.mcConfirmCampo textarea:focus,.mcConfirmSelect:focus{ border-color:#ff8a1f; }
+.mcConfirmCard,.mcModalBox{ border-color:rgba(255,138,31,.28); }
+.mcConfirmSelect option{ background:#1b1027; }
+
+/* ---------- RECARGAS ---------- */
+.rgHero{ border-color:rgba(255,138,31,.25); background:
+  radial-gradient(circle at 90% 0%, rgba(166,107,255,.18), transparent 36%),
+  radial-gradient(circle at 0% 100%, rgba(255,138,31,.12), transparent 40%),
+  var(--panel); }
+.rgCard{ border-color:rgba(255,138,31,.18); }
+.rgGroup input:focus{ border-color:#ff8a1f; }
+.rgDatosPagoDot{ background:#ff8a1f; box-shadow:0 0 10px rgba(255,138,31,.75); }
+.rgMetodoCard:hover{ border-color:rgba(255,138,31,.45); }
+.rgConversionBox{ border-color:rgba(255,138,31,.24); }
+.rgBadge.pending{ background:rgba(255,200,60,.14); color:#ffd978; }
+.rgBadge.approved{ background:rgba(141,255,90,.14); color:#a9ff82; }
+.rgMensaje.success{ background:rgba(141,255,90,.10); color:#a9ff82; border-color:rgba(141,255,90,.28); }
+.rgMensaje.info{ background:rgba(166,107,255,.12); }
+.rgBtnPrimary{ box-shadow:0 8px 26px rgba(255,138,31,.22); }
+.rgBtnCopyMini:hover{ background:var(--ribbon); }
+.rgStatMini strong{ color:#ffb15c; }
+.rgQRPlaceholder{ background:#fff; border-color:rgba(255,138,31,.45); box-shadow:0 0 24px rgba(255,138,31,.25); }
+.rgQRPlaceholder span{ color:#555; }
+
+/* ---------- LOGIN / REGISTRO (novaauth.css) ---------- */
+.naBg .naOrb1{ background:radial-gradient(circle,#ff8a1f,transparent 68%) !important; }
+.naBg .naOrb2{ background:radial-gradient(circle,#a66bff,transparent 68%) !important; }
+.naBg .naOrb3{ background:radial-gradient(circle,#ff4b4b,transparent 68%) !important; }
+.naBg .naGrid{
+  background-image:
+    linear-gradient(rgba(255,138,31,.07) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,138,31,.07) 1px,transparent 1px) !important;
+  background-size:52px 52px !important;
+}
+.naAsidePill{ background:rgba(255,138,31,.12) !important; border-color:rgba(255,138,31,.38) !important; color:#ffb15c !important; }
+.naAsideTitle span{
+  background:linear-gradient(90deg,#ffb15c,#ff8a1f 45%,#c79bff) !important;
+  -webkit-background-clip:text !important;background-clip:text !important;color:transparent !important;
+}
+.naAsideIcon{ background:rgba(255,138,31,.14) !important; border-color:rgba(255,138,31,.34) !important; color:#ffb15c !important; }
+.naCard{ border-color:rgba(255,138,31,.32) !important; box-shadow:0 24px 70px rgba(0,0,0,.55),0 0 46px rgba(166,107,255,.16) !important; }
+.naInputWrap:focus-within{ border-color:#ff8a1f !important; box-shadow:0 0 0 3px rgba(255,138,31,.18) !important; }
+.naInputWrap:focus-within .naInputIcon,.naInputWrap:focus-within .naInputIconTxt{ color:#ff8a1f !important; }
+.naBtnPrimary{
+  background:linear-gradient(90deg,#ff8a1f,#ff6a1f 55%,#a66bff 140%) !important;
+  color:#1a0a00 !important;
+  box-shadow:0 10px 30px rgba(255,138,31,.30) !important;
+}
+.naBtnPrimary:hover{ filter:brightness(1.07); }
+.naBtnGhost,.naBtnSoft{ border-color:rgba(255,138,31,.32) !important; }
+.naBtnGhost:hover,.naBtnSoft:hover{ border-color:#ff8a1f !important; background:rgba(255,138,31,.10) !important; }
+.naLinkInline{ color:#ffb15c !important; }
+.naLinkInline:hover{ color:#ff8a1f !important; }
+.naCheck input:checked + .naCheckBox{ background:#ff8a1f !important; border-color:#ff8a1f !important; }
+.naStrengthBars span.on,.naStrengthBars span.activo{ background:#ff8a1f !important; }
+.naSecure{ border-color:rgba(255,138,31,.24) !important; }
+.naModalBox{ border-color:rgba(255,138,31,.32) !important; }
+.naSuccessIcon{ background:linear-gradient(135deg,#ff8a1f,#a66bff) !important; box-shadow:0 0 0 8px rgba(255,138,31,.14) !important; }
+.naSuccessStep span{ background:rgba(255,138,31,.16) !important; color:#ffb15c !important; }
+.naCreditoL2{ background:linear-gradient(90deg,#ff8a1f,#a66bff) !important;-webkit-background-clip:text !important;background-clip:text !important;color:transparent !important; }
+.naBooting{ background:radial-gradient(circle at 50% 40%,#22103a,#0a0610 70%) !important; }
+.naBootingRing{ border-top-color:#ff8a1f !important; }
+.naToast{ border-color:rgba(255,138,31,.4) !important; }
+
+/* =========================================================
+   DECORACIONES (las crea halloween.js)
+   ========================================================= */
+#hwBack,#hwFront{ position:fixed; inset:0; pointer-events:none; overflow:hidden; }
+#hwBack{ z-index:-1; }
+#hwFront{ z-index:800; }   /* por encima del contenido, por debajo del navbar (900) y de los modales */
+
+/* Luna */
+.hw-moon{
+  position:absolute; top:84px; right:5%; width:118px; height:118px; border-radius:50%;
+  background:radial-gradient(circle at 36% 34%,#fff8e6 0,#ffe2ad 55%,#ffb85c 100%);
+  box-shadow:0 0 70px 26px rgba(255,190,110,.20),0 0 160px 60px rgba(166,107,255,.14);
+  opacity:.20;
+}
+.hw-moon::before,.hw-moon::after{ content:""; position:absolute; border-radius:50%; background:rgba(190,120,40,.28); }
+.hw-moon::before{ width:26px;height:26px;left:24px;top:30px; }
+.hw-moon::after{ width:16px;height:16px;right:26px;bottom:28px; }
+body.naBody .hw-moon{ top:46px; right:8%; width:150px; height:150px; opacity:.92; }
+
+/* Niebla */
+.hw-fog{
+  position:absolute; left:-12%; right:-12%; bottom:-30px; height:260px;
+  background:
+    radial-gradient(ellipse at 18% 100%,rgba(166,107,255,.26),transparent 62%),
+    radial-gradient(ellipse at 82% 100%,rgba(255,138,31,.16),transparent 62%);
+  animation:hwFog 16s ease-in-out infinite alternate;
+}
+@keyframes hwFog{ from{ transform:translateX(-3%); opacity:.75; } to{ transform:translateX(3%); opacity:1; } }
+
+/* Brasas que suben */
+.hw-ember{
+  position:absolute; bottom:-12px; border-radius:50%;
+  background:#ff9a3d; box-shadow:0 0 10px 2px rgba(255,138,31,.65);
+  opacity:0; animation:hwRise linear infinite;
+}
+@keyframes hwRise{
+  0%{ transform:translate(0,0) scale(1); opacity:0; }
+  10%{ opacity:.85; }
+  60%{ opacity:.5; }
+  100%{ transform:translate(var(--dx,30px),-105vh) scale(.4); opacity:0; }
+}
+
+/* Murciélagos */
+.hw-bat{
+  position:absolute; left:-90px; width:46px; color:#3a1d63; opacity:.95;
+  filter:drop-shadow(0 0 5px rgba(166,107,255,.85)) drop-shadow(0 0 1px rgba(255,255,255,.35));
+  animation:hwFly linear infinite;
+}
+.hw-bat svg{ display:block; width:100%; height:auto; animation:hwFlap .34s ease-in-out infinite alternate; transform-origin:50% 60%; }
+@keyframes hwFly{
+  0%{ transform:translate(0,0); }
+  25%{ transform:translate(30vw,-34px); }
+  50%{ transform:translate(62vw,26px); }
+  75%{ transform:translate(92vw,-24px); }
+  100%{ transform:translate(calc(100vw + 140px),12px); }
+}
+@keyframes hwFlap{ from{ transform:scaleY(1); } to{ transform:scaleY(.55); } }
+
+/* Araña colgando del navbar */
+.hw-spider{
+  position:absolute; right:13%; top:var(--nav-height,0px);
+  width:34px; transform-origin:50% 0; animation:hwSwing 4.6s ease-in-out infinite;
+}
+.hw-spider i{ display:block; width:1px; height:56px; margin:0 auto; background:linear-gradient(#e9dcff,rgba(233,220,255,.35)); animation:hwDrop 4.6s ease-in-out infinite; transform-origin:top; }
+.hw-spider svg{ display:block; width:34px; height:auto; margin-top:-2px; filter:drop-shadow(0 0 6px rgba(255,138,31,.55)); }
+@keyframes hwSwing{ 0%,100%{ transform:rotate(-7deg); } 50%{ transform:rotate(7deg); } }
+@keyframes hwDrop{ 0%,100%{ transform:scaleY(1); } 50%{ transform:scaleY(1.45); } }
+
+/* Telaraña en la esquina */
+.hw-web{
+  position:absolute; left:0; top:var(--nav-height,0px); width:132px; opacity:.28;
+}
+.hw-web svg{ display:block; width:100%; height:auto; }
+
+@media (max-width:760px){
+  .hw-spider{ right:6%; transform:scale(.8); }
+  .hw-web{ width:84px; opacity:.22; }
+  .hw-moon{ width:84px; height:84px; right:3%; top:96px; }
+  body.naBody .hw-moon{ width:96px; height:96px; top:22px; right:6%; }
+  .hw-bat{ width:34px; }
+}
+
+@media (prefers-reduced-motion:reduce){
+  .hw-bat,.hw-ember,.hw-fog,.hw-spider,.hw-spider i,.hw-bat svg{ animation:none !important; }
+  .hw-bat,.hw-ember{ display:none; }
+}
