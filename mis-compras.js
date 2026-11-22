@@ -13,8 +13,8 @@ const firebaseConfig = {
   measurementId: "G-WX6PRVKMB8"
 };
 
-const MC_LOGIN_URL = "login.html";
-const MC_ADMIN_URL = "novaadmin.html";
+const MC_LOGIN_URL = "login";
+const MC_ADMIN_URL = "novaadmin";
 
 const MC_TIPO_CAMBIO   = 3.40;
 const MC_DIAS_RENOVAR  = 3;                        // se puede renovar con <= 3 días
@@ -100,6 +100,65 @@ function fechaCorta(ts){
 
 function diasRestantesDe(f){
   return Math.max(0, Math.ceil((f.fechaExpira - Date.now()) / MC_MS_DIA));
+}
+
+
+/* =========================================================
+   IMÁGENES (v10): las compras nuevas ya no guardan la foto
+   pesada; se toma de /productosImg/{productoId} y se guarda en
+   el celular unos días.
+========================================================= */
+
+const MC_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+const MC_IMG_TTL = 3 * MC_MS_DIA;
+const mcImgMem = {};
+const mcImgPend = {};
+
+function mcImgLocal(pid){
+  try {
+    const o = JSON.parse(localStorage.getItem("ns_imgc_" + pid) || "null");
+    if (o && o.d && (Date.now() - num(o.t)) < MC_IMG_TTL) return o.d;
+  } catch (e) {}
+  return "";
+}
+
+function mcImgDe(f){
+  if (f && f.imagen) return f.imagen;
+  const pid = f && f.productoId;
+  if (!pid) return "";
+  if (mcImgMem[pid]) return mcImgMem[pid];
+  const l = mcImgLocal(pid);
+  if (l) { mcImgMem[pid] = l; return l; }
+  return "";
+}
+
+function mcImgTag(f, extra){
+  const src = mcImgDe(f);
+  return '<img src="' + esc(src || MC_PIXEL) + '" alt="" ' +
+    (!src && f && f.productoId ? 'data-mc-pid="' + esc(f.productoId) + '" ' : '') +
+    (extra || '') + ' onerror="this.style.opacity=0">';
+}
+
+function mcHidratarImagenes(raiz){
+  (raiz || document).querySelectorAll("img[data-mc-pid]").forEach(img => {
+    const pid = img.getAttribute("data-mc-pid");
+    img.removeAttribute("data-mc-pid");
+    if (mcImgMem[pid]) { img.src = mcImgMem[pid]; return; }
+    if (!mcDb) return;
+    if (!mcImgPend[pid]) {
+      mcImgPend[pid] = mcDb.ref("productosImg/" + pid).get()
+        .then(s => {
+          const d = String(s.val() || "");
+          if (d) {
+            mcImgMem[pid] = d;
+            try { localStorage.setItem("ns_imgc_" + pid, JSON.stringify({ t: Date.now(), d: d })); } catch (e) {}
+          }
+          return d;
+        })
+        .catch(() => "");
+    }
+    mcImgPend[pid].then(d => { if (d) img.src = d; else img.style.opacity = 0; });
+  });
 }
 
 function toast(msg){
@@ -202,6 +261,8 @@ function mcInit(){
     mcDb.ref("reembolsos").orderByChild("clienteId").equalTo(mcUid)
       .on("value", s => { mcReembolsos = s.val() || {}; reconstruirFilas(); },
           () => { mcReembolsos = {}; });
+
+    escucharTickets();
   });
 }
 
@@ -464,7 +525,7 @@ function renderPlataformas(){
   if (!cont) return;
 
   const vistas = new Map();
-  mcFilas.forEach(f => { if (!vistas.has(f.plataforma)) vistas.set(f.plataforma, f.imagen); });
+  mcFilas.forEach(f => { if (!vistas.has(f.plataforma)) vistas.set(f.plataforma, f); });
 
   if (!vistas.size){ cont.innerHTML = ""; return; }
 
@@ -472,12 +533,13 @@ function renderPlataformas(){
 
   Array.from(vistas.keys()).sort((a,b) => a.localeCompare(b)).forEach(p => {
     html += '<button type="button" class="mcPlatBtn' + (filtroPlataforma === p ? " activo" : "") + '" data-plataforma="' + esc(p) + '">' +
-              '<span class="mcPlatAvatar"><img src="' + esc(vistas.get(p) || "") + '" alt="" onerror="this.style.opacity=0"></span>' +
+              '<span class="mcPlatAvatar">' + mcImgTag(vistas.get(p)) + '</span>' +
               '<span>' + esc(p) + '</span>' +
             '</button>';
   });
 
   cont.innerHTML = html;
+  mcHidratarImagenes(cont);
 
   cont.querySelectorAll(".mcPlatBtn").forEach(btn => {
     btn.addEventListener("click", function(){
@@ -551,6 +613,9 @@ function chipsExtra(f, compacto){
     }
   }
 
+  const tkChip = chipTicket(f);
+  if (tkChip) chips.push(tkChip);
+
   if (!chips.length) return "";
   return '<div class="mcChips' + (compacto ? " compacto" : "") + '">' + chips.join("") + '</div>';
 }
@@ -612,7 +677,7 @@ function renderCompras(){
   cont.className = "mcListado vista-" + vistaActual;
 
   if (!mcFilas.length){
-    cont.innerHTML = '<div class="nsCargando">Aún no realizaste ninguna compra. <a href="catalogo.html" style="color:var(--teal)">Ir al catálogo →</a></div>';
+    cont.innerHTML = '<div class="nsCargando">Aún no realizaste ninguna compra. <a href="catalogo" style="color:var(--teal)">Ir al catálogo →</a></div>';
     return;
   }
 
@@ -629,6 +694,7 @@ function renderCompras(){
   });
 
   cont.innerHTML = vistaActual === "compacto" ? plantillaCompacta(visibles) : plantillaTarjetas(visibles);
+  mcHidratarImagenes(cont);
 
   cont.querySelectorAll(".mcBtnVer:not([disabled])").forEach(b => b.addEventListener("click", () => abrirModal(b.dataset.k)));
   cont.querySelectorAll(".mcBtnRenovar.activo").forEach(b => b.addEventListener("click", () => pedirRenovacion(b.dataset.k)));
@@ -668,7 +734,7 @@ function plantillaTarjetas(lista){
 
     return '<div class="mcCard ' + e + extraClase + '">' +
       '<div class="mcCardTop">' +
-        '<div class="mcCardAvatar"><img src="' + esc(f.imagen) + '" alt="" onerror="this.style.opacity=0"></div>' +
+        '<div class="mcCardAvatar">' + mcImgTag(f) + '</div>' +
         '<div>' +
           '<div class="mcCardTitulo">' + esc(f.servicio) + '</div>' +
           '<div class="mcCardSub">Comprado el ' + esc(fechaCorta(f.fechaCompra)) + '</div>' +
@@ -692,7 +758,7 @@ function plantillaTarjetas(lista){
         '<div class="mcCardBtns">' +
           botonVer(f, false) +
           '<button type="button" class="mcBtnRenovar ' + (rn ? "activo" : "") + '" data-k="' + esc(k) + '" ' + (rn ? "" : "disabled") + '>🔄 Renovar</button>' +
-          '<button type="button" class="mcBtnSoporte" data-k="' + esc(k) + '" title="Soporte">🎧</button>' +
+          '<button type="button" class="mcBtnSoporte" data-k="' + esc(k) + '" title="Abrir ticket de soporte">🎧</button>' +
           botonReembolso(f) +
         '</div>' +
       '</div>' +
@@ -710,7 +776,7 @@ function plantillaCompacta(lista){
 
     return '<div class="mcCompactRow ' + e + extraClase + '">' +
       '<div class="mcCompactServicio">' +
-        '<div class="mcCompactAvatar"><img src="' + esc(f.imagen) + '" alt="" onerror="this.style.opacity=0"></div>' +
+        '<div class="mcCompactAvatar">' + mcImgTag(f) + '</div>' +
         '<div class="mcCompactServicioTexto">' +
           '<div class="mcCompactNombre">' + esc(f.servicio) + '</div>' +
           '<div class="mcCompactFecha">👤 ' + esc(f.nombreCliente || "Sin registrar") + '</div>' +
@@ -727,7 +793,7 @@ function plantillaCompacta(lista){
       '<div class="mcCompactAcciones">' +
         botonVer(f, true) +
         '<button type="button" class="mcBtnRenovar ' + (rn ? "activo" : "") + '" data-k="' + esc(k) + '" ' + (rn ? "" : "disabled") + '>🔄 Renovar</button>' +
-        '<button type="button" class="mcBtnSoporte" data-k="' + esc(k) + '" title="Soporte">🎧</button>' +
+        '<button type="button" class="mcBtnSoporte" data-k="' + esc(k) + '" title="Abrir ticket de soporte">🎧</button>' +
         botonReembolso(f) +
       '</div>' +
     '</div>';
@@ -809,7 +875,13 @@ function pintarModal(f, refresco){
   mcFilaModal = f;
   const e = obtenerEstado(f);
 
-  mcEl("mcModalImagen").src = f.imagen || "";
+  const imgM = mcEl("mcModalImagen");
+  imgM.style.opacity = "";
+  imgM.src = mcImgDe(f) || MC_PIXEL;
+  if (!mcImgDe(f) && f.productoId) {
+    imgM.setAttribute("data-mc-pid", f.productoId);
+    mcHidratarImagenes(imgM.parentNode);
+  }
   mcEl("mcModalServicio").textContent = f.servicio;
 
   const badge = mcEl("mcModalEstadoBadge");
@@ -980,7 +1052,7 @@ async function ejecutarRenovacion(f){
 
   if (saldoReal < monto){
     toast("Saldo insuficiente. Te faltan " + fmt(monto - saldoReal) + ".");
-    setTimeout(() => { window.location.href = "recargas.html"; }, 1600);
+    setTimeout(() => { window.location.href = "recargas"; }, 1600);
     return;
   }
 
@@ -1114,26 +1186,462 @@ async function ejecutarReembolso(f, tipo, motivo){
    SOPORTE
 ========================================================= */
 
-function numeroSoporte(proveedorId){
-  const p = mcProveedores[proveedorId] || {};
-  if (p.soporteActivo !== false && p.whatsappSoporte){
-    return String(p.whatsappSoporte).replace(/\D/g, "");
-  }
-  const otro = Object.values(mcProveedores).find(x => x && x.soporteActivo !== false && x.whatsappSoporte);
-  return otro ? String(otro.whatsappSoporte).replace(/\D/g, "") : MC_WSP_FALLBACK;
+/* =========================================================
+   SOPORTE POR TICKETS (v10)
+   El cliente abre un ticket desde el botón 🎧 de cada acceso.
+   Le llega al proveedor dueño del producto (y el admin lo ve).
+   Etapas: En revisión → Pendiente → Resuelto.
+   El botón de WhatsApp abre el número que el proveedor configuró
+   en su panel (solo si lo tiene activo).
+========================================================= */
+
+const TK_ESTADOS = { revision: "En revisión", pendiente: "Pendiente", resuelto: "Resuelto" };
+
+const MC_MOTIVOS_TICKET = {
+  no_funciona:    "La cuenta no funciona / no deja ingresar",
+  clave_cambiada: "Cambiaron la contraseña o el correo",
+  perfil_ocupado: "El perfil está ocupado o fue eliminado",
+  pantallas:      "Límite de pantallas o dispositivos",
+  renovacion:     "Consulta sobre renovación",
+  otro:           "Otra consulta"
+};
+
+let mcTickets = {};
+let mcTkActual = null;        // id del ticket abierto
+let mcTkFila = null;          // acceso para el que se crea un ticket nuevo
+let mcTkFiltro = "todos";
+let mcTkEnviando = false;
+
+function tkNumero(id){ return "#" + String(id || "").slice(-6).toUpperCase(); }
+
+function tkEstado(t){
+  const e = String((t && t.estado) || "revision").toLowerCase();
+  return TK_ESTADOS[e] ? e : "revision";
 }
 
-function soporte(k){
-  const f = buscarFila(k) || mcFilaModal;
-  if (!f) return;
-  const numero = numeroSoporte(f.proveedorId);
-  const txt = encodeURIComponent(
-    "Hola, necesito soporte con mi compra en NovaStream:\n" +
-    "Producto: " + f.servicio + "\n" +
-    "Cuenta: " + (f.reembolso === "aprobado" ? "(reembolsada)" : (f.correo || "-"))
-  );
-  window.open("https://wa.me/" + numero + "?text=" + txt, "_blank");
+function tkMensajes(t){
+  const m = (t && t.mensajes) || {};
+  return Object.keys(m).map(k => Object.assign({ id: k }, m[k] || {}))
+    .sort((a, b) => num(a.fecha) - num(b.fecha));
 }
+
+function fechaHora(ts){
+  if (!ts) return "-";
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return "-";
+  return d.toLocaleDateString("es-PE", { day: "2-digit", month: "short" }) + " · " +
+         d.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
+}
+
+function tkPasosHTML(estado){
+  const orden = ["revision", "pendiente", "resuelto"];
+  const idx = orden.indexOf(estado);
+  return orden.map((e, i) => {
+    const cls = i < idx || (e === "resuelto" && idx === 2) ? " hecho" : (i === idx ? " actual" : "");
+    const ico = (i < idx || (e === "resuelto" && idx === 2)) ? "✓" : String(i + 1);
+    return '<div class="tkPaso' + cls + '"><span>' + ico + '</span><small>' + TK_ESTADOS[e] + '</small></div>';
+  }).join('<div class="tkPasoLinea"></div>');
+}
+
+/* WhatsApp SOLO del proveedor de ese producto (si lo tiene activo) */
+function wspProveedor(proveedorId){
+  const p = mcProveedores[proveedorId] || {};
+  if (p.soporteActivo === false) return "";
+  return String(p.whatsappSoporte || "").replace(/\D/g, "");
+}
+
+function linkWsp(proveedorId, texto){
+  const n = wspProveedor(proveedorId);
+  return n ? "https://wa.me/" + n + "?text=" + encodeURIComponent(texto) : "";
+}
+
+function ticketDeFila(f){
+  let mejor = null;
+  Object.keys(mcTickets).forEach(id => {
+    const t = mcTickets[id];
+    if (!t || t.cuentaId !== f.cuentaId || t.compraId !== f.compraId) return;
+    if (tkEstado(t) === "resuelto") return;
+    if (!mejor || num(t.actualizado) > num(mcTickets[mejor].actualizado)) mejor = id;
+  });
+  return mejor;
+}
+
+function chipTicket(f){
+  const id = ticketDeFila(f);
+  if (!id) return "";
+  const t = mcTickets[id];
+  return '<span class="mcChip ticket' + (t.noLeidoCliente ? " nuevo" : "") + '">🎫 Ticket ' +
+    esc(TK_ESTADOS[tkEstado(t)].toLowerCase()) + (t.noLeidoCliente ? " · respuesta nueva" : "") + '</span>';
+}
+
+function renderBadgeTickets(){
+  const lista = Object.values(mcTickets).filter(Boolean);
+  const sinLeer = lista.filter(t => t.noLeidoCliente).length;
+  const abiertos = lista.filter(t => tkEstado(t) !== "resuelto").length;
+  const b = mcEl("mcTicketBadge");
+  if (b){
+    b.textContent = sinLeer ? String(sinLeer) : (abiertos ? String(abiertos) : "");
+    b.classList.toggle("visible", sinLeer > 0 || abiertos > 0);
+    b.classList.toggle("alerta", sinLeer > 0);
+  }
+}
+
+/* ---------- Abrir ---------- */
+
+function abrirSoporteFila(k){
+  const f = (k ? buscarFila(k) : null) || mcFilaModal;
+  if (!f) return;
+  if (mcEl("mcModalCuenta").style.display === "flex") cerrarModal();
+
+  const id = ticketDeFila(f);
+  if (id) abrirTicket(id);
+  else abrirNuevoTicket(f);
+}
+
+function abrirNuevoTicket(f){
+  mcTkActual = null;
+  mcTkFila = f;
+  const sel = mcEl("mcTkMotivo"); if (sel) sel.value = "";
+  const txt = mcEl("mcTkTexto"); if (txt) txt.value = "";
+  tkLimpiarError();
+  pintarTicket();
+  mcEl("mcModalTicket").style.display = "flex";
+}
+
+function abrirTicket(id){
+  if (!mcTickets[id]) return;
+  mcTkActual = id;
+  mcTkFila = null;
+  const r = mcEl("mcTkRespuesta"); if (r) r.value = "";
+  tkLimpiarError();
+  pintarTicket();
+  mcEl("mcModalTicket").style.display = "flex";
+  marcarLeidoCliente(id);
+}
+
+function cerrarTicket(){
+  mcEl("mcModalTicket").style.display = "none";
+  mcTkActual = null;
+  mcTkFila = null;
+}
+
+function marcarLeidoCliente(id){
+  const t = mcTickets[id];
+  if (t && t.noLeidoCliente) mcDb.ref("tickets/" + id + "/noLeidoCliente").set(false).catch(() => {});
+}
+
+function tkError(texto){
+  const e = mcEl("mcTkError");
+  if (e){ e.textContent = texto; e.classList.add("show"); }
+}
+function tkLimpiarError(){
+  const e = mcEl("mcTkError");
+  if (e) e.classList.remove("show");
+}
+
+/* ---------- Pintar el modal del ticket ---------- */
+
+function pintarTicket(){
+  const nuevo = !!mcTkFila;
+  const t = nuevo ? null : mcTickets[mcTkActual];
+  if (!nuevo && !t){ cerrarTicket(); return; }
+
+  const f = nuevo ? mcTkFila : null;
+  const productoNombre = nuevo ? f.servicio : (t.productoNombre || "Producto");
+  const proveedorId = nuevo ? f.proveedorId : t.proveedorId;
+  const proveedorNombre = (mcProveedores[proveedorId] || {}).nombre || (nuevo ? f.proveedor : t.proveedorNombre) || "Proveedor";
+  const estado = nuevo ? "revision" : tkEstado(t);
+
+  const img = mcEl("mcTkImagen");
+  if (img){
+    const fImg = nuevo ? f : { imagen: "", productoId: t.productoId };
+    img.style.opacity = "";
+    img.src = mcImgDe(fImg) || MC_PIXEL;
+    if (!mcImgDe(fImg) && fImg.productoId){
+      img.setAttribute("data-mc-pid", fImg.productoId);
+      mcHidratarImagenes(img.parentNode);
+    }
+  }
+
+  mcEl("mcTkTitulo").textContent = productoNombre;
+  mcEl("mcTkSub").textContent = (nuevo ? "Nuevo ticket" : "Ticket " + tkNumero(mcTkActual)) + " · " + proveedorNombre;
+
+  const badge = mcEl("mcTkEstado");
+  badge.className = "tkBadge " + (nuevo ? "nuevo" : estado);
+  badge.textContent = nuevo ? "Nuevo" : TK_ESTADOS[estado];
+
+  mcEl("mcTkPasos").innerHTML = tkPasosHTML(nuevo ? "" : estado);
+
+  mcEl("mcTkNuevo").style.display = nuevo ? "" : "none";
+  mcEl("mcTkConversacion").style.display = nuevo ? "none" : "";
+
+  /* WhatsApp del proveedor */
+  const texto = "Hola " + proveedorNombre + ", te escribo desde NovaStream" +
+    (nuevo ? "" : " por mi ticket " + tkNumero(mcTkActual)) + ".\n" +
+    "Producto: " + productoNombre + "\n" +
+    "Cuenta: " + ((nuevo ? f.correo : t.cuentaCorreo) || "-");
+  const url = linkWsp(proveedorId, texto);
+  const wsp = mcEl("mcTkWsp");
+  if (wsp){
+    wsp.style.display = url ? "" : "none";
+    if (url) wsp.href = url;
+  }
+  const sinWsp = mcEl("mcTkSinWsp");
+  if (sinWsp) sinWsp.style.display = url ? "none" : "";
+
+  if (nuevo) return;
+
+  /* Conversación */
+  const msgs = tkMensajes(t);
+  const hilo = mcEl("mcTkMensajes");
+  hilo.innerHTML = msgs.length ? msgs.map(m => {
+    if (m.tipo === "estado"){
+      return '<div class="tkMsg sistema"><div class="tkMsgTexto">' + esc(m.texto) + ' · ' + esc(fechaHora(m.fecha)) + '</div></div>';
+    }
+    const mio = m.autor === "cliente";
+    const autor = mio ? "Tú" : (m.autor === "admin" ? "Soporte NovaStream" : (m.autorNombre || proveedorNombre));
+    return '<div class="tkMsg ' + (mio ? "mio" : "otro") + (m.autor === "admin" ? " admin" : "") + '">' +
+      '<span class="tkMsgAutor">' + esc(autor) + '</span>' +
+      '<div class="tkMsgTexto">' + esc(m.texto) + '</div>' +
+      '<span class="tkMsgFecha">' + esc(fechaHora(m.fecha)) + '</span>' +
+    '</div>';
+  }).join("") : '<div class="tkVacio">Sin mensajes todavía.</div>';
+  hilo.scrollTop = hilo.scrollHeight;
+
+  const notas = {
+    revision:  "<strong>En revisión:</strong> el proveedor aún no responde. Te avisaremos aquí apenas lo haga.",
+    pendiente: "<strong>Pendiente:</strong> el proveedor está atendiendo tu caso. Puedes seguir escribiéndole aquí.",
+    resuelto:  "<strong>Resuelto:</strong> si el problema vuelve, escribe un mensaje y el ticket se reabre solo."
+  };
+  mcEl("mcTkNota").innerHTML = notas[estado];
+
+  const btnEstado = mcEl("mcTkEstadoBtn");
+  btnEstado.textContent = estado === "resuelto" ? "↺ Reabrir ticket" : "✓ Ya se solucionó";
+  btnEstado.className = "tkBtn" + (estado === "resuelto" ? "" : " ok");
+
+  mcEl("mcTkRespuesta").placeholder = estado === "resuelto"
+    ? "Escribe para reabrir el ticket..."
+    : "Escribe tu mensaje al proveedor...";
+}
+
+/* ---------- Crear ---------- */
+
+async function crearTicket(){
+  if (mcTkEnviando) return;
+  const f = mcTkFila;
+  if (!f) return;
+
+  const tipo = mcEl("mcTkMotivo").value;
+  const texto = String(mcEl("mcTkTexto").value || "").trim();
+
+  if (!MC_MOTIVOS_TICKET[tipo]){ tkError("Elige el motivo de tu consulta."); return; }
+  if (texto.length < 8){ tkError("Cuéntale al proveedor qué pasa (mínimo 8 caracteres)."); return; }
+  if (!f.proveedorId || !f.productoId){
+    tkError("Este producto no tiene un proveedor asignado. Usa el WhatsApp de soporte general.");
+    return;
+  }
+
+  mcTkEnviando = true;
+  const btn = mcEl("mcTkCrear");
+  btn.disabled = true; btn.textContent = "Enviando...";
+
+  try {
+    const ahora = Date.now();
+    const id = mcDb.ref("tickets").push().key;
+    const mid = mcDb.ref("tickets/" + id + "/mensajes").push().key;
+    const mensajes = {};
+    mensajes[mid] = { autor: "cliente", autorId: mcUid, autorNombre: mcPerfil.nombre, texto: texto.slice(0, 1000), fecha: ahora };
+
+    await mcDb.ref("tickets/" + id).set({
+      clienteId:        mcUid,
+      clienteNombre:    mcPerfil.nombre,
+      clienteCorreo:    mcPerfil.correo || "",
+      proveedorId:      f.proveedorId,
+      proveedorNombre:  f.proveedor || "",
+      productoId:       f.productoId,
+      productoNombre:   f.servicio,
+      plataforma:       f.plataforma || "",
+      cuentaId:         f.cuentaId || "",
+      compraId:         f.compraId || "",
+      cuentaCorreo:     f.reembolso === "aprobado" ? "" : (f.correo || ""),
+      cuentaPerfil:     f.reembolso === "aprobado" ? "" : (f.perfil || ""),
+      motivoTipo:       tipo,
+      motivoTitulo:     MC_MOTIVOS_TICKET[tipo],
+      estado:           "revision",
+      fecha:            ahora,
+      actualizado:      ahora,
+      ultimoAutor:      "cliente",
+      noLeidoCliente:   false,
+      noLeidoProveedor: true,
+      noLeidoAdmin:     true,
+      mensajes:         mensajes
+    });
+
+    mcTickets[id] = mcTickets[id] || { estado: "revision" };
+    toast("🎫 Ticket " + tkNumero(id) + " enviado al proveedor.");
+    mcTkFila = null;
+    mcTkActual = id;
+    pintarTicket();
+  } catch (err){
+    console.error(err);
+    tkError("No se pudo enviar el ticket: " + (err.message || "") +
+      (/permission/i.test(err.message || "") ? " (revisa que estén publicadas las reglas nuevas)" : ""));
+  } finally {
+    mcTkEnviando = false;
+    btn.disabled = false; btn.textContent = "Enviar ticket";
+  }
+}
+
+/* ---------- Responder / cambiar estado ---------- */
+
+async function responderTicket(){
+  if (mcTkEnviando || !mcTkActual) return;
+  const t = mcTickets[mcTkActual];
+  if (!t) return;
+
+  const texto = String(mcEl("mcTkRespuesta").value || "").trim();
+  if (texto.length < 2){ tkError("Escribe tu mensaje."); return; }
+
+  mcTkEnviando = true;
+  const btn = mcEl("mcTkEnviar");
+  btn.disabled = true;
+
+  try {
+    const ahora = Date.now();
+    const base = "tickets/" + mcTkActual + "/";
+    const mid = mcDb.ref(base + "mensajes").push().key;
+    const up = {};
+    up[base + "mensajes/" + mid] = { autor: "cliente", autorId: mcUid, autorNombre: mcPerfil.nombre, texto: texto.slice(0, 1000), fecha: ahora };
+    up[base + "actualizado"] = ahora;
+    up[base + "ultimoAutor"] = "cliente";
+    up[base + "noLeidoProveedor"] = true;
+    up[base + "noLeidoAdmin"] = true;
+    up[base + "noLeidoCliente"] = false;
+    if (tkEstado(t) === "resuelto") up[base + "estado"] = "revision";
+
+    await mcDb.ref().update(up);
+    mcEl("mcTkRespuesta").value = "";
+    tkLimpiarError();
+  } catch (err){
+    tkError("No se pudo enviar: " + (err.message || ""));
+  } finally {
+    mcTkEnviando = false;
+    btn.disabled = false;
+  }
+}
+
+async function cambiarEstadoTicketCliente(){
+  if (!mcTkActual) return;
+  const t = mcTickets[mcTkActual];
+  if (!t) return;
+
+  const reabrir = tkEstado(t) === "resuelto";
+  const nuevo = reabrir ? "revision" : "resuelto";
+  const ahora = Date.now();
+  const base = "tickets/" + mcTkActual + "/";
+  const mid = mcDb.ref(base + "mensajes").push().key;
+
+  const up = {};
+  up[base + "estado"] = nuevo;
+  up[base + "actualizado"] = ahora;
+  up[base + "ultimoAutor"] = "cliente";
+  up[base + "noLeidoProveedor"] = true;
+  up[base + "mensajes/" + mid] = {
+    autor: "cliente", autorId: mcUid, autorNombre: mcPerfil.nombre, tipo: "estado", fecha: ahora,
+    texto: reabrir ? "El cliente reabrió el ticket" : "El cliente marcó el ticket como resuelto"
+  };
+
+  try {
+    await mcDb.ref().update(up);
+    toast(reabrir ? "Ticket reabierto." : "✓ Ticket marcado como resuelto.");
+  } catch (err){
+    tkError("No se pudo actualizar: " + (err.message || ""));
+  }
+}
+
+/* ---------- Lista "Mis tickets" ---------- */
+
+function abrirListaTickets(){
+  renderListaTickets();
+  mcEl("mcModalTickets").style.display = "flex";
+}
+function cerrarListaTickets(){ mcEl("mcModalTickets").style.display = "none"; }
+
+function renderListaTickets(){
+  const cont = mcEl("mcListaTickets");
+  if (!cont) return;
+
+  const ids = Object.keys(mcTickets).filter(id => mcTickets[id])
+    .sort((a, b) => num(mcTickets[b].actualizado) - num(mcTickets[a].actualizado));
+
+  const cuenta = { todos: ids.length, revision: 0, pendiente: 0, resuelto: 0 };
+  ids.forEach(id => { cuenta[tkEstado(mcTickets[id])]++; });
+
+  const filtros = mcEl("mcTkFiltros");
+  if (filtros){
+    filtros.innerHTML = [["todos","Todos"],["revision","En revisión"],["pendiente","Pendientes"],["resuelto","Resueltos"]]
+      .map(([k, t]) => '<button type="button" class="tkFiltroBtn' + (mcTkFiltro === k ? " activo" : "") + '" data-f="' + k + '">' + t + '<b>' + cuenta[k] + '</b></button>')
+      .join("");
+    filtros.querySelectorAll(".tkFiltroBtn").forEach(b => b.addEventListener("click", () => { mcTkFiltro = b.dataset.f; renderListaTickets(); }));
+  }
+
+  const visibles = ids.filter(id => mcTkFiltro === "todos" || tkEstado(mcTickets[id]) === mcTkFiltro);
+
+  if (!visibles.length){
+    cont.innerHTML = '<div class="tkVacio">' + (ids.length
+      ? "No hay tickets en esta etapa."
+      : "Aún no abriste ningún ticket.<br>Usa el botón 🎧 de cualquiera de tus accesos para escribirle al proveedor.") + '</div>';
+    return;
+  }
+
+  cont.innerHTML = visibles.map(id => {
+    const t = mcTickets[id];
+    const msgs = tkMensajes(t).filter(m => m.tipo !== "estado");
+    const ult = msgs[msgs.length - 1];
+    const estado = tkEstado(t);
+    return '<button type="button" class="tkItem' + (t.noLeidoCliente ? " noLeido" : "") + '" data-id="' + esc(id) + '">' +
+      '<div class="tkItemTop"><span class="tkItemTitulo">' + esc(t.productoNombre || "Producto") + '</span>' +
+        '<span class="tkBadge ' + estado + '">' + TK_ESTADOS[estado] + '</span></div>' +
+      '<div class="tkItemMeta">' + tkNumero(id) + ' · ' + esc((mcProveedores[t.proveedorId] || {}).nombre || t.proveedorNombre || "Proveedor") +
+        ' · ' + esc(fechaHora(t.actualizado)) + '</div>' +
+      (ult ? '<div class="tkItemSnippet">' + esc((ult.autor === "cliente" ? "Tú: " : "") + ult.texto) + '</div>' : '') +
+      (t.noLeidoCliente ? '<span class="tkPunto">Respuesta nueva</span>' : '') +
+    '</button>';
+  }).join("");
+
+  cont.querySelectorAll(".tkItem").forEach(b => b.addEventListener("click", () => {
+    cerrarListaTickets();
+    abrirTicket(b.dataset.id);
+  }));
+}
+
+/* ---------- Escucha en vivo ---------- */
+
+function escucharTickets(){
+  mcDb.ref("tickets").orderByChild("clienteId").equalTo(mcUid).on("value", s => {
+    const antes = mcTickets;
+    mcTickets = s.val() || {};
+
+    /* Aviso cuando el proveedor responde */
+    Object.keys(mcTickets).forEach(id => {
+      const t = mcTickets[id], a = antes[id];
+      if (a && t && t.noLeidoCliente && !a.noLeidoCliente && mcTkActual !== id){
+        toast("💬 Nueva respuesta en tu ticket " + tkNumero(id));
+      }
+    });
+
+    renderBadgeTickets();
+    renderCompras();
+    if (mcEl("mcModalTickets").style.display === "flex") renderListaTickets();
+    if (mcTkActual && mcEl("mcModalTicket").style.display === "flex"){
+      pintarTicket();
+      marcarLeidoCliente(mcTkActual);
+    }
+  }, () => { mcTickets = {}; renderBadgeTickets(); });
+}
+
+/* El botón 🎧 (fila) y «Soporte» (modal Ver cuenta) abren el ticket */
+function soporte(k){ abrirSoporteFila(k); }
 
 /* =========================================================
    NAVBAR
@@ -1294,6 +1802,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.key === "Escape"){
       cerrarModal();
       cerrarConfirm();
+      cerrarTicket();
+      cerrarListaTickets();
       const o = mcEl("nsDrawerOverlay");
       if (o) o.classList.remove("activo");
       const um = mcEl("nsUserMenu");
@@ -1301,6 +1811,20 @@ document.addEventListener("DOMContentLoaded", () => {
       if (um) um.classList.remove("abierto");
       if (bm) bm.setAttribute("aria-expanded", "false");
     }
+  });
+
+  /* Tickets de soporte */
+  mcEl("mcBtnTickets").addEventListener("click", abrirListaTickets);
+  mcEl("mcCerrarTickets").addEventListener("click", cerrarListaTickets);
+  mcEl("mcModalTickets").addEventListener("click", e => { if (e.target.id === "mcModalTickets") cerrarListaTickets(); });
+  mcEl("mcCerrarTicket").addEventListener("click", cerrarTicket);
+  mcEl("mcModalTicket").addEventListener("click", e => { if (e.target.id === "mcModalTicket") cerrarTicket(); });
+  mcEl("mcTkCrear").addEventListener("click", crearTicket);
+  mcEl("mcTkEnviar").addEventListener("click", responderTicket);
+  mcEl("mcTkEstadoBtn").addEventListener("click", cambiarEstadoTicketCliente);
+  ["mcTkTexto", "mcTkRespuesta", "mcTkMotivo"].forEach(id => {
+    const el = mcEl(id);
+    if (el) el.addEventListener(id === "mcTkMotivo" ? "change" : "input", tkLimpiarError);
   });
 
   mcInit();
