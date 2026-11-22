@@ -1,0 +1,179 @@
+/* =========================================================
+   NOVASTREAM · tickets.css
+   Estilos compartidos del sistema de tickets de soporte.
+   Lo usan: mis-compras.html (cliente), novapro.html (proveedor)
+   y novaadmin.html (administrador).
+   El color de acento se puede cambiar por página con
+   body{ --tk-acc: ...; --tk-acc2: ...; }
+   ========================================================= */
+
+:root{
+  --tk-acc:#21e6c1;
+  --tk-acc2:#7c5cff;
+  --tk-txt:#f5f6fa;
+  --tk-dim:#9aa0b4;
+  --tk-faint:#6b7185;
+  --tk-line:rgba(255,255,255,.08);
+  --tk-line2:rgba(255,255,255,.14);
+  --tk-bg:rgba(255,255,255,.03);
+  --tk-revision:#f7c463;
+  --tk-pendiente:#ff9f5a;
+  --tk-resuelto:#5fe0a0;
+}
+
+/* ---------- Estado ---------- */
+
+.tkBadge{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:4px 10px; border-radius:999px; white-space:nowrap;
+  font-size:10.5px; font-weight:800; letter-spacing:.2px;
+  border:1px solid transparent;
+}
+.tkBadge::before{ content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
+.tkBadge.revision { color:var(--tk-revision);  background:rgba(247,196,99,.12); border-color:rgba(247,196,99,.30); }
+.tkBadge.pendiente{ color:var(--tk-pendiente); background:rgba(255,159,90,.12); border-color:rgba(255,159,90,.30); }
+.tkBadge.resuelto { color:var(--tk-resuelto);  background:rgba(95,224,160,.12); border-color:rgba(95,224,160,.30); }
+.tkBadge.nuevo    { color:#c9c0ff;             background:rgba(124,92,255,.14); border-color:rgba(124,92,255,.32); }
+
+/* ---------- Etapas (En revisión → Pendiente → Resuelto) ---------- */
+
+.tkPasos{
+  display:flex; align-items:center; gap:0;
+  padding:12px 14px; margin:0 0 12px;
+  border-radius:12px; background:var(--tk-bg); border:1px solid var(--tk-line);
+}
+.tkPaso{ display:flex; flex-direction:column; align-items:center; gap:5px; min-width:74px; text-align:center; }
+.tkPaso span{
+  width:26px; height:26px; border-radius:50%;
+  display:grid; place-items:center;
+  font-size:11.5px; font-weight:800;
+  color:var(--tk-faint); background:rgba(255,255,255,.04); border:1px solid var(--tk-line2);
+}
+.tkPaso small{ font-size:10.5px; font-weight:700; color:var(--tk-faint); }
+.tkPaso.hecho span{ color:#04060a; background:var(--tk-resuelto); border-color:transparent; }
+.tkPaso.hecho small{ color:var(--tk-dim); }
+.tkPaso.actual span{ color:#04060a; background:linear-gradient(135deg,var(--tk-acc),var(--tk-acc2)); border-color:transparent; box-shadow:0 0 0 4px rgba(255,255,255,.05); }
+.tkPaso.actual small{ color:var(--tk-txt); }
+.tkPasoLinea{ flex:1; height:2px; min-width:14px; margin-bottom:18px; background:var(--tk-line2); border-radius:2px; }
+
+/* ---------- Datos del ticket ---------- */
+
+.tkInfo{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-bottom:12px; }
+.tkInfoItem{ padding:9px 11px; border-radius:10px; background:var(--tk-bg); border:1px solid var(--tk-line); min-width:0; }
+.tkInfoItem.full{ grid-column:1/-1; }
+.tkInfoItem span{ display:block; font-size:9.5px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:var(--tk-faint); margin-bottom:3px; }
+.tkInfoItem strong{ display:block; font-size:12.5px; color:var(--tk-txt); font-weight:700; word-break:break-word; }
+
+/* ---------- Conversación ---------- */
+
+.tkHilo{
+  display:flex; flex-direction:column; gap:9px;
+  max-height:46vh; overflow-y:auto; padding:12px;
+  border-radius:12px; background:rgba(0,0,0,.22); border:1px solid var(--tk-line);
+  margin-bottom:12px; overscroll-behavior:contain;
+}
+.tkMsg{ max-width:84%; display:flex; flex-direction:column; gap:3px; }
+.tkMsg.otro{ align-self:flex-start; }
+.tkMsg.mio{ align-self:flex-end; align-items:flex-end; }
+.tkMsgAutor{ font-size:10px; font-weight:800; color:var(--tk-faint); letter-spacing:.2px; padding:0 4px; }
+.tkMsgTexto{
+  padding:9px 12px; border-radius:14px;
+  font-size:13px; line-height:1.5; color:var(--tk-txt);
+  white-space:pre-wrap; word-break:break-word;
+  background:rgba(255,255,255,.06); border:1px solid var(--tk-line);
+}
+.tkMsg.otro .tkMsgTexto{ border-top-left-radius:4px; }
+.tkMsg.mio .tkMsgTexto{
+  border-top-right-radius:4px; color:#04060a; font-weight:600;
+  background:linear-gradient(135deg,var(--tk-acc),var(--tk-acc2)); border-color:transparent;
+}
+.tkMsg.admin .tkMsgTexto{ background:rgba(124,92,255,.16); border-color:rgba(124,92,255,.35); }
+.tkMsg.mio.admin .tkMsgTexto{ color:#fff; background:linear-gradient(135deg,#7c5cff,#5f4dd6); }
+.tkMsgFecha{ font-size:9.5px; color:var(--tk-faint); padding:0 4px; }
+.tkMsg.sistema{ align-self:center; max-width:92%; align-items:center; }
+.tkMsg.sistema .tkMsgTexto{
+  background:transparent; border:1px dashed var(--tk-line2);
+  color:var(--tk-dim); font-size:11.5px; font-weight:600; padding:5px 11px; text-align:center;
+}
+.tkVacio{ text-align:center; padding:26px 12px; font-size:12.5px; color:var(--tk-faint); line-height:1.6; }
+
+/* ---------- Responder ---------- */
+
+.tkResponder{ display:flex; flex-direction:column; gap:9px; }
+.tkResponder textarea,
+.tkCampo textarea,
+.tkCampo select{
+  width:100%; padding:10px 12px; border-radius:11px;
+  background:rgba(255,255,255,.04); border:1px solid var(--tk-line2);
+  color:var(--tk-txt); font-size:13px; font-family:inherit; line-height:1.5;
+  outline:none; resize:vertical;
+}
+.tkCampo select{ height:42px; padding:0 12px; resize:none; }
+.tkCampo select option{ background:#161923; color:#fff; }
+.tkResponder textarea:focus, .tkCampo textarea:focus, .tkCampo select:focus{ border-color:var(--tk-acc); }
+.tkCampo{ display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
+.tkCampo label{ font-size:10.5px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; color:var(--tk-faint); }
+.tkError{ display:none; font-size:11.5px; font-weight:700; color:#ff8a97; }
+.tkError.show{ display:block; }
+
+.tkAcciones{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.tkAcciones > *{ flex:1 1 auto; }
+
+.tkBtn{
+  height:42px; padding:0 14px; border-radius:11px; cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center; gap:7px;
+  font-size:12.5px; font-weight:800; font-family:inherit; text-decoration:none; white-space:nowrap;
+  border:1px solid var(--tk-line2); background:rgba(255,255,255,.04); color:var(--tk-txt);
+  transition:filter .15s ease, transform .15s ease, background .15s ease;
+}
+.tkBtn:hover{ filter:brightness(1.1); transform:translateY(-1px); }
+.tkBtn:disabled{ opacity:.5; cursor:not-allowed; transform:none; }
+.tkBtn.primario{ color:#04060a; border-color:transparent; background:linear-gradient(135deg,var(--tk-acc),var(--tk-acc2)); }
+.tkBtn.ok{ color:#a8f0c6; border-color:rgba(95,224,160,.35); }
+.tkBtn.wsp{ color:#fff; border-color:transparent; background:#25d366; }
+.tkBtn.wsp svg{ width:16px; height:16px; }
+
+.tkNota{
+  margin-top:10px; padding:10px 12px; border-radius:11px;
+  font-size:11.5px; line-height:1.55; color:var(--tk-dim);
+  background:var(--tk-bg); border:1px solid var(--tk-line);
+}
+.tkNota strong{ color:var(--tk-txt); }
+
+/* ---------- Lista de tickets ---------- */
+
+.tkFiltros{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+.tkFiltroBtn{
+  height:32px; padding:0 12px; border-radius:999px; cursor:pointer;
+  font-size:11.5px; font-weight:800; font-family:inherit;
+  color:var(--tk-dim); background:var(--tk-bg); border:1px solid var(--tk-line);
+}
+.tkFiltroBtn b{ font-weight:800; margin-left:4px; opacity:.75; }
+.tkFiltroBtn.activo{ color:#04060a; background:linear-gradient(135deg,var(--tk-acc),var(--tk-acc2)); border-color:transparent; }
+
+.tkLista{ display:flex; flex-direction:column; gap:8px; }
+.tkItem{
+  position:relative; width:100%; text-align:left; cursor:pointer;
+  display:flex; flex-direction:column; gap:6px;
+  padding:12px 14px; border-radius:13px; font-family:inherit; color:var(--tk-txt);
+  background:var(--tk-bg); border:1px solid var(--tk-line);
+  transition:border-color .15s ease, transform .15s ease;
+}
+.tkItem:hover{ border-color:var(--tk-line2); transform:translateY(-1px); }
+.tkItem.noLeido{ border-color:rgba(247,196,99,.45); box-shadow:0 0 0 1px rgba(247,196,99,.12); }
+.tkItemTop{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.tkItemTitulo{ font-size:13px; font-weight:800; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tkItemMeta{ font-size:11px; color:var(--tk-faint); font-weight:600; }
+.tkItemSnippet{ font-size:12px; color:var(--tk-dim); line-height:1.45; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tkPunto{
+  display:inline-flex; align-items:center; gap:5px;
+  font-size:10px; font-weight:800; color:var(--tk-revision);
+}
+.tkPunto::before{ content:""; width:7px; height:7px; border-radius:50%; background:var(--tk-revision); box-shadow:0 0 0 3px rgba(247,196,99,.18); }
+
+@media (max-width:560px){
+  .tkInfo{ grid-template-columns:1fr; }
+  .tkPaso{ min-width:62px; }
+  .tkMsg{ max-width:92%; }
+  .tkAcciones > *{ flex:1 1 100%; }
+}
