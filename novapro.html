@@ -12,7 +12,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="novapro.css?v=11" />
+<link rel="preconnect" href="https://novastream-aeb9d-default-rtdb.firebaseio.com" crossorigin>
+<link rel="stylesheet" href="novapro.css?v=13" />
+<link rel="stylesheet" href="tickets.css?v=1" />
 </head>
 <body>
 
@@ -69,6 +71,7 @@
       <button class="npMenuBtn" data-section="retiros"><span class="npMenuIcon">🏦</span><span>Retiros</span></button>
       <button class="npMenuBtn" data-section="reembolsos"><span class="npMenuIcon">↩️</span><span>Reembolsos</span><span class="npMenuBadge" id="npBadgeReembolsos">0</span></button>
       <button class="npMenuBtn" data-section="renovaciones"><span class="npMenuIcon">🔁</span><span>Renovaciones</span><span class="npMenuBadge" id="npBadgeRenovaciones">0</span></button>
+      <button class="npMenuBtn" data-section="tickets"><span class="npMenuIcon">🎫</span><span>Tickets de soporte</span><span class="npMenuBadge" id="npBadgeTickets">0</span></button>
     </div>
 
     <div class="npMenuTitle">Cuenta</div>
@@ -595,6 +598,30 @@
       </div>
     </section>
 
+    <!-- ================= TICKETS ================= -->
+    <section class="npSection" id="section-tickets">
+      <div class="npHint">
+        Aquí llegan los tickets que tus clientes abren desde <strong>«Mis compras»</strong>.
+        Etapas: <strong>En revisión</strong> (nuevo, sin responder) → <strong>Pendiente</strong> (ya respondiste, se pasa solo) → <strong>Resuelto</strong>.
+        El administrador también puede verlos.
+      </div>
+      <div class="npGridStats cols3">
+        <div class="npCard npStat"><span>En revisión</span><strong id="npTkStatRevision">0</strong><small>Nuevos, todavía sin respuesta.</small></div>
+        <div class="npCard npStat"><span>Pendientes</span><strong id="npTkStatPendiente">0</strong><small>En proceso con el cliente.</small></div>
+        <div class="npCard npStat"><span>Resueltos</span><strong id="npTkStatResuelto">0</strong><small>Casos cerrados.</small></div>
+      </div>
+      <div class="npCard npPanel">
+        <div class="npPanelHead">
+          <div><h3>Tickets de soporte</h3><p>Primero se muestran los que necesitan tu atención.</p></div>
+          <div class="npPanelHeadTools">
+            <input type="text" id="npTkBuscar" class="npMiniInput" placeholder="🔎 Cliente, producto o #ticket" style="max-width:240px;" />
+          </div>
+        </div>
+        <div class="tkFiltros" id="npTkFiltros"></div>
+        <div class="tkLista" id="npListaTickets"><div class="npEmpty">Cargando tickets…</div></div>
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -652,6 +679,27 @@
       <button class="npModalX" onclick="cerrarModalVencimientos()">✕</button>
     </div>
     <div id="npListaVencimientos"><div class="npEmpty">No hay cuentas por vencer.</div></div>
+  </div>
+</div>
+
+<!-- ===================== MODAL TICKET ===================== -->
+<div class="npModalBase" id="npModalTicket">
+  <div class="npModalBox" style="max-width:640px;">
+    <div class="npModalHead">
+      <div><h3 id="npTkTitulo">Ticket</h3><p id="npTkSub"></p></div>
+      <button class="npModalX" onclick="cerrarTicketProv()">✕</button>
+    </div>
+    <div class="tkInfo" id="npTkInfo"></div>
+    <div class="tkPasos" id="npTkPasos"></div>
+    <div class="tkHilo" id="npTkMensajes"></div>
+    <div class="tkResponder">
+      <textarea id="npTkRespuesta" rows="3" maxlength="1000" placeholder="Escribe tu respuesta al cliente..."></textarea>
+      <div class="tkAcciones">
+        <button type="button" class="tkBtn primario" id="npTkEnviar">Enviar respuesta</button>
+        <button type="button" class="tkBtn ok" id="npTkEstadoBtn">✓ Marcar como resuelto</button>
+      </div>
+    </div>
+    <div class="tkNota">Al responder, el ticket pasa a <strong>Pendiente</strong> y el cliente ve tu mensaje en «Mis compras». <strong>Ctrl + Enter</strong> envía.</div>
   </div>
 </div>
 
@@ -717,6 +765,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 
 <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-<script src="novapro.js?v=12"></script>
+<script src="novapro.js?v=13"></script>
 </body>
 </html>
