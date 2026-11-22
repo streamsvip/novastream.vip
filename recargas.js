@@ -13,8 +13,8 @@ const firebaseConfig = {
   measurementId: "G-WX6PRVKMB8"
 };
 
-const NR_LOGIN_URL = "login.html";
-const NR_ADMIN_URL = "novaadmin.html";
+const NR_LOGIN_URL = "login";
+const NR_ADMIN_URL = "novaadmin";
 
 const NR_TIPO_CAMBIO = 3.40;
 const NR_MIN_PEN = 3.40;
@@ -240,7 +240,7 @@ function pintarPerfil(){
 }
 
 /* ⭐ NUEVO (v6): pinta el menú de usuario de escritorio
-   (avatar, nombre, correo y saldo), igual que en catalogo.html */
+   (avatar, nombre, correo y saldo), igual que en catalogo */
 function pintarUserMenu(){
   const inicial = String(nrPerfil.nombre || "N").trim().charAt(0).toUpperCase();
 
@@ -348,7 +348,7 @@ function aplicarMetodo(clave){
   const qr = nrEl("qrPlaceholder");
   if (qr){
     qr.innerHTML = m.qr
-      ? '<img src="' + esc(m.qr) + '" alt="QR ' + esc(clave) + '" onerror="this.parentElement.innerHTML=\'<span>QR no disponible</span>\'">'
+      ? '<img src="' + esc(m.qr) + '" alt="QR ' + esc(clave) + '" onerror="if(this.parentElement)this.parentElement.innerHTML=\'<span>QR no disponible</span>\'">'
       : '<span>QR pendiente de configurar</span>';
   }
 
@@ -538,8 +538,15 @@ async function enviarSolicitud(e){
     if (montoUsd <= 0) throw new Error("El monto convertido no es válido.");
 
     /* Formato EXACTO que exigen las reglas:
-       clienteId === auth.uid · estado 'pendiente' · montoUsd > 0 */
-    await nrConTimeout(nrDb.ref("recargas").push({
+       clienteId === auth.uid · estado 'pendiente' · montoUsd > 0
+       v7: si el comprobante es una imagen embebida (sin Storage), se
+       guarda aparte en /comprobantes/{id} para que el panel del
+       administrador no descargue todas las imágenes de golpe. */
+    const recId = nrDb.ref("recargas").push().key;
+    const embebido = String(comp.url || "").indexOf("data:") === 0;
+    const updatesRec = {};
+
+    updatesRec["recargas/" + recId] = {
       clienteId:      nrUid,
       clienteNombre:  nrPerfil.nombre,
       clienteCorreo:  nrPerfil.correo,
@@ -549,11 +556,15 @@ async function enviarSolicitud(e){
       tipoCambio:     NR_TIPO_CAMBIO,
       metodoPago:     nrMetodoSel,
       operacion:      operacion,
-      comprobanteURL: comp.url,
+      comprobanteURL: embebido ? "" : comp.url,
+      comprobanteEnBD: embebido,
       comprobantePath: comp.path,
       estado:         "pendiente",
       fecha:          Date.now()
-    }), 12000, "guardar_recarga");
+    };
+    if (embebido) updatesRec["comprobantes/" + recId] = comp.url;
+
+    await nrConTimeout(nrDb.ref().update(updatesRec), 12000, "guardar_recarga");
 
     msg("✅ Solicitud enviada. Quedará pendiente hasta que el administrador valide tu comprobante.", "success");
     toast("Recarga registrada · " + fmtUSD(montoUsd) + " (pendiente)");
@@ -704,7 +715,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   } catch(err){ console.error("Drawer:", err); }
 
-  /* 1b) MENÚ DE USUARIO (escritorio) — aislado, igual que en catalogo.html */
+  /* 1b) MENÚ DE USUARIO (escritorio) — aislado, igual que en catalogo */
   try {
     const btnUserMenu = nrEl("btnUserMenu");
     const userMenuWrap = nrEl("nsUserMenu");
