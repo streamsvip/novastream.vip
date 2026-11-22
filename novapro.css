@@ -990,3 +990,9 @@ table.npTable{ width:100%; min-width:900px; border-collapse:separate; border-spa
   .npVencRenovadoBtn{ flex:1; padding:9px 8px; }
   .npTiendaNombreWrap{ justify-content:flex-start; }
 }
+
+/* =========================================================
+   v13 — Tickets de soporte (base en tickets.css)
+   ========================================================= */
+body{ --tk-acc:#ffc978; --tk-acc2:#2fd4c6; }
+#section-tickets .tkFiltros{ margin-bottom:14px; }
