@@ -802,3 +802,42 @@
 .mcConfirmSelect:focus{ border-color:var(--teal); }
 .mcConfirmSelect option{ background:#161923; color:#fff; }
 .mcConfirmSelect.error{ border-color:#ff5d73; background:rgba(255,93,115,.06); }
+
+/* =========================================================
+   v8 — Tickets de soporte (la conversación usa tickets.css)
+   ========================================================= */
+
+.mcBtnTickets{
+  height:44px; padding:0 16px; border-radius:999px; cursor:pointer;
+  display:inline-flex; align-items:center; gap:8px; flex-shrink:0;
+  font-size:13px; font-weight:800; font-family:inherit; color:var(--text);
+  background:var(--panel); border:1px solid var(--line);
+  transition:.18s ease;
+}
+.mcBtnTickets:hover{ border-color:var(--teal); }
+
+.mcTicketBadge{
+  display:none; min-width:20px; height:20px; padding:0 6px; border-radius:999px;
+  align-items:center; justify-content:center;
+  font-size:10.5px; font-weight:800; color:#04060a; background:var(--ribbon);
+}
+.mcTicketBadge.visible{ display:inline-flex; }
+.mcTicketBadge.alerta{ background:#ffb300; animation:mcTkLatido 1.6s ease-in-out infinite; }
+@keyframes mcTkLatido{ 50%{ transform:scale(1.15); } }
+
+.mcTkBox{ max-width:560px; }
+.mcTkIcono{
+  width:52px; height:52px; border-radius:14px; flex-shrink:0;
+  display:grid; place-items:center; font-size:24px;
+  background:linear-gradient(135deg, rgba(33,230,193,.18), rgba(124,92,255,.18));
+  border:1px solid var(--line);
+}
+.mcTkSubtitulo{ display:block; font-size:12px; color:var(--text-faint); font-weight:700; }
+.mcTkSinWsp{ display:block; margin-top:8px; font-size:11.5px; color:var(--text-faint); text-align:center; }
+
+.mcChip.ticket{ background:rgba(124,92,255,.12); color:#c9c0ff; border-color:rgba(124,92,255,.30); }
+.mcChip.ticket.nuevo{ background:rgba(255,179,0,.14); color:#ffcf66; border-color:rgba(255,179,0,.38); }
+
+@media (max-width:600px){
+  .mcBtnTickets{ width:100%; justify-content:center; }
+}
