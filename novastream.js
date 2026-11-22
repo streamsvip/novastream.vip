@@ -13,8 +13,8 @@ const firebaseConfig = {
   measurementId: "G-WX6PRVKMB8"
 };
 
-const NS_LOGIN_URL = "login.html";
-const NS_REGISTRO_URL = "registro.html";
+const NS_LOGIN_URL = "login";
+const NS_REGISTRO_URL = "registro";
 const TIPO_CAMBIO = 3.40;
 const NS_WHATSAPP_FALLBACK = "51900000000";
 const NS_WHATSAPP_IMPULSO = "51916252754";
@@ -87,6 +87,150 @@ function toast(msg){
   el.classList.add("visible");
   clearTimeout(el._t);
   el._t = setTimeout(() => el.classList.remove("visible"), 2800);
+}
+
+
+/* =========================================================
+   IMÁGENES DE PRODUCTOS — carga rápida (v10)
+   Las imágenes ya no viajan dentro de /productos: viven en
+   /productosImg/{id}. El catálogo carga primero la lista
+   (liviana) y las fotos llegan después, una por una, solo las
+   que se ven en pantalla. Se guardan en el celular para que la
+   siguiente visita sea instantánea.
+========================================================= */
+
+const NS_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+const NS_IMG_MEM = {};      // id -> imagen
+const NS_IMG_PEND = {};     // id -> Promise
+let nsImgObserver = null;
+
+function nsImgLeerLocal(id, v){
+  try {
+    const o = JSON.parse(localStorage.getItem("ns_img_" + id) || "null");
+    if (o && String(o.v) === String(v) && o.d) return o.d;
+  } catch (e) {}
+  return "";
+}
+
+function nsImgGuardarLocal(id, v, d){
+  if (!d) return;
+  try { localStorage.setItem("ns_img_" + id, JSON.stringify({ v: v, d: d })); }
+  catch (e) {
+    /* Memoria del navegador llena: se limpia la caché de imágenes */
+    try {
+      Object.keys(localStorage).forEach(k => { if (k.indexOf("ns_img_") === 0) localStorage.removeItem(k); });
+    } catch (_) {}
+  }
+}
+
+/* Imagen disponible YA (sin red). "" si todavía no está. */
+function nsImagenDe(item){
+  if (!item) return "";
+  if (item.imagen) return item.imagen;               // URL directa
+  if (NS_IMG_MEM[item.id]) return NS_IMG_MEM[item.id];
+  if (item.imgV) {
+    const l = nsImgLeerLocal(item.id, item.imgV);
+    if (l) { NS_IMG_MEM[item.id] = l; return l; }
+  }
+  return "";
+}
+
+/* Descarga la imagen de /productosImg (una sola vez por producto) */
+function nsCargarImagen(item){
+  const ya = nsImagenDe(item);
+  if (ya) return Promise.resolve(ya);
+  if (!item || !item.imgV || !nsDb) return Promise.resolve("");
+  if (NS_IMG_PEND[item.id]) return NS_IMG_PEND[item.id];
+
+  NS_IMG_PEND[item.id] = nsDb.ref("productosImg/" + item.id).get()
+    .then(s => {
+      const d = String(s.val() || "");
+      if (d) { NS_IMG_MEM[item.id] = d; nsImgGuardarLocal(item.id, item.imgV, d); }
+      return d;
+    })
+    .catch(() => "")
+    .finally(() => { delete NS_IMG_PEND[item.id]; });
+
+  return NS_IMG_PEND[item.id];
+}
+
+function nsPintarImagen(id){
+  const item = productosCache[id];
+  const src = nsImagenDe(item) || "";
+  document.querySelectorAll('img[data-img-pid="' + id + '"]').forEach(img => {
+    if (src) { img.src = src; img.classList.remove("nsImgCargando"); img.style.opacity = ""; }
+    else { img.classList.remove("nsImgCargando"); img.style.opacity = 0; }
+  });
+}
+
+/* Busca las <img data-img-pid> sin foto y las carga cuando se ven */
+function nsHidratarImagenes(raiz){
+  const imgs = (raiz || document).querySelectorAll("img[data-img-pid]");
+  const pedir = (img) => {
+    const id = img.getAttribute("data-img-pid");
+    const item = productosCache[id];
+    if (!item) return;
+    nsCargarImagen(item).then(() => nsPintarImagen(id));
+  };
+
+  imgs.forEach(img => {
+    const id = img.getAttribute("data-img-pid");
+    const item = productosCache[id];
+    const src = nsImagenDe(item);
+    if (src) {
+      if (img.getAttribute("src") !== src) img.src = src;
+      img.classList.remove("nsImgCargando");
+      return;
+    }
+    if (!item || !item.imgV) { img.classList.remove("nsImgCargando"); img.style.opacity = 0; return; }
+
+    img.classList.add("nsImgCargando");
+    if ("IntersectionObserver" in window) {
+      if (!nsImgObserver) {
+        nsImgObserver = new IntersectionObserver((entradas) => {
+          entradas.forEach(en => {
+            if (!en.isIntersecting) return;
+            nsImgObserver.unobserve(en.target);
+            pedir(en.target);
+          });
+        }, { rootMargin: "300px 0px" });
+      }
+      nsImgObserver.observe(img);
+    } else {
+      pedir(img);
+    }
+  });
+}
+
+/* Atributos <img> para un producto */
+function nsImgAttrs(id, clase, alt){
+  const item = productosCache[id];
+  const src = nsImagenDe(item);
+  return 'class="' + clase + (src ? "" : " nsImgCargando") + '" data-img-pid="' + escaparHTML(id) + '" ' +
+         'src="' + escaparHTML(src || NS_PIXEL) + '" alt="' + escaparHTML(alt || "") + '" ' +
+         'loading="lazy" decoding="async" onerror="this.style.opacity=0"';
+}
+
+/* ---------- Caché del catálogo (lista liviana) ---------- */
+
+const NS_CACHE_CATALOGO = "ns_catalogo_v2";
+const NS_CACHE_CATEGORIAS = "ns_categorias_v1";
+
+function nsLeerCacheCatalogo(){
+  try {
+    const c = JSON.parse(localStorage.getItem(NS_CACHE_CATALOGO) || "null");
+    if (c && c.p && typeof c.p === "object") return c.p;
+  } catch (e) {}
+  return null;
+}
+function nsGuardarCacheCatalogo(p){
+  try { localStorage.setItem(NS_CACHE_CATALOGO, JSON.stringify({ t: Date.now(), p: p })); } catch (e) {}
+}
+function nsLeerCacheCategorias(){
+  try { return JSON.parse(localStorage.getItem(NS_CACHE_CATEGORIAS) || "null"); } catch (e) { return null; }
+}
+function nsGuardarCacheCategorias(c){
+  try { localStorage.setItem(NS_CACHE_CATEGORIAS, JSON.stringify(c || {})); } catch (e) {}
 }
 
 function toastCarritoAgregado(nombre){
@@ -228,7 +372,7 @@ async function cerrarSesionUsuario(){
   }
 
   setCarrito([]);
-  window.location.replace("catalogo.html");
+  window.location.replace("catalogo");
 }
 
 /* =========================
@@ -244,7 +388,9 @@ function abrirModalAuth(productoId){
   const item = productoId ? productosCache[productoId] : null;
 
   if (item && box) {
-    document.getElementById("nsAuthProdImg").src = item.imagen || "";
+    const imgAuth = document.getElementById("nsAuthProdImg");
+    imgAuth.src = nsImagenDe(item) || NS_PIXEL;
+    if (!nsImagenDe(item)) nsCargarImagen(item).then(d => { if (d) imgAuth.src = d; });
     document.getElementById("nsAuthProdNombre").textContent = item.nombre;
     document.getElementById("nsAuthProdPrecio").textContent = fmt(item.precio) + " · " + fmtPEN(item.precio);
     box.style.display = "flex";
@@ -307,6 +453,22 @@ function nsFbInit(){
     mostrarErrorCarga("Error de conexión con el servidor.");
     nsAplicarModoSesion();
     return;
+  }
+
+  /* Pintado instantáneo con la última copia guardada en el celular.
+     Luego Firebase la reemplaza con los datos en vivo. */
+  const cacheCat = nsLeerCacheCategorias();
+  if (cacheCat && typeof cacheCat === "object") categoriasCache = cacheCat;
+
+  const cacheProd = nsLeerCacheCatalogo();
+  if (cacheProd && Object.keys(cacheProd).length) {
+    productosCache = cacheProd;
+    nsProductosListos = true;
+    renderizarCategorias();
+    renderizarProductos();
+    renderizarCarrito();
+    actualizarBadgeCarrito();
+    nsIntentarOcultarBooting();
   }
 
   /* El catálogo se carga siempre, con o sin sesión */
@@ -381,6 +543,19 @@ function nsEscucharCatalogo(){
       const ilimitado = p.stockIlimitado === true || p.tipoEntrega === "descarga";
       const stockNum = Number(p.stock || 0);
 
+      /* Imagen: URL directa, o separada en /productosImg (imgV).
+         Si todavía viene embebida (productos antiguos), se mueve a la
+         caché de imágenes para que la lista guardada quede liviana. */
+      let imagenDirecta = String(p.imagen || "");
+      let imgV = p.imgV || "";
+      if (imagenDirecta.indexOf("data:") === 0) {
+        imgV = "L" + imagenDirecta.length;
+        NS_IMG_MEM[ch.key] = imagenDirecta;
+        if (!nsImgLeerLocal(ch.key, imgV)) nsImgGuardarLocal(ch.key, imgV, imagenDirecta);
+        imagenDirecta = "";
+      }
+      if (!imagenDirecta && !imgV) imagenDirecta = "img/productos/log.jpg";
+
       nuevo[ch.key] = {
         id: ch.key,
         nombre: p.nombre,
@@ -392,7 +567,8 @@ function nsEscucharCatalogo(){
         stockIlimitado: ilimitado,
         descripcion: p.descripcion || "Sin descripción disponible.",
         reglas: p.reglas || "",
-        imagen: p.imagen || "img/productos/log.jpg",
+        imagen: imagenDirecta,
+        imgV: imgV,
         proveedor: p.proveedorNombre || "NovaStream",
         proveedorId: p.proveedorId || "",
         tipoEntrega: p.tipoEntrega || "cuenta",
@@ -404,6 +580,7 @@ function nsEscucharCatalogo(){
 
     productosCache = nuevo;
     nsProductosListos = true;
+    nsGuardarCacheCatalogo(nuevo);
 
     limpiarCarritoDeProductosInexistentes();
     renderizarCategorias();
@@ -425,12 +602,13 @@ function nsEscucharProveedores(){
 }
 
 /* Escucha en vivo el nodo /categorias que se administra desde el
-   panel admin (novaadmin.html → sección Categorías). Esto es lo
+   panel admin (novaadmin → sección Categorías). Esto es lo
    que trae el LOGO oficial de cada plataforma (Netflix, Spotify,
    etc.) para mostrarlo en el catálogo público. */
 function nsEscucharCategorias(){
   nsDb.ref("categorias").on("value", (snap) => {
     categoriasCache = snap.val() || {};
+    nsGuardarCacheCategorias(categoriasCache);
     renderizarCategorias();
     }, (err) => {
     console.error("categorias:", err && err.message);
@@ -482,7 +660,7 @@ function renderizarCategorias(){
     const item = productosCache[id];
     const key = normalizarTexto(item.plataforma);
     if (!key || mapaCategorias.has(key)) return;
-    mapaCategorias.set(key, { nombre: item.plataforma, imagen: item.imagen, orden: null });
+    mapaCategorias.set(key, { nombre: item.plataforma, imagen: nsImagenDe(item), pid: item.id, orden: null });
   });
 
   if (!mapaCategorias.size) { cont.innerHTML = ""; return; }
@@ -500,12 +678,15 @@ function renderizarCategorias(){
       const activo = normalizarTexto(filtroCategoria) === normalizarTexto(cat.nombre) ? " activo" : "";
       html += `
         <button type="button" class="nsCatBtn nsCatBtnFoto${activo}" data-categoria="${escaparHTML(cat.nombre)}">
-          <span class="nsCatAvatar"><img src="${escaparHTML(cat.imagen)}" alt="${escaparHTML(cat.nombre)}" onerror="this.style.opacity=0"></span>
+          <span class="nsCatAvatar">${(!cat.imagen && cat.pid)
+            ? `<img ${nsImgAttrs(cat.pid, "", cat.nombre)}>`
+            : `<img src="${escaparHTML(cat.imagen)}" alt="${escaparHTML(cat.nombre)}" onerror="this.style.opacity=0">`}</span>
           <span>${escaparHTML(cat.nombre)}</span>
         </button>`;
     });
 
   cont.innerHTML = html;
+  nsHidratarImagenes(cont);
 
   nsInicializarFlechasCategorias();   // ⭐ AQUÍ VA, justo después de pintar el HTML
 
@@ -686,7 +867,7 @@ function renderizarProductos(){
     html += `
       <div class="nsCard" data-id="${escaparHTML(id)}">
         <div class="nsCardImgWrap">
-  <img class="nsCardImg" src="${escaparHTML(item.imagen)}" alt="${escaparHTML(item.nombre)}" onerror="this.style.opacity=0">
+  <img ${nsImgAttrs(id, "nsCardImg", item.nombre)}>
   ${iconoRenovableCorner(item)}
   <button type="button" class="nsFavBtn${fav?" activo":""}" data-id="${escaparHTML(id)}" aria-label="Favorito">
             <svg viewBox="0 0 24 24"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9 12 2"></polygon></svg>
@@ -722,6 +903,7 @@ function renderizarProductos(){
   });
 
   cont.innerHTML = html;
+  nsHidratarImagenes(cont);
 
   cont.querySelectorAll(".nsFavBtn").forEach(b => {
     b.addEventListener("click", e => { e.stopPropagation(); toggleFavorito(b.dataset.id); });
@@ -758,8 +940,11 @@ function abrirModal(id){
   if (!item) return;
 
   document.getElementById("modalNombre").innerText = item.nombre;
-  document.getElementById("modalImagen").src = item.imagen || "";
-  document.getElementById("modalImagen").alt = item.nombre;
+  const imgModal = document.getElementById("modalImagen");
+  imgModal.style.opacity = "";
+  imgModal.alt = item.nombre;
+  imgModal.src = nsImagenDe(item) || NS_PIXEL;
+  if (!nsImagenDe(item)) nsCargarImagen(item).then(d => { if (d) imgModal.src = d; });
 
   const badgesBox = document.getElementById("modalBadgesFila");
   if (badgesBox) badgesBox.innerHTML = badgeProveedorHTML(item) + badgeEntregaHTML(item) + badgeRenovableHTML(item);
@@ -902,7 +1087,7 @@ function renderizarCarrito(){
 
     html += `
       <div class="nsCartItem" data-id="${escaparHTML(linea.id)}">
-        <img class="nsCartItemImg" src="${escaparHTML(item.imagen)}" alt="" onerror="this.style.opacity=0">
+        <img ${nsImgAttrs(linea.id, "nsCartItemImg", "")}>
         <div class="nsCartItemInfo">
           <div class="nsCartItemNombre">${escaparHTML(item.nombre)}</div>
           <div class="nsCartItemPrecio">${fmt(sub)}<span class="nsCartItemPen">(${fmtPEN(sub)})</span></div>
@@ -917,6 +1102,7 @@ function renderizarCarrito(){
   });
 
   body.innerHTML = html;
+  nsHidratarImagenes(body);
   if (totalTxt) totalTxt.textContent = fmt(total);
   if (totalPenEl) totalPenEl.textContent = fmtPEN(total);
 
@@ -971,7 +1157,7 @@ async function procesarPago(){
 
     if (saldoReal < total) {
       toast("Saldo insuficiente. Te faltan " + fmt(total - saldoReal) + ".");
-      setTimeout(() => { window.location.href = "recargas.html"; }, 1600);
+      setTimeout(() => { window.location.href = "recargas"; }, 1600);
       throw new Error("__SALDO__");
     }
 
@@ -1085,7 +1271,8 @@ async function procesarPago(){
         plataforma: p.plataforma,
         proveedor: p.proveedor,
         proveedorId: p.proveedorId,
-        imagen: p.imagen,
+        imagen: (p.imagen && p.imagen.indexOf("data:") !== 0 && p.imagen !== "img/productos/log.jpg") ? p.imagen : "",
+        imgV: p.imgV || "",
         cantidad: en.cantidad,
         precioUnitarioUsd: p.precio,
         subtotalUsd: montoLinea,
@@ -1167,7 +1354,8 @@ function mostrarResumenEntrega(items, total){
   if (!modal) { toast("Compra realizada · " + fmt(total)); return; }
 
   document.getElementById("modalNombre").innerText = "✅ Compra completada";
-  document.getElementById("modalImagen").src = items[0] ? items[0].imagen : "";
+  const prod0 = items[0] ? productosCache[items[0].productoId] : null;
+  document.getElementById("modalImagen").src = (prod0 && nsImagenDe(prod0)) || (items[0] && items[0].imagen) || NS_PIXEL;
 
   const badgesBox = document.getElementById("modalBadgesFila");
   if (badgesBox) badgesBox.innerHTML = "";
