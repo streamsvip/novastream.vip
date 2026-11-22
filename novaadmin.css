@@ -904,3 +904,71 @@ body.nvaSideOpen .nvaOverlay{ display:block; }
   .nvaStatsRow{ grid-template-columns:1fr; }
   .nvaCatGrid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
+/* =========================================================
+   v6 — Pantalla de carga, optimizador y tickets
+   ========================================================= */
+
+.nvaBooting{
+  position:fixed; inset:0; z-index:100000;
+  display:flex; align-items:center; justify-content:center; padding:20px;
+  background:
+    radial-gradient(600px 360px at 20% 10%, rgba(33,230,193,.10), transparent 60%),
+    radial-gradient(560px 340px at 85% 90%, rgba(124,92,255,.12), transparent 60%),
+    #0a0b0f;
+  transition:opacity .3s ease, visibility .3s ease;
+}
+.nvaBooting.off{ opacity:0; visibility:hidden; pointer-events:none; }
+
+.nvaBootingBox{
+  width:100%; max-width:340px; text-align:center;
+  display:flex; flex-direction:column; align-items:center; gap:14px;
+}
+.nvaBootingBox strong{ font-family:var(--font-display); font-size:16px; color:#fff; }
+
+.nvaBootingRing{
+  width:44px; height:44px; border-radius:50%;
+  border:3px solid rgba(255,255,255,.1); border-top-color:var(--teal); border-right-color:var(--violet);
+  animation:nvaSpin .8s linear infinite;
+}
+
+.nvaBootingBar{ display:none; width:100%; height:6px; border-radius:999px; background:rgba(255,255,255,.07); overflow:hidden; }
+.nvaBootingBar span{ display:block; height:100%; width:0; background:var(--ribbon); border-radius:999px; transition:width .3s ease; }
+.nvaBooting.conPasos .nvaBootingBar{ display:block; }
+
+.nvaBootingPasos{ display:none; list-style:none; width:100%; text-align:left; }
+.nvaBooting.conPasos .nvaBootingPasos{ display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; }
+.nvaBootingPasos li{ display:flex; align-items:center; gap:7px; font-size:12px; font-weight:700; color:var(--muted-2); }
+.nvaBootingPasos li span{
+  width:18px; height:18px; border-radius:50%; flex:0 0 auto;
+  display:grid; place-items:center; font-size:10px; background:rgba(255,255,255,.06);
+}
+.nvaBootingPasos li.ok{ color:#cfeee2; }
+.nvaBootingPasos li.ok span{ background:var(--green); color:#04140b; }
+.nvaBootingPasos li.err span{ background:var(--red); color:#fff; }
+
+.nvaBootingNota{ font-size:12px; color:var(--muted); line-height:1.55; min-height:0; }
+
+.nvaOptimizarAviso{
+  background:linear-gradient(180deg, rgba(240,168,61,.10), rgba(240,168,61,.03));
+  border-color:rgba(240,168,61,.30);
+}
+.nvaOptimizarRow{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:10px; }
+.nvaOptimizarRow small{ font-size:11px; color:var(--muted-2); }
+.nvaOptimizarMsg:empty{ display:none; }
+
+.nvaSelectMini{
+  height:36px; padding:0 12px; border-radius:var(--r-s);
+  border:1px solid var(--line-strong); background:var(--panel-3); color:var(--text);
+  font-size:12px; font-weight:700; font-family:inherit; outline:none;
+}
+.nvaSelectMini option{ background:#161923; }
+
+.nvaTkSnippet{
+  display:block; max-width:260px; color:var(--muted);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+
+.nvaTicketBox{ max-width:640px; }
+.nvaTicketBody{ padding:16px 20px 20px; overflow-y:auto; }
+.nvaTkEstadoRow{ margin-top:4px; }
+.nvaTicketModal .tkMsg.proveedor .tkMsgTexto{ background:rgba(33,230,193,.10); border-color:rgba(33,230,193,.28); }
