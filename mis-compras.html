@@ -11,17 +11,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="icon" type="image/png" href="img/logo.png">
-  <link rel="stylesheet" href="novastream.css?v=10">
-  <link rel="stylesheet" href="mis-compras.css?v=7">
-  <!-- 🎃 Edición Halloween: se apaga sola el 10 nov 2026 (11:59 pm Perú). Para quitarla antes: borra este bloque y el <script> de halloween.js al final -->
-  <script>
-  (function(){
-    if (Date.now() >= Date.UTC(2026,10,11,5,0,0)) return; /* 11 nov 00:00 Lima */
-    ["https://fonts.googleapis.com/css2?family=Creepster&display=swap","halloween.css?v=2"].forEach(function(h){
-      var l=document.createElement("link");l.rel="stylesheet";l.href=h;document.head.appendChild(l);
-    });
-  })();
-  </script>
+  <link rel="stylesheet" href="novastream.css?v=11">
+  <link rel="preconnect" href="https://novastream-aeb9d-default-rtdb.firebaseio.com" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="mis-compras.css?v=8">
+  <link rel="stylesheet" href="tickets.css?v=1">
 </head>
 
 <body class="nsBody">
@@ -35,15 +29,15 @@
   <header class="nsNav" id="nsNav">
     <div class="nsNavInner">
 
-      <a href="catalogo.html" class="nsBrand">
+      <a href="catalogo" class="nsBrand">
         <img src="img/logo.png" alt="NovaStream" class="nsBrandLogo">
         <span class="nsBrandText">NOVA<em>STREAM</em></span>
       </a>
 
       <nav class="nsNavLinks" id="nsNavLinks">
-        <a href="catalogo.html">Catálogo</a>
-        <a href="recargas.html">Recargas</a>
-        <a href="mis-compras.html" class="activo">Mis compras</a>
+        <a href="catalogo">Catálogo</a>
+        <a href="recargas">Recargas</a>
+        <a href="mis-compras" class="activo">Mis compras</a>
       </nav>
 
       <div class="nsNavActions">
@@ -74,8 +68,8 @@
               <strong id="nsUserDropdownSaldoValor">$0.00</strong>
             </div>
 
-            <a href="catalogo.html" class="nsUserDropdownItem">🛍️ Catálogo</a>
-            <a href="recargas.html" class="nsUserDropdownItem">💳 Recargar saldo</a>
+            <a href="catalogo" class="nsUserDropdownItem">🛍️ Catálogo</a>
+            <a href="recargas" class="nsUserDropdownItem">💳 Recargar saldo</a>
             <button type="button" class="nsUserDropdownItem nsUserDropdownLogout" id="btnCerrarSesionDesktop">🚪 Cerrar sesión</button>
           </div>
         </div>
@@ -105,9 +99,9 @@
         </div>
       </div>
 
-      <a href="catalogo.html">Catálogo</a>
-      <a href="recargas.html">Recargas</a>
-      <a href="mis-compras.html">Mis compras</a>
+      <a href="catalogo">Catálogo</a>
+      <a href="recargas">Recargas</a>
+      <a href="mis-compras">Mis compras</a>
       <a href="#" id="linkSalirDrawer" class="nsDrawerSalir">Cerrar sesión</a>
     </aside>
   </div>
@@ -141,6 +135,10 @@
         <option value="expirada">Expiradas</option>
         <option value="reembolsada">Reembolsadas</option>
       </select>
+
+      <button type="button" class="mcBtnTickets" id="mcBtnTickets">
+        🎫 Mis tickets <span class="mcTicketBadge" id="mcTicketBadge"></span>
+      </button>
 
       <div class="mcVistaSwitch" id="mcVistaSwitch">
         <button type="button" class="mcVistaBtn" data-vista="compacto" aria-label="Vista compacta">
@@ -237,8 +235,87 @@
 
       <div class="mcModalAcciones">
         <button type="button" class="mcBtnGhost" id="mcBtnReembolso">↩️ Solicitar reembolso</button>
-        <button type="button" class="mcBtnGhost" id="mcBtnSoporteModal">🎧 Contactar soporte</button>
+        <button type="button" class="mcBtnGhost" id="mcBtnSoporteModal">🎫 Ticket de soporte</button>
       </div>
+    </div>
+  </div>
+
+
+  <!-- ================= MODAL: MIS TICKETS ================= -->
+  <div id="mcModalTickets" class="nsModal">
+    <div class="nsModalBox mcModalBox mcTkBox">
+      <button type="button" class="nsModalCerrar" id="mcCerrarTickets" aria-label="Cerrar">✕</button>
+      <div class="mcModalHead">
+        <div class="mcTkIcono">🎫</div>
+        <div>
+          <h2>Mis tickets de soporte</h2>
+          <span class="mcTkSubtitulo">Tus conversaciones con los proveedores</span>
+        </div>
+      </div>
+      <div class="tkFiltros" id="mcTkFiltros"></div>
+      <div class="tkLista" id="mcListaTickets"></div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: TICKET ================= -->
+  <div id="mcModalTicket" class="nsModal">
+    <div class="nsModalBox mcModalBox mcTkBox">
+      <button type="button" class="nsModalCerrar" id="mcCerrarTicket" aria-label="Cerrar">✕</button>
+
+      <div class="mcModalHead">
+        <img id="mcTkImagen" class="mcModalAvatar" alt="">
+        <div>
+          <h2 id="mcTkTitulo">Soporte</h2>
+          <span class="mcTkSubtitulo" id="mcTkSub">-</span>
+          <div style="margin-top:6px;"><span id="mcTkEstado" class="tkBadge nuevo">Nuevo</span></div>
+        </div>
+      </div>
+
+      <div class="tkPasos" id="mcTkPasos"></div>
+
+      <!-- Crear ticket -->
+      <div id="mcTkNuevo">
+        <div class="tkCampo">
+          <label for="mcTkMotivo">Motivo</label>
+          <select id="mcTkMotivo">
+            <option value="">Selecciona un motivo...</option>
+            <option value="no_funciona">La cuenta no funciona / no deja ingresar</option>
+            <option value="clave_cambiada">Cambiaron la contraseña o el correo</option>
+            <option value="perfil_ocupado">El perfil está ocupado o fue eliminado</option>
+            <option value="pantallas">Límite de pantallas o dispositivos</option>
+            <option value="renovacion">Consulta sobre renovación</option>
+            <option value="otro">Otra consulta</option>
+          </select>
+        </div>
+        <div class="tkCampo">
+          <label for="mcTkTexto">Cuéntale al proveedor qué pasa</label>
+          <textarea id="mcTkTexto" rows="4" maxlength="1000" placeholder="Ej: desde hoy me sale «contraseña incorrecta» en el perfil 2..."></textarea>
+        </div>
+        <div class="tkAcciones">
+          <button type="button" class="tkBtn primario" id="mcTkCrear">Enviar ticket</button>
+        </div>
+        <div class="tkNota">Tu ticket le llega al proveedor de este producto. Verás su respuesta aquí y en <strong>🎫 Mis tickets</strong>.</div>
+      </div>
+
+      <!-- Conversación -->
+      <div id="mcTkConversacion" style="display:none;">
+        <div class="tkHilo" id="mcTkMensajes"></div>
+        <div class="tkResponder">
+          <textarea id="mcTkRespuesta" rows="3" maxlength="1000" placeholder="Escribe tu mensaje al proveedor..."></textarea>
+          <div class="tkAcciones">
+            <button type="button" class="tkBtn primario" id="mcTkEnviar">Enviar mensaje</button>
+            <button type="button" class="tkBtn ok" id="mcTkEstadoBtn">✓ Ya se solucionó</button>
+          </div>
+        </div>
+        <div class="tkNota" id="mcTkNota"></div>
+      </div>
+
+      <span class="tkError" id="mcTkError"></span>
+
+      <div class="tkAcciones" style="margin-top:10px;">
+        <a id="mcTkWsp" class="tkBtn wsp" href="#" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.2-1.7-.9-2-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-.3-.2-1.3-.5-2.5-1.6-.9-.8-1.5-1.9-1.7-2.2-.2-.3 0-.5.1-.6.1-.1.3-.4.5-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5C9.6 9 9.1 7.8 8.9 7.3c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.3.3-1 1-1 2.4s1 2.8 1.2 3c.1.2 2 3.2 5 4.4.7.3 1.2.5 1.7.6.7.2 1.3.2 1.8.1.6-.1 1.7-.7 1.9-1.3.2-.6.2-1.2.2-1.3-.1-.1-.3-.2-.6-.4z"></path><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2zm0 18.1a8.1 8.1 0 0 1-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8.1 8.1 0 1 1 12 20.1z"></path></svg> Escribir al proveedor por WhatsApp</a>
+      </div>
+      <small class="mcTkSinWsp" id="mcTkSinWsp" style="display:none;">Este proveedor no tiene WhatsApp activo. Usa el ticket para contactarlo.</small>
     </div>
   </div>
 
@@ -286,7 +363,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
-  <script src="mis-compras.js?v=9"></script>
-  <script src="halloween.js?v=2" defer></script>
+  <script src="mis-compras.js?v=10"></script>
 </body>
 </html>
