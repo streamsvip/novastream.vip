@@ -7,7 +7,7 @@
   <title>NovaStream.vip | Panel Administrador</title>
   <link rel="preconnect" href="https://novastream-aeb9d-default-rtdb.firebaseio.com" crossorigin>
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="novaadmin.css?v=6">
+  <link rel="stylesheet" href="novaadmin.css?v=7">
   <link rel="stylesheet" href="tickets.css?v=1">
   <link rel="icon" type="image/png" href="img/logo.png">
 </head>
@@ -594,7 +594,7 @@
                 </div>
                 <div class="nvaUploadInfo">
                   <strong id="categoriaNombreArchivo">Arrastra el logo o haz clic</strong>
-                  <small>PNG o JPG · se recorta en círculo y se optimiza a 320px automáticamente</small>
+                  <small>PNG o JPG · se recorta en círculo y se optimiza a 200px automáticamente (carga rápida)</small>
                 </div>
                 <button type="button" class="nvaBtnMini soft" id="btnElegirImagen">Elegir imagen</button>
                 <input type="file" id="categoriaArchivo" accept="image/png,image/jpeg,image/webp" class="nvaFileHidden">
@@ -603,7 +603,11 @@
               <div class="nvaCatFormRow">
                 <div class="nvaCatField">
                   <label>Nombre de la plataforma</label>
-                  <input type="text" id="categoriaNombre" placeholder="Ej: Netflix" required autocomplete="off">
+                  <input type="text" id="categoriaNombre" placeholder="Ej: Netflix" required autocomplete="off" maxlength="60">
+                </div>
+                <div class="nvaCatField nvaCatFieldOrden">
+                  <label>Posición (opcional)</label>
+                  <input type="number" id="categoriaOrden" min="1" step="1" placeholder="Al final" inputmode="numeric">
                 </div>
                 <button class="nvaBtn nvaBtnInline" type="submit" id="btnGuardarCategoria">Agregar categoría</button>
               </div>
@@ -971,7 +975,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-  <script src="novaadmin.js?v=6"></script>
+  <script src="novaadmin.js?v=7"></script>
 </body>
 </html>
