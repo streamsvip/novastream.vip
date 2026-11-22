@@ -1363,3 +1363,18 @@ body.nsInvitado .nsModalGuestCta.nsSoloInvitado{ display:block !important; }
   .nsCardTitulo{ line-height:1.25; height:calc(1.25em * 3); }
   .nsBadgesFila{ min-height:18px; }
 }
+
+/* =========================================================
+   CARGA DIFERIDA DE IMÁGENES — v11
+   Mientras llega la foto del producto se ve un brillo suave
+   en lugar de un hueco vacío.
+   ========================================================= */
+
+.nsImgCargando{
+  background:linear-gradient(100deg,#13151c 30%,#1d2029 50%,#13151c 70%) !important;
+  background-size:220% 100% !important;
+  animation:nsImgBrillo 1.3s linear infinite;
+}
+@keyframes nsImgBrillo{ from{ background-position:120% 0; } to{ background-position:-120% 0; } }
+
+@media (prefers-reduced-motion:reduce){ .nsImgCargando{ animation:none; } }
