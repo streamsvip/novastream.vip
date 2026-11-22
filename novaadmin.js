@@ -18,8 +18,22 @@ if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.database();
 
-let storage = null;
-try { storage = firebase.storage(); } catch (e) { storage = null; }
+/* v7: ya no se usa Firebase Storage. Cuando no está habilitado en el
+   proyecto, sus subidas se quedaban reintentando varios minutos y por
+   eso «Agregar categoría» se colgaba en «Guardando...». */
+const storage = null;
+
+/* Corta cualquier operación que tarde demasiado (datos móviles) */
+function conTimeout(promesa, ms, mensaje) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(mensaje || "La conexión tardó demasiado. Inténtalo de nuevo.")), ms);
+    Promise.resolve(promesa).then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
+  });
+}
+
+/* Logos de categoría: tamaño de catálogo, livianos (~8–15 KB) */
+const NVA_CAT_LADO = 200;
+const NVA_CAT_MAX_CHARS = 45000;
 
 const NVA_COMISION_RETIRO = 0.20;
 const NVA_TIPO_CAMBIO     = 3.40;
@@ -510,17 +524,26 @@ function contarPesados() {
   Object.values(recargasCache || {}).forEach((r) => {
     if (r && String(r.comprobanteURL || "").indexOf("data:") === 0) comps++;
   });
-  return { prods, comps };
+  let cats = 0;
+  Object.values(categoriasCache || {}).forEach((c) => {
+    const img = String((c && c.imagen) || "");
+    if (img.indexOf("data:") === 0 && img.length > NVA_CAT_MAX_CHARS) cats++;
+  });
+  return { prods, comps, cats };
 }
 
 function renderAvisoOptimizar() {
   const box = document.getElementById("nvaOptimizarAviso");
   if (!box) return;
   const c = contarPesados();
-  if (!c.prods && !c.comps) { box.classList.add("hidden"); return; }
+  if (!c.prods && !c.comps && !c.cats) { box.classList.add("hidden"); return; }
   box.classList.remove("hidden");
+  const partes = [];
+  if (c.prods) partes.push(c.prods + " imagen(es) de producto");
+  if (c.comps) partes.push(c.comps + " comprobante(s)");
+  if (c.cats) partes.push(c.cats + " logo(s) de categoría demasiado pesados");
   setTxt("nvaOptimizarTexto",
-    c.prods + " imagen(es) de producto y " + c.comps + " comprobante(s) siguen guardados dentro de los registros. " +
+    "Hay " + partes.join(", ") + " guardados dentro de los registros. " +
     "Por eso el panel y el catálogo tardan en cargar con datos móviles.");
 }
 
@@ -561,7 +584,7 @@ async function optimizarBaseDatos() {
 
   try {
     const ahora = Date.now();
-    let nProd = 0, nComp = 0, nCompra = 0;
+    let nProd = 0, nComp = 0, nCompra = 0, nCat = 0;
 
     /* 1) Productos */
     optMsg("Revisando productos...");
@@ -609,8 +632,25 @@ async function optimizarBaseDatos() {
     });
     await aplicarEnLotes(up3, "Compras");
 
-    mostrarMensajeEn("optimizarMsg",
-      "✓ Listo: " + nProd + " producto(s), " + nComp + " comprobante(s) y " + nCompra + " foto(s) de compras optimizadas.");
+    /* 4) Logos de categoría: se reducen a 200 px (siguen en su lugar) */
+    optMsg("Reduciendo logos de categorías...");
+    const sk = await db.ref("categorias").get();
+    const up4 = {};
+    const cats = [];
+    sk.forEach((ch) => {
+      const img = String((ch.val() || {}).imagen || "");
+      if (img.indexOf("data:") === 0 && img.length > NVA_CAT_MAX_CHARS) cats.push([ch.key, img]);
+    });
+    for (const [key, img] of cats) {
+      try {
+        const nueva = await reducirDataURL(img, NVA_CAT_LADO);
+        if (nueva && nueva.length < img.length) { up4["categorias/" + key + "/imagen"] = nueva; nCat++; }
+      } catch (e) { console.warn("No se pudo reducir el logo", key, e.message); }
+    }
+    await aplicarEnLotes(up4, "Categorías");
+
+    optMsg(
+      "✓ Listo: " + nProd + " producto(s), " + nComp + " comprobante(s), " + nCompra + " foto(s) de compras y " + nCat + " logo(s) de categoría optimizados.");
     mostrarToast("⚡ Base de datos optimizada. El catálogo y el panel ya cargan más rápido.");
     renderAvisoOptimizar();
   } catch (err) {
@@ -682,6 +722,7 @@ function irASeccion(targetId) {
   if (dashboard) dashboard.classList.toggle("hiddenSection", targetId !== "dashboardResumen");
 
   if (targetId === "secStock" && panelYaCargado) cargarCuentasStock();
+  if (targetId === "secCategorias") renderCategorias();
   if (targetId === "secTickets" && typeof renderTickets === "function") renderTickets();
 
   cerrarSidebar();
@@ -2036,7 +2077,27 @@ async function eliminarTicket(id) {
    CATEGORÍAS (con orden 1, 2, 3... editable)
 ========================================================= */
 
-function comprimirImagenCuadrada(file, lado = 320) {
+/* Reduce una imagen ya guardada (data:...) a un cuadrado de «lado» px */
+function reducirDataURL(dataUrl, lado) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onerror = () => reject(new Error("imagen inválida"));
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = lado; canvas.height = lado;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#0e0f14";
+      ctx.fillRect(0, 0, lado, lado);
+      const esc = Math.max(lado / img.width, lado / img.height);
+      const w = img.width * esc, h = img.height * esc;
+      ctx.drawImage(img, (lado - w) / 2, (lado - h) / 2, w, h);
+      resolve(canvas.toDataURL("image/jpeg", 0.82));
+    };
+    img.src = dataUrl;
+  });
+}
+
+function comprimirImagenCuadrada(file, lado = 200) {
   return new Promise((resolve, reject) => {
     const lector = new FileReader();
 
@@ -2059,7 +2120,7 @@ function comprimirImagenCuadrada(file, lado = 320) {
         const h = img.height * escala;
         ctx.drawImage(img, (lado - w) / 2, (lado - h) / 2, w, h);
 
-        resolve(canvas.toDataURL("image/jpeg", 0.86));
+        resolve(canvas.toDataURL("image/jpeg", 0.82));
       };
 
       img.src = e.target.result;
@@ -2075,7 +2136,11 @@ function prepararUploadCategoria() {
   const btn = document.getElementById("btnElegirImagen");
   if (!zona || !input || zona.dataset.listo) return;
 
-  const abrir = (e) => { if (e) e.stopPropagation(); input.click(); };
+  const abrir = (e) => {
+    if (e && e.target === input) return;          // el propio input: no reabrir
+    if (e) { e.stopPropagation(); e.preventDefault(); }
+    input.click();
+  };
 
   zona.addEventListener("click", abrir);
   if (btn) btn.addEventListener("click", abrir);
@@ -2111,7 +2176,7 @@ async function manejarImagenCategoria(file) {
   }
 
   try {
-    categoriaImagenData = await comprimirImagenCuadrada(file, 320);
+    categoriaImagenData = await comprimirImagenCuadrada(file, NVA_CAT_LADO);
     categoriaImagenNombre = file.name;
 
     const preview = document.getElementById("categoriaAvatarPreview");
@@ -2179,30 +2244,24 @@ async function agregarCategoria(event) {
     orden = maxActual + 1;
   }
 
+  if (nombre.length > 60) {
+    mostrarMensajeEn("categoriasMsg", "El nombre puede tener como máximo 60 caracteres.", true);
+    return;
+  }
+
   if (btn) { btn.disabled = true; btn.textContent = "Guardando..."; }
 
   try {
     const ref = db.ref("categorias").push();
-    let urlFinal = categoriaImagenData;
 
-    if (storage) {
-      try {
-        const sref = storage.ref("categorias/" + ref.key + ".jpg");
-        await sref.putString(categoriaImagenData, "data_url");
-        urlFinal = await sref.getDownloadURL();
-      } catch (e) {
-        console.warn("Storage no disponible, se guarda la imagen embebida:", e.message);
-      }
-    }
-
-    await ref.set({
+    await conTimeout(ref.set({
       nombre,
       nombreLower: normalizarTexto(nombre),
-      imagen: urlFinal,
+      imagen: categoriaImagenData,
       orden: orden,
       fecha: Date.now(),
       creadoPor: auth.currentUser ? auth.currentUser.uid : ""
-    });
+    }), 20000, "La conexión tardó demasiado y la categoría no se guardó. Revisa tu internet e inténtalo de nuevo.");
 
     mostrarMensajeEn("categoriasMsg", "Categoría “" + nombre + "” agregada en la posición " + orden + ".");
     limpiarFormCategoria();
@@ -2226,7 +2285,6 @@ async function eliminarCategoria(id) {
 
   db.ref("categorias/" + id).remove()
     .then(() => {
-      if (storage) storage.ref("categorias/" + id + ".jpg").delete().catch(() => {});
       mostrarMensajeEn("categoriasMsg", "Categoría eliminada.");
     })
     .catch((err) => mostrarMensajeEn("categoriasMsg", "Error: " + err.message, true));
@@ -2326,6 +2384,7 @@ function cargarCategorias() {
   db.ref("categorias").on("value", (snap) => {
     categoriasCache = snap.val() || {};
     renderCategorias();
+    renderAvisoOptimizar();
   }, (err) => {
     categoriasCache = {};
     renderCategorias();
@@ -2509,7 +2568,9 @@ function cargarProductos() {
     const secStock = document.getElementById("secStock");
     if (secStock && secStock.classList.contains("activo")) cargarCuentasStock(true);
     renderStock();
-    renderCategorias();
+    /* El grid de categorías (con logos) solo se repinta si está a la vista */
+    const secCat = document.getElementById("secCategorias");
+    if (secCat && secCat.classList.contains("activo")) renderCategorias();
     renderVentas();
     renderVentasHoy();
     renderProveedores();
