@@ -416,6 +416,255 @@ function avisarSinPermisos(nodo, error) {
   cont.insertBefore(box, cont.firstChild);
 }
 
+
+/* =========================================================
+   PANTALLA DE CARGA DEL PANEL (v6)
+   Muestra qué se está cargando. Con datos móviles lentos, a
+   los 6 s aparece "Entrar sin esperar"; a los 20 s se abre sola.
+========================================================= */
+
+const NVA_PASOS = [
+  ["usuarios",   "Usuarios"],
+  ["productos",  "Productos"],
+  ["recargas",   "Recargas"],
+  ["retiros",    "Retiros"],
+  ["reembolsos", "Reembolsos"],
+  ["tickets",    "Tickets de soporte"],
+  ["ventas",     "Ventas"]
+];
+let nvaPasosListos = {};
+let nvaBootTimers = [];
+
+function nvaPintarPasos() {
+  const ul = document.getElementById("nvaBootingPasos");
+  if (!ul) return;
+  ul.innerHTML = NVA_PASOS.map(([k, t]) => {
+    const st = nvaPasosListos[k];
+    const cls = st === "ok" ? "ok" : (st === "err" ? "err" : "");
+    const ico = st === "ok" ? "✓" : (st === "err" ? "!" : "•");
+    return '<li class="' + cls + '"><span>' + ico + '</span>' + escaparHTML(t) + '</li>';
+  }).join("");
+
+  const total = NVA_PASOS.length;
+  const listos = NVA_PASOS.filter(([k]) => nvaPasosListos[k]).length;
+  const fill = document.getElementById("nvaBootingBarFill");
+  if (fill) fill.style.width = Math.round((listos / total) * 100) + "%";
+}
+
+function nvaMostrarBooting(titulo, conPasos) {
+  const el = document.getElementById("nvaBooting");
+  if (!el) return;
+  setTxt("nvaBootingTitulo", titulo || "Cargando panel...");
+  el.classList.toggle("conPasos", !!conPasos);
+  el.classList.remove("off");
+  if (conPasos) {
+    nvaPasosListos = {};
+    nvaPintarPasos();
+    nvaBootTimers.forEach(clearTimeout);
+    nvaBootTimers = [
+      setTimeout(() => {
+        setTxt("nvaBootingNota", "Tu conexión está lenta. Puedes entrar y los datos terminarán de llegar solos.");
+        const b = document.getElementById("nvaBootingSaltar");
+        if (b) b.style.display = "";
+      }, 6000),
+      setTimeout(nvaOcultarBooting, 20000)
+    ];
+  }
+}
+
+function nvaOcultarBooting() {
+  nvaBootTimers.forEach(clearTimeout);
+  nvaBootTimers = [];
+  const el = document.getElementById("nvaBooting");
+  if (el) el.classList.add("off");
+}
+
+function nvaPasoListo(clave, conError) {
+  if (nvaPasosListos[clave]) return;
+  nvaPasosListos[clave] = conError ? "err" : "ok";
+  nvaPintarPasos();
+  if (NVA_PASOS.every(([k]) => nvaPasosListos[k])) setTimeout(nvaOcultarBooting, 250);
+}
+
+/* =========================================================
+   OPTIMIZAR BASE DE DATOS (v6)
+   Las imágenes de productos, los comprobantes de recarga y las
+   fotos copiadas en cada compra estaban guardadas DENTRO de los
+   registros. Eso hacía que cada lectura descargara varios MB.
+   Esta herramienta (se usa una sola vez) las mueve a nodos
+   aparte: /productosImg y /comprobantes.
+========================================================= */
+
+function optMsg(texto, esError) {
+  document.querySelectorAll(".nvaOptimizarMsg").forEach((el) => {
+    el.textContent = texto;
+    el.style.color = esError ? "#ff9aa6" : "#7be3ac";
+  });
+}
+
+function contarPesados() {
+  let prods = 0, comps = 0;
+  Object.values(productosCache || {}).forEach((p) => {
+    if (p && String(p.imagen || "").indexOf("data:") === 0) prods++;
+  });
+  Object.values(recargasCache || {}).forEach((r) => {
+    if (r && String(r.comprobanteURL || "").indexOf("data:") === 0) comps++;
+  });
+  return { prods, comps };
+}
+
+function renderAvisoOptimizar() {
+  const box = document.getElementById("nvaOptimizarAviso");
+  if (!box) return;
+  const c = contarPesados();
+  if (!c.prods && !c.comps) { box.classList.add("hidden"); return; }
+  box.classList.remove("hidden");
+  setTxt("nvaOptimizarTexto",
+    c.prods + " imagen(es) de producto y " + c.comps + " comprobante(s) siguen guardados dentro de los registros. " +
+    "Por eso el panel y el catálogo tardan en cargar con datos móviles.");
+}
+
+async function aplicarEnLotes(updates, etiqueta) {
+  const claves = Object.keys(updates);
+  let lote = {}, peso = 0, hechos = 0;
+
+  const enviar = async () => {
+    if (!Object.keys(lote).length) return;
+    await db.ref().update(lote);
+    hechos += Object.keys(lote).length;
+    optMsg(etiqueta + "… " + hechos + " / " + claves.length);
+    lote = {}; peso = 0;
+  };
+
+  for (const k of claves) {
+    const v = updates[k];
+    const t = typeof v === "string" ? v.length : 40;
+    if (peso + t > 3500000) await enviar();
+    lote[k] = v;
+    peso += t;
+  }
+  await enviar();
+}
+
+async function optimizarBaseDatos() {
+  const seguro = await nvaConfirmar(
+    "Optimizar base de datos",
+    "Se moverán las imágenes de productos, los comprobantes de recarga y las fotos guardadas en las compras " +
+    "a nodos separados. No se borra ninguna imagen ni ningún dato.\n\n" +
+    "Hazlo con buena conexión (WiFi): la primera vez descarga todo una sola vez. Puede tardar 1–2 minutos.\n\n¿Continuar?",
+    "⚡"
+  );
+  if (!seguro) return;
+
+  const btns = document.querySelectorAll(".nvaBtnOptimizar");
+  btns.forEach((b) => { b.disabled = true; b.textContent = "Optimizando..."; });
+
+  try {
+    const ahora = Date.now();
+    let nProd = 0, nComp = 0, nCompra = 0;
+
+    /* 1) Productos */
+    optMsg("Revisando productos...");
+    const sp = await db.ref("productos").get();
+    const up1 = {};
+    sp.forEach((ch) => {
+      const img = String((ch.val() || {}).imagen || "");
+      if (img.indexOf("data:") !== 0) return;
+      up1["productosImg/" + ch.key] = img;
+      up1["productos/" + ch.key + "/imgV"] = ahora;
+      up1["productos/" + ch.key + "/imagen"] = null;
+      nProd++;
+    });
+    await aplicarEnLotes(up1, "Productos");
+
+    /* 2) Comprobantes de recarga */
+    optMsg("Revisando recargas...");
+    const sr = await db.ref("recargas").get();
+    const up2 = {};
+    sr.forEach((ch) => {
+      const url = String((ch.val() || {}).comprobanteURL || "");
+      if (url.indexOf("data:") !== 0) return;
+      up2["comprobantes/" + ch.key] = url;
+      up2["recargas/" + ch.key + "/comprobanteEnBD"] = true;
+      up2["recargas/" + ch.key + "/comprobanteURL"] = null;
+      nComp++;
+    });
+    await aplicarEnLotes(up2, "Comprobantes");
+
+    /* 3) Fotos copiadas dentro de las compras de los clientes */
+    optMsg("Revisando compras de clientes...");
+    const sc = await db.ref("compras").get();
+    const up3 = {};
+    sc.forEach((cli) => {
+      cli.forEach((compra) => {
+        const items = (compra.val() || {}).items;
+        if (!items || typeof items !== "object") return;
+        Object.keys(items).forEach((i) => {
+          const it = items[i] || {};
+          if (String(it.imagen || "").indexOf("data:") !== 0) return;
+          up3["compras/" + cli.key + "/" + compra.key + "/items/" + i + "/imagen"] = null;
+          nCompra++;
+        });
+      });
+    });
+    await aplicarEnLotes(up3, "Compras");
+
+    mostrarMensajeEn("optimizarMsg",
+      "✓ Listo: " + nProd + " producto(s), " + nComp + " comprobante(s) y " + nCompra + " foto(s) de compras optimizadas.");
+    mostrarToast("⚡ Base de datos optimizada. El catálogo y el panel ya cargan más rápido.");
+    renderAvisoOptimizar();
+  } catch (err) {
+    optMsg("Error: " + err.message + ". Lo que ya se movió queda bien; puedes volver a intentarlo.", true);
+  } finally {
+    btns.forEach((b) => { b.disabled = false; b.textContent = "⚡ Optimizar base de datos"; });
+  }
+}
+
+/* ---------- Comprobante guardado en /comprobantes ---------- */
+
+async function verComprobanteRecarga(id) {
+  const it = recargasCache[id] || {};
+  const url = String(it.comprobanteURL || "").trim();
+  if (url) { verComprobante(url); return; }
+  if (!it.comprobanteEnBD) { mostrarToast("Esta recarga no tiene comprobante.", true); return; }
+
+  const modal = document.getElementById("nvaComprobanteModal");
+  const loader = document.getElementById("nvaComprobanteLoader");
+  const img = document.getElementById("nvaComprobanteImg");
+  if (loader) { loader.style.display = "flex"; loader.innerHTML = '<div class="nvaComprobanteSpinner"></div><span>Cargando comprobante...</span>'; }
+  if (img) { img.style.display = "none"; img.removeAttribute("src"); }
+  if (modal) modal.classList.add("show");
+
+  try {
+    const s = await db.ref("comprobantes/" + id).get();
+    const d = String(s.val() || "");
+    if (!d) throw new Error("vacío");
+    verComprobante(d);
+  } catch (e) {
+    if (loader) loader.innerHTML = "⚠️ No se pudo cargar el comprobante.";
+  }
+}
+
+/* ---------- Cuentas: se leen solo cuando hacen falta ---------- */
+
+let cuentasCargando = null;
+
+function cargarCuentasStock(forzar) {
+  if (cuentasCargando && !forzar) return cuentasCargando;
+  const ids = Object.keys(productosCache || {}).filter((id) => {
+    const p = productosCache[id] || {};
+    return p.stockIlimitado !== true && p.tipoEntrega !== "descarga";
+  });
+
+  cuentasCargando = Promise.all(ids.map((pid) =>
+    db.ref("cuentas/" + pid).get()
+      .then((s) => { cuentasCache[pid] = s.val() || {}; })
+      .catch(() => { cuentasCache[pid] = {}; })
+  )).then(() => { renderStock(); });
+
+  return cuentasCargando;
+}
+
 /* =========================================================
    NAVEGACIÓN
 ========================================================= */
@@ -431,6 +680,9 @@ function irASeccion(targetId) {
 
   const dashboard = document.getElementById("dashboardResumen");
   if (dashboard) dashboard.classList.toggle("hiddenSection", targetId !== "dashboardResumen");
+
+  if (targetId === "secStock" && panelYaCargado) cargarCuentasStock();
+  if (targetId === "secTickets" && typeof renderTickets === "function") renderTickets();
 
   cerrarSidebar();
 
@@ -514,12 +766,13 @@ function loginAdmin() {
 function cerrarSesion() {
   limpiarAdminInactividad();
   auth.signOut()
-    .then(() => window.location.replace("novaadmin.html"))
-    .catch(() => window.location.replace("novaadmin.html"));
+    .then(() => window.location.replace("novaadmin"))
+    .catch(() => window.location.replace("novaadmin"));
 }
 
 auth.onAuthStateChanged(async (user) => {
   if (!user) {
+    nvaOcultarBooting();
     limpiarAdminInactividad();
     panelYaCargado = false;
     recargasInicializadas = false;
@@ -531,9 +784,11 @@ auth.onAuthStateChanged(async (user) => {
     return;
   }
 
+  nvaMostrarBooting("Verificando acceso...", false);
   const autorizado = await esAdminAutorizado(user);
 
   if (!autorizado) {
+    nvaOcultarBooting();
     loginSection.classList.add("hidden");
     panelSection.classList.remove("hidden");
     adminInfo.textContent = user.email + " · SIN PERMISOS";
@@ -549,7 +804,13 @@ auth.onAuthStateChanged(async (user) => {
   actualizarBotonTiempoActivo();
   pintarConstantes();
 
-  if (!panelYaCargado) { cargarPanel(); panelYaCargado = true; }
+  if (!panelYaCargado) {
+    nvaMostrarBooting("Cargando panel...", true);
+    cargarPanel();
+    panelYaCargado = true;
+  } else {
+    nvaOcultarBooting();
+  }
 
   iniciarControlInactividad();
 });
@@ -597,7 +858,7 @@ function reiniciarAdminInactividad() {
 
   adminTimeoutLogout = setTimeout(() => {
     limpiarAdminInactividad();
-    auth.signOut().finally(() => window.location.replace("novaadmin.html"));
+    auth.signOut().finally(() => window.location.replace("novaadmin"));
   }, TIEMPO_INACTIVIDAD_ADMIN);
 }
 
@@ -641,6 +902,12 @@ function inicializarBuscadores() {
   conectarBuscador("buscarVentasHoy", (v) => { filtroVentasHoy = v; renderVentasHoy(); });
   conectarBuscador("buscarUsuarios", (v) => { filtroUsuarios = v; renderUsuarios(); });
   conectarBuscador("buscarProveedores", (v) => { filtroProveedores = v; renderProveedores(); });
+  conectarBuscador("buscarTickets", (v) => { filtroTickets = v; renderTickets(); });
+  const selTk = document.getElementById("filtroTicketsEstado");
+  if (selTk && !selTk.dataset.ok) {
+    selTk.addEventListener("change", () => { filtroTicketsEstado = selTk.value; renderTickets(); });
+    selTk.dataset.ok = "1";
+  }
 }
 
 /* =========================================================
@@ -651,22 +918,26 @@ function cargarPanel() {
   inicializarBuscadores();
   prepararUploadCategoria();
 
+  /* Orden pensado para datos móviles: primero lo que se ve en el
+     resumen, luego el resto. Las cuentas (credenciales) ya no se
+     descargan al entrar: solo al abrir «Catálogo y stock». */
   cargarUsuarios();
-  cargarProveedoresPublicos();
   cargarProductos();
-  cargarStock();
   cargarRecargas();
+  cargarProveedoresPublicos();
+  cargarStock();
   cargarCategorias();
 
   setTimeout(() => {
     cargarRetiros();
     cargarComisiones();
     cargarReembolsos();
-  }, 500);
+    if (typeof cargarTickets === "function") cargarTickets(); else nvaPasoListo("tickets");
+  }, 300);
 
   setTimeout(() => {
     cargarVentas();
-  }, 1200);
+  }, 900);
 }
 
 /* =========================================================
@@ -714,6 +985,7 @@ function contarPendientes(cache) {
 }
 
 function stockRealDeCuentas(productoId) {
+  if (!cuentasCache[productoId]) return null;
   const cuentas = cuentasCache[productoId] || {};
   return Object.values(cuentas).filter((c) => estadoNorm(c.estado, "disponible") === "disponible").length;
 }
@@ -912,7 +1184,7 @@ async function eliminarRecarga(id) {
   const seguro = await nvaConfirmar("Eliminar recarga", "¿Eliminar esta recarga del historial?", "🗑️");
   if (!seguro) return;
 
-  db.ref("recargas/" + id).remove()
+  db.ref().update({ ["recargas/" + id]: null, ["comprobantes/" + id]: null })
     .then(() => mostrarMensajeEn("recargaMsg", "Recarga eliminada del historial."))
     .catch((err) => mostrarMensajeEn("recargaMsg", "Error: " + err.message, true));
 }
@@ -968,12 +1240,12 @@ function renderRecargas() {
     const nombre = it.clienteNombre || nombreUsuario(u);
     const monto = montoRecarga(it);
     const resuelto = estado === "aprobada" || estado === "rechazada";
-    const comp = String(it.comprobanteURL || "").trim();
+    const tieneComp = !!(String(it.comprobanteURL || "").trim() || it.comprobanteEnBD);
 
-    /* El comprobante ahora abre un modal con la imagen DENTRO del
-       panel, en vez de navegar a un link nuevo. */
-    const compHtml = comp
-      ? `<button type="button" class="nvaCompLink" onclick="verComprobante('${escaparParaJS(comp)}')">🖼️ Ver comprobante</button>`
+    /* El comprobante se abre en un modal dentro del panel y se
+       descarga solo al pulsar (no al cargar la tabla). */
+    const compHtml = tieneComp
+      ? `<button type="button" class="nvaCompLink" onclick="verComprobanteRecarga('${escaparParaJS(id)}')">🖼️ Ver comprobante</button>`
       : `<span class="nvaCompLink disabled">Sin comprobante</span>`;
 
     const acciones = resuelto
@@ -1015,10 +1287,12 @@ function renderRecargas() {
 }
 
 function cargarRecargas() {
-  db.ref("recargas").limitToLast(250).on("value", (snap) => {
+  db.ref("recargas").limitToLast(150).on("value", (snap) => {
     recargasCache = snap.val() || {};
     console.log("✅ recargas:", Object.keys(recargasCache).length);
+    nvaPasoListo("recargas");
     renderRecargas();
+    renderAvisoOptimizar();
 
     const nuevas = {};
     Object.keys(recargasCache).forEach((id) => {
@@ -1039,6 +1313,7 @@ function cargarRecargas() {
     recargasPendientesPrev = nuevas;
   }, (err) => {
     recargasCache = {};
+    nvaPasoListo("recargas", true);
     renderRecargas();
     avisarSinPermisos("recargas", err);
   });
@@ -1268,6 +1543,7 @@ function cargarRetiros() {
   db.ref("retirosProveedores").limitToLast(250).on("value", (snap) => {
     retirosCache = snap.val() || {};
     console.log("✅ retirosProveedores:", Object.keys(retirosCache).length);
+    nvaPasoListo("retiros");
     renderRetiros();
 
     const nuevos = {};
@@ -1289,6 +1565,7 @@ function cargarRetiros() {
     retirosPendientesPrev = nuevos;
   }, (err) => {
     retirosCache = {};
+    nvaPasoListo("retiros", true);
     renderRetiros();
     avisarSinPermisos("retirosProveedores", err);
   });
@@ -1495,12 +1772,264 @@ function cargarReembolsos() {
   db.ref("reembolsos").limitToLast(250).on("value", (snap) => {
     reembolsosCache = snap.val() || {};
     console.log("✅ reembolsos:", Object.keys(reembolsosCache).length);
+    nvaPasoListo("reembolsos");
     renderReembolsos();
   }, (err) => {
     reembolsosCache = {};
+    nvaPasoListo("reembolsos", true);
     renderReembolsos();
     avisarSinPermisos("reembolsos", err);
   });
+}
+
+/* =========================================================
+   TICKETS DE SOPORTE (v6)
+   El admin ve todos los tickets entre clientes y proveedores,
+   puede responder como «Soporte NovaStream» y cambiar la etapa.
+========================================================= */
+
+const NVA_TK_ESTADOS = { revision: "En revisión", pendiente: "Pendiente", resuelto: "Resuelto" };
+
+let ticketsCache = {};
+let ticketsInicializados = false;
+let filtroTickets = "";
+let filtroTicketsEstado = "todos";
+let nvaTkActual = null;
+
+function nvaTkNumero(id) { return "#" + String(id || "").slice(-6).toUpperCase(); }
+function nvaTkEstado(t) {
+  const e = String((t && t.estado) || "revision").toLowerCase();
+  return NVA_TK_ESTADOS[e] ? e : "revision";
+}
+function nvaTkMensajes(t) {
+  const m = (t && t.mensajes) || {};
+  return Object.keys(m).map((k) => Object.assign({ id: k }, m[k] || {}))
+    .sort((a, b) => num(a.fecha) - num(b.fecha));
+}
+function nvaTkBadge(est) { return `<span class="tkBadge ${est}">${NVA_TK_ESTADOS[est]}</span>`; }
+
+function cargarTickets() {
+  db.ref("tickets").orderByChild("actualizado").limitToLast(300).on("value", (snap) => {
+    const antes = ticketsCache;
+    ticketsCache = snap.val() || {};
+    nvaPasoListo("tickets");
+
+    if (ticketsInicializados) {
+      const nuevos = Object.keys(ticketsCache).filter((id) => !antes[id]);
+      if (nuevos.length) mostrarToast("🎫 Nuevo ticket de soporte: " + (ticketsCache[nuevos[0]].productoNombre || ""));
+    }
+    ticketsInicializados = true;
+
+    renderTickets();
+    const m = document.getElementById("nvaTicketModal");
+    if (nvaTkActual && m && m.classList.contains("show")) pintarTicketAdmin();
+  }, (err) => {
+    ticketsCache = {};
+    nvaPasoListo("tickets", true);
+    renderTickets();
+    console.error("tickets:", err && err.message);
+  });
+}
+
+function renderTickets() {
+  const data = ticketsCache || {};
+  let ids = Object.keys(data).filter((id) => data[id] && typeof data[id] === "object");
+
+  const cuenta = { revision: 0, pendiente: 0, resuelto: 0 };
+  ids.forEach((id) => { cuenta[nvaTkEstado(data[id])]++; });
+
+  setTxt("ticketsRevisionCount", String(cuenta.revision));
+  setTxt("ticketsPendienteCount", String(cuenta.pendiente));
+  setTxt("ticketsResueltoCount", String(cuenta.resuelto));
+  setTxt("totalTicketsRevision", String(cuenta.revision));
+  const badge = document.getElementById("badgeTickets");
+  if (badge) badge.textContent = String(cuenta.revision);
+
+  const tbody = document.querySelector("#tablaTickets tbody");
+  const tabla = document.getElementById("tablaTickets");
+  const vacio = document.getElementById("ticketsVacio");
+  if (!tbody || !tabla || !vacio) return;
+
+  if (filtroTicketsEstado !== "todos") ids = ids.filter((id) => nvaTkEstado(data[id]) === filtroTicketsEstado);
+  if (filtroTickets) {
+    ids = ids.filter((id) => {
+      const t = data[id];
+      return coincideFiltro([nvaTkNumero(id), id, t.clienteNombre, t.clienteCorreo, t.proveedorNombre,
+        t.productoNombre, t.motivoTitulo, t.cuentaCorreo].join(" "), filtroTickets);
+    });
+  }
+
+  ids.sort((a, b) => ts(data[b].actualizado) - ts(data[a].actualizado));
+
+  if (!ids.length) {
+    tbody.innerHTML = "";
+    tabla.classList.add("hidden");
+    vacio.classList.remove("hidden");
+    return;
+  }
+
+  tbody.innerHTML = ids.map((id) => {
+    const t = data[id];
+    const est = nvaTkEstado(t);
+    const msgs = nvaTkMensajes(t).filter((m) => m.tipo !== "estado");
+    const ult = msgs[msgs.length - 1];
+    const prov = (proveedoresPublicosCache[t.proveedorId] || {}).nombre || t.proveedorNombre;
+    const quien = ult ? (ult.autor === "cliente" ? "Cliente" : (ult.autor === "admin" ? "Admin" : "Proveedor")) : "";
+
+    return `
+      <tr>
+        <td><small>${escaparHTML(formatearFecha(t.actualizado))}</small></td>
+        <td><strong style="font-family:var(--font-mono)">${escaparHTML(nvaTkNumero(id))}</strong>${t.noLeidoAdmin ? '<br><span class="nvaBadge warn">nuevo</span>' : ""}</td>
+        <td>
+          <div class="nvaEntity">
+            <strong>${escaparHTML(textoSeguro(t.clienteNombre))}</strong>
+            <small>${escaparHTML(textoSeguro(t.clienteCorreo, ""))}</small>
+          </div>
+        </td>
+        <td>${escaparHTML(textoSeguro(prov))}</td>
+        <td>
+          <div class="nvaEntity">
+            <strong>${escaparHTML(textoSeguro(t.productoNombre))}</strong>
+            <small>${escaparHTML(textoSeguro(t.motivoTitulo, ""))}</small>
+          </div>
+        </td>
+        <td>${nvaTkBadge(est)}</td>
+        <td><small class="nvaTkSnippet">${ult ? escaparHTML(quien + ": " + ult.texto) : "-"}</small></td>
+        <td>
+          <div class="nvaActions">
+            <button class="nvaBtnMini ok" onclick="verTicketAdmin('${escaparParaJS(id)}')">Ver</button>
+            <button class="nvaBtnMini soft" onclick="eliminarTicket('${escaparParaJS(id)}')">Eliminar</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join("");
+
+  tabla.classList.remove("hidden");
+  vacio.classList.add("hidden");
+}
+
+function verTicketAdmin(id) {
+  if (!ticketsCache[id]) return;
+  nvaTkActual = id;
+  const r = document.getElementById("nvaTkRespuesta");
+  if (r) r.value = "";
+  pintarTicketAdmin();
+  document.getElementById("nvaTicketModal").classList.add("show");
+  if (ticketsCache[id].noLeidoAdmin) db.ref("tickets/" + id + "/noLeidoAdmin").set(false).catch(() => {});
+}
+
+function cerrarTicketAdmin() {
+  const m = document.getElementById("nvaTicketModal");
+  if (m) m.classList.remove("show");
+  nvaTkActual = null;
+}
+
+function pintarTicketAdmin() {
+  const t = ticketsCache[nvaTkActual];
+  if (!t) { cerrarTicketAdmin(); return; }
+  const est = nvaTkEstado(t);
+  const prov = (proveedoresPublicosCache[t.proveedorId] || {}).nombre || t.proveedorNombre || "Proveedor";
+
+  setTxt("nvaTkTitulo", (t.productoNombre || "Producto") + " · " + nvaTkNumero(nvaTkActual));
+  const sub = document.getElementById("nvaTkSub");
+  if (sub) sub.innerHTML = nvaTkBadge(est) + " &nbsp;Abierto el " + escaparHTML(formatearFecha(t.fecha));
+
+  const info = document.getElementById("nvaTkInfo");
+  if (info) info.innerHTML = `
+    <div class="tkInfoItem"><span>Cliente</span><strong>${escaparHTML(textoSeguro(t.clienteNombre))}</strong></div>
+    <div class="tkInfoItem"><span>Proveedor</span><strong>${escaparHTML(prov)}</strong></div>
+    <div class="tkInfoItem"><span>Motivo</span><strong>${escaparHTML(textoSeguro(t.motivoTitulo))}</strong></div>
+    <div class="tkInfoItem"><span>Cuenta</span><strong>${escaparHTML(textoSeguro(t.cuentaCorreo))}${t.cuentaPerfil ? " · " + escaparHTML(t.cuentaPerfil) : ""}</strong></div>`;
+
+  const orden = ["revision", "pendiente", "resuelto"];
+  const idx = orden.indexOf(est);
+  const pasos = document.getElementById("nvaTkPasos");
+  if (pasos) pasos.innerHTML = orden.map((e, i) => {
+    const hecho = i < idx || (idx === 2 && i === 2);
+    return `<div class="tkPaso${hecho ? " hecho" : (i === idx ? " actual" : "")}"><span>${hecho ? "✓" : i + 1}</span><small>${NVA_TK_ESTADOS[e]}</small></div>`;
+  }).join('<div class="tkPasoLinea"></div>');
+
+  const hilo = document.getElementById("nvaTkMensajes");
+  if (hilo) {
+    const msgs = nvaTkMensajes(t);
+    hilo.innerHTML = msgs.length ? msgs.map((m) => {
+      if (m.tipo === "estado") {
+        return `<div class="tkMsg sistema"><div class="tkMsgTexto">${escaparHTML(m.texto)} · ${escaparHTML(formatearFecha(m.fecha))}</div></div>`;
+      }
+      const esAdmin = m.autor === "admin";
+      const autor = esAdmin ? "Soporte NovaStream (admin)"
+        : (m.autor === "cliente" ? "Cliente · " + (m.autorNombre || t.clienteNombre || "") : "Proveedor · " + (m.autorNombre || prov));
+      return `<div class="tkMsg ${esAdmin ? "mio admin" : (m.autor === "cliente" ? "otro" : "otro proveedor")}">
+        <span class="tkMsgAutor">${escaparHTML(autor)}</span>
+        <div class="tkMsgTexto">${escaparHTML(m.texto)}</div>
+        <span class="tkMsgFecha">${escaparHTML(formatearFecha(m.fecha))}</span>
+      </div>`;
+    }).join("") : '<div class="tkVacio">Sin mensajes.</div>';
+    hilo.scrollTop = hilo.scrollHeight;
+  }
+
+  const sel = document.getElementById("nvaTkEstadoSel");
+  if (sel) sel.value = est;
+}
+
+async function responderTicketAdmin() {
+  if (!nvaTkActual) return;
+  const input = document.getElementById("nvaTkRespuesta");
+  const texto = String((input && input.value) || "").trim();
+  if (texto.length < 2) { mostrarToast("Escribe un mensaje.", true); return; }
+
+  const ahora = Date.now();
+  const base = "tickets/" + nvaTkActual + "/";
+  const mid = db.ref(base + "mensajes").push().key;
+  const up = {};
+  up[base + "mensajes/" + mid] = {
+    autor: "admin", autorId: auth.currentUser ? auth.currentUser.uid : "",
+    autorNombre: "Soporte NovaStream", texto: texto.slice(0, 1000), fecha: ahora
+  };
+  up[base + "actualizado"] = ahora;
+  up[base + "ultimoAutor"] = "admin";
+  up[base + "noLeidoCliente"] = true;
+  up[base + "noLeidoProveedor"] = true;
+  up[base + "noLeidoAdmin"] = false;
+
+  try {
+    await db.ref().update(up);
+    if (input) input.value = "";
+  } catch (err) {
+    mostrarToast("No se pudo enviar: " + err.message, true);
+  }
+}
+
+async function cambiarEstadoTicketAdmin() {
+  const t = ticketsCache[nvaTkActual];
+  const sel = document.getElementById("nvaTkEstadoSel");
+  if (!t || !sel) return;
+  const nuevo = sel.value;
+  if (!NVA_TK_ESTADOS[nuevo] || nuevo === nvaTkEstado(t)) return;
+
+  const ahora = Date.now();
+  const base = "tickets/" + nvaTkActual + "/";
+  const mid = db.ref(base + "mensajes").push().key;
+  const up = {};
+  up[base + "estado"] = nuevo;
+  up[base + "actualizado"] = ahora;
+  up[base + "noLeidoCliente"] = true;
+  up[base + "noLeidoProveedor"] = true;
+  up[base + "mensajes/" + mid] = {
+    autor: "admin", autorId: auth.currentUser ? auth.currentUser.uid : "", autorNombre: "Soporte NovaStream",
+    tipo: "estado", fecha: ahora, texto: "Soporte NovaStream cambió la etapa a «" + NVA_TK_ESTADOS[nuevo] + "»"
+  };
+
+  try { await db.ref().update(up); mostrarToast("Etapa actualizada a " + NVA_TK_ESTADOS[nuevo] + "."); }
+  catch (err) { mostrarToast("Error: " + err.message, true); }
+}
+
+async function eliminarTicket(id) {
+  const seguro = await nvaConfirmar("Eliminar ticket", "¿Eliminar el ticket " + nvaTkNumero(id) + " y toda su conversación?", "🗑️");
+  if (!seguro) return;
+  db.ref("tickets/" + id).remove()
+    .then(() => { if (nvaTkActual === id) cerrarTicketAdmin(); mostrarToast("Ticket eliminado."); })
+    .catch((err) => mostrarToast("Error: " + err.message, true));
 }
 
 /* =========================================================
@@ -1826,9 +2355,15 @@ async function eliminarProductoModeracion(productoId) {
   );
   if (!seguro) return;
 
+  if (!cuentasCache[productoId]) {
+    try { const s = await db.ref("cuentas/" + productoId).get(); cuentasCache[productoId] = s.val() || {}; }
+    catch (e) { cuentasCache[productoId] = {}; }
+  }
+
   const updates = {};
   updates["productos/" + productoId] = null;
   updates["stock/" + productoId] = null;
+  updates["productosImg/" + productoId] = null;
 
   const cuentas = cuentasCache[productoId] || {};
   Object.keys(cuentas).forEach((cid) => {
@@ -1842,11 +2377,10 @@ async function eliminarProductoModeracion(productoId) {
     .catch((err) => mostrarMensajeEn("stockMsg", "Error: " + err.message, true));
 }
 
-function recalcularTodoElStock() {
-  if (!Object.keys(cuentasCache).length) {
-    mostrarMensajeEn("stockMsg", "Todavía se están cargando las cuentas. Intenta en unos segundos.", true);
-    return;
-  }
+async function recalcularTodoElStock() {
+  mostrarMensajeEn("stockMsg", "Leyendo las cuentas reales de cada producto...");
+  try { await cargarCuentasStock(true); }
+  catch (e) { mostrarMensajeEn("stockMsg", "No se pudieron leer las cuentas: " + e.message, true); return; }
 
   const updates = {};
   let cambios = 0;
@@ -1858,7 +2392,7 @@ function recalcularTodoElStock() {
     const real = stockRealDeCuentas(id);
     const actual = num(stockCache[id] ?? p.stock);
 
-    if (real !== actual) {
+    if (real !== null && real !== actual) {
       updates["stock/" + id] = real;
       updates["productos/" + id + "/stock"] = real;
       cambios++;
@@ -1969,7 +2503,11 @@ function cargarProductos() {
   db.ref("productos").on("value", (snap) => {
     productosCache = snap.val() || {};
     console.log("✅ productos:", Object.keys(productosCache).length);
-    sincronizarCuentas();
+    nvaPasoListo("productos");
+    renderAvisoOptimizar();
+    /* Si la sección de stock está abierta, se refrescan sus cuentas */
+    const secStock = document.getElementById("secStock");
+    if (secStock && secStock.classList.contains("activo")) cargarCuentasStock(true);
     renderStock();
     renderCategorias();
     renderVentas();
@@ -1977,6 +2515,7 @@ function cargarProductos() {
     renderProveedores();
   }, (err) => {
     productosCache = {};
+    nvaPasoListo("productos", true);
     renderStock();
     avisarSinPermisos("productos", err);
   });
@@ -2008,7 +2547,7 @@ function sincronizarCuentas() {
   });
 }
 
-function cargarCuentas() { sincronizarCuentas(); }
+function cargarCuentas() { return cargarCuentasStock(true); }
 
 /* =========================================================
    VENTAS
@@ -2132,12 +2671,14 @@ function cargarVentas() {
   db.ref("ventas").limitToLast(500).on("value", (snap) => {
     ventasCache = snap.val() || {};
     console.log("✅ ventas:", Object.keys(ventasCache).length);
+    nvaPasoListo("ventas");
     renderVentas();
     renderVentasHoy();
     renderUsuarios();
     renderProveedores();
   }, (err) => {
     ventasCache = {};
+    nvaPasoListo("ventas", true);
     renderVentas();
     renderVentasHoy();
     avisarSinPermisos("ventas", err);
@@ -2379,6 +2920,7 @@ function cargarUsuarios() {
   db.ref("usuarios").on("value", (snap) => {
     usuariosCache = snap.val() || {};
     console.log("✅ usuarios:", Object.keys(usuariosCache).length);
+    nvaPasoListo("usuarios");
     renderUsuarios();
     renderProveedores();
     renderAdmins();
@@ -2388,6 +2930,7 @@ function cargarUsuarios() {
     renderRetiros();
   }, (err) => {
     usuariosCache = {};
+    nvaPasoListo("usuarios", true);
     renderUsuarios();
     avisarSinPermisos("usuarios", err);
   });
@@ -2617,7 +3160,11 @@ async function vaciarNodoConfirmado(path, aviso) {
   );
   if (!seguro) return;
 
-  db.ref(path).remove()
+  const borrado = path === "recargas"
+    ? db.ref().update({ recargas: null, comprobantes: null })
+    : db.ref(path).remove();
+
+  borrado
     .then(() => {
       if (path === "recargas") {
         recargasCache = {};
@@ -2635,6 +3182,10 @@ async function vaciarNodoConfirmado(path, aviso) {
         retirosInicializados = false;
         renderRetiros();
         mostrarToast("Historial de retiros eliminado. (Las comisiones cobradas se conservan.)");
+      } else if (path === "tickets") {
+        ticketsCache = {};
+        renderTickets();
+        mostrarToast("Historial de tickets eliminado.");
       } else if (path === "ventas") {
         ventasCache = {};
         renderVentas();
@@ -2661,6 +3212,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     cerrarSidebar();
     cerrarComprobante();
+    cerrarTicketAdmin();
     const ovC = document.getElementById("nvaConfirmOverlay");
     if (ovC) ovC.classList.remove("show");
   }
@@ -2671,6 +3223,9 @@ document.addEventListener("keydown", (e) => {
 ========================================================= */
 
 document.addEventListener("DOMContentLoaded", () => {
+  /* Red de seguridad: la pantalla de carga nunca se queda colgada */
+  setTimeout(() => { if (!panelYaCargado) nvaOcultarBooting(); }, 12000);
+
   pintarConstantes();
   actualizarBotonTiempoActivo();
 
@@ -2682,6 +3237,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const compModal = document.getElementById("nvaComprobanteModal");
   if (compModal) {
     compModal.addEventListener("mousedown", (e) => { if (e.target === compModal) cerrarComprobante(); });
+  }
+
+  const tkModal = document.getElementById("nvaTicketModal");
+  if (tkModal) {
+    tkModal.addEventListener("mousedown", (e) => { if (e.target === tkModal) cerrarTicketAdmin(); });
   }
 
   const confOverlay = document.getElementById("nvaConfirmOverlay");
