@@ -2,19 +2,19 @@
 <html lang="es">
 <head>
   <!--
-    NOVASTREAM.VIP — recargas.html (v6)
+    NOVASTREAM.VIP — recargas (v6)
     ✅ CONECTADO A FIREBASE (Auth + Database + Storage)
 
     v6 (esta actualización):
     - NUEVO: menú de usuario en escritorio (avatar + nombre +
       saldo + accesos + cerrar sesión), mismo lenguaje visual
-      que el de catalogo.html.
+      que el de catalogo.
     - FIX (en recargas.js): la pantalla "Verificando tu sesión..."
       ya no se oculta apenas se registran los listeners de
       Firebase; ahora espera a que el PERFIL (saldo/nombre) Y el
       HISTORIAL ya estén pintados.
 
-    · Página protegida: sin sesión → login.html
+    · Página protegida: sin sesión → login
     · El saldo se lee de usuarios/{uid}/saldoUsd
     · Los datos de pago se leen de configuracion/metodosPago
       (si el admin no los configuró, usa los valores por defecto)
@@ -32,17 +32,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="icon" type="image/png" href="img/logo.png">
-  <link rel="stylesheet" href="novastream.css?v=10">
+  <link rel="stylesheet" href="novastream.css?v=11">
   <link rel="stylesheet" href="recargas.css?v=6">
-  <!-- 🎃 Edición Halloween: se apaga sola el 10 nov 2026 (11:59 pm Perú). Para quitarla antes: borra este bloque y el <script> de halloween.js al final -->
-  <script>
-  (function(){
-    if (Date.now() >= Date.UTC(2026,10,11,5,0,0)) return; /* 11 nov 00:00 Lima */
-    ["https://fonts.googleapis.com/css2?family=Creepster&display=swap","halloween.css?v=2"].forEach(function(h){
-      var l=document.createElement("link");l.rel="stylesheet";l.href=h;document.head.appendChild(l);
-    });
-  })();
-  </script>
 </head>
 
 <body class="nsBody">
@@ -57,15 +48,15 @@
   <header class="nsNav" id="nsNav">
     <div class="nsNavInner">
 
-      <a href="catalogo.html" class="nsBrand">
+      <a href="catalogo" class="nsBrand">
         <img src="img/logo.png" alt="NovaStream" class="nsBrandLogo">
         <span class="nsBrandText">NOVA<em>STREAM</em></span>
       </a>
 
       <nav class="nsNavLinks" id="nsNavLinks">
-        <a href="catalogo.html">Catálogo</a>
-        <a href="recargas.html" class="activo">Recargas</a>
-        <a href="mis-compras.html">Mis compras</a>
+        <a href="catalogo">Catálogo</a>
+        <a href="recargas" class="activo">Recargas</a>
+        <a href="mis-compras">Mis compras</a>
       </nav>
 
       <div class="nsNavActions">
@@ -75,7 +66,7 @@
           <span id="saldoUsuarioPen" class="nsSaldoValorPen">S/ 0.00</span>
         </div>
 
-        <!-- Menú de usuario (escritorio) — mismo lenguaje visual que catalogo.html -->
+        <!-- Menú de usuario (escritorio) — mismo lenguaje visual que catalogo -->
         <div class="nsUserMenu nsSoloAuth" id="nsUserMenu">
           <button type="button" class="nsUserMenuBtn" id="btnUserMenu" aria-haspopup="true" aria-expanded="false">
             <span class="nsUserAvatar" id="nsUserAvatarChip">N</span>
@@ -97,8 +88,8 @@
               <strong id="nsUserDropdownSaldoValor">$0.00</strong>
             </div>
 
-            <a href="catalogo.html" class="nsUserDropdownItem">🛍️ Catálogo</a>
-            <a href="mis-compras.html" class="nsUserDropdownItem">📋 Mis compras</a>
+            <a href="catalogo" class="nsUserDropdownItem">🛍️ Catálogo</a>
+            <a href="mis-compras" class="nsUserDropdownItem">📋 Mis compras</a>
             <button type="button" class="nsUserDropdownItem nsUserDropdownLogout" id="btnCerrarSesionDesktop">🚪 Cerrar sesión</button>
           </div>
         </div>
@@ -128,9 +119,9 @@
         </div>
       </div>
 
-      <a href="catalogo.html">Catálogo</a>
-      <a href="recargas.html">Recargas</a>
-      <a href="mis-compras.html">Mis compras</a>
+      <a href="catalogo">Catálogo</a>
+      <a href="recargas">Recargas</a>
+      <a href="mis-compras">Mis compras</a>
       <a href="#" id="linkSalirDrawer" class="nsDrawerSalir">Cerrar sesión</a>
     </aside>
   </div>
@@ -282,7 +273,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 
-  <script src="recargas.js?v=6"></script>
-  <script src="halloween.js?v=2" defer></script>
+  <script src="recargas.js?v=7"></script>
 </body>
 </html>
