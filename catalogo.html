@@ -13,16 +13,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="icon" type="image/png" href="img/logo.png">
-  <link rel="stylesheet" href="novastream.css?v=10">
-  <!-- 🎃 Edición Halloween: se apaga sola el 10 nov 2026 (11:59 pm Perú). Para quitarla antes: borra este bloque y el <script> de halloween.js al final -->
-  <script>
-  (function(){
-    if (Date.now() >= Date.UTC(2026,10,11,5,0,0)) return; /* 11 nov 00:00 Lima */
-    ["https://fonts.googleapis.com/css2?family=Creepster&display=swap","halloween.css?v=2"].forEach(function(h){
-      var l=document.createElement("link");l.rel="stylesheet";l.href=h;document.head.appendChild(l);
-    });
-  })();
-  </script>
+  <link rel="preconnect" href="https://novastream-aeb9d-default-rtdb.firebaseio.com" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="novastream.css?v=11">
 </head>
 
 <!-- Arranca en estado "cargando" para evitar parpadeos -->
@@ -37,15 +30,15 @@
   <header class="nsNav" id="nsNav">
     <div class="nsNavInner">
 
-      <a href="catalogo.html" class="nsBrand">
+      <a href="catalogo" class="nsBrand">
         <img src="img/logo.png" alt="NovaStream" class="nsBrandLogo">
         <span class="nsBrandText">NOVA<em>STREAM</em></span>
       </a>
 
       <nav class="nsNavLinks" id="nsNavLinks">
-        <a href="catalogo.html" class="activo">Catálogo</a>
-        <a href="recargas.html" class="nsSoloAuth">Recargas</a>
-        <a href="mis-compras.html" class="nsSoloAuth">Mis compras</a>
+        <a href="catalogo" class="activo">Catálogo</a>
+        <a href="recargas" class="nsSoloAuth">Recargas</a>
+        <a href="mis-compras" class="nsSoloAuth">Mis compras</a>
       </nav>
 
       <div class="nsNavActions">
@@ -89,14 +82,14 @@
               <strong id="nsUserDropdownSaldoValor">$0.00</strong>
             </div>
 
-            <a href="mis-compras.html" class="nsUserDropdownItem">📋 Mis compras</a>
-            <a href="recargas.html" class="nsUserDropdownItem">💳 Recargar saldo</a>
+            <a href="mis-compras" class="nsUserDropdownItem">📋 Mis compras</a>
+            <a href="recargas" class="nsUserDropdownItem">💳 Recargar saldo</a>
             <button type="button" class="nsUserDropdownItem nsUserDropdownLogout" id="btnCerrarSesionDesktop">🚪 Cerrar sesión</button>
           </div>
         </div>
 
         <!-- Botón Ingresar: solo visitante -->
-        <a href="login.html" class="nsBtnIngresar nsSoloInvitado">
+        <a href="login" class="nsBtnIngresar nsSoloInvitado">
           <svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
           <span>Ingresar</span>
         </a>
@@ -139,13 +132,13 @@
       <div class="nsDrawerGuest nsSoloInvitado">
         <strong>Estás navegando como invitado</strong>
         <span>Crea tu cuenta para comprar y recibir tus accesos al instante.</span>
-        <a href="registro.html" class="nsDrawerCta">Crear cuenta gratis</a>
-        <a href="login.html" class="nsDrawerCta2">Ya tengo cuenta</a>
+        <a href="registro" class="nsDrawerCta">Crear cuenta gratis</a>
+        <a href="login" class="nsDrawerCta2">Ya tengo cuenta</a>
       </div>
 
-      <a href="catalogo.html">Catálogo</a>
-      <a href="recargas.html" class="nsSoloAuth">Recargas</a>
-      <a href="mis-compras.html" class="nsSoloAuth">Mis compras</a>
+      <a href="catalogo">Catálogo</a>
+      <a href="recargas" class="nsSoloAuth">Recargas</a>
+      <a href="mis-compras" class="nsSoloAuth">Mis compras</a>
       <a href="#" id="linkFavoritosDrawer">Favoritos</a>
       <a href="#" id="linkSalirDrawer" class="nsSoloAuth nsDrawerSalir">Cerrar sesión</a>
     </aside>
@@ -174,8 +167,8 @@
       </div>
 
       <div class="nsGuestBtns">
-        <a href="registro.html" class="nsGuestBtnPrimary">Crear cuenta gratis</a>
-        <a href="login.html" class="nsGuestBtnGhost">Ingresar</a>
+        <a href="registro" class="nsGuestBtnPrimary">Crear cuenta gratis</a>
+        <a href="login" class="nsGuestBtnGhost">Ingresar</a>
       </div>
     </div>
 
@@ -208,7 +201,7 @@
       <div class="nsFooterGrid">
 
         <div class="nsFooterCol nsFooterColBrand">
-          <a href="catalogo.html" class="nsFooterBrand">
+          <a href="catalogo" class="nsFooterBrand">
             <img src="img/logo.png" alt="NovaStream" class="nsFooterLogo">
             <span class="nsFooterBrandText">NOVA<em>STREAM</em></span>
           </a>
@@ -226,11 +219,11 @@
 
         <div class="nsFooterCol">
           <h4>Navegación</h4>
-          <a href="catalogo.html">Catálogo</a>
-          <a href="recargas.html" class="nsSoloAuth">Recargar saldo</a>
-          <a href="mis-compras.html" class="nsSoloAuth">Mis compras</a>
-          <a href="registro.html" class="nsSoloInvitado">Crear cuenta</a>
-          <a href="login.html" class="nsSoloInvitado">Iniciar sesión</a>
+          <a href="catalogo">Catálogo</a>
+          <a href="recargas" class="nsSoloAuth">Recargar saldo</a>
+          <a href="mis-compras" class="nsSoloAuth">Mis compras</a>
+          <a href="registro" class="nsSoloInvitado">Crear cuenta</a>
+          <a href="login" class="nsSoloInvitado">Iniciar sesión</a>
           <a href="#" id="linkFooterFavoritos">Mis favoritos</a>
         </div>
 
@@ -305,8 +298,8 @@
           <div class="nsModalGuestCta nsSoloInvitado">
             <span>🔒 Necesitas una cuenta para comprar este producto.</span>
             <div>
-              <a href="registro.html" class="nsGuestBtnPrimary">Crear cuenta gratis</a>
-              <a href="login.html" class="nsGuestBtnGhost">Ingresar</a>
+              <a href="registro" class="nsGuestBtnPrimary">Crear cuenta gratis</a>
+              <a href="login" class="nsGuestBtnGhost">Ingresar</a>
             </div>
           </div>
         </div>
@@ -344,8 +337,8 @@
         <li><span>🔄</span> Reembolsos y renovaciones en un clic</li>
       </ul>
 
-      <a href="registro.html" class="nsAuthModalBtn">Crear cuenta gratis →</a>
-      <a href="login.html" class="nsAuthModalBtnGhost">Ya tengo cuenta</a>
+      <a href="registro" class="nsAuthModalBtn">Crear cuenta gratis →</a>
+      <a href="login" class="nsAuthModalBtnGhost">Ya tengo cuenta</a>
 
       <small class="nsAuthModalFoot">El registro es gratuito y toma menos de un minuto.</small>
     </div>
@@ -377,7 +370,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
-  <script src="novastream.js?v=9"></script>
-  <script src="halloween.js?v=2" defer></script>
+  <script src="novastream.js?v=11"></script>
 </body>
 </html>
