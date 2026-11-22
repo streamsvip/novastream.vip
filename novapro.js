@@ -25,9 +25,9 @@ const NP_MIN_RETIRO      = 5;                     // USD
 const NP_RETENCION_MS    = 24 * 60 * 60 * 1000;   // 24 h
 const NP_DIAS_AVISO      = 5;                     // aviso de vencimiento
 
-const NP_URL_LOGIN    = "login.html";
-const NP_URL_CATALOGO = "catalogo.html";
-const NP_URL_ADMIN    = "novaadmin.html";
+const NP_URL_LOGIN    = "login";
+const NP_URL_CATALOGO = "catalogo";
+const NP_URL_ADMIN    = "novaadmin";
 
 /* Niveles según el total histórico generado */
 const NP_NIVELES = [
@@ -71,6 +71,7 @@ let npCuentasRefs   = {};
 let npEditandoProd  = null;
 let npNuevoProdId   = null;
 let npImagenProducto = "";
+let npImgTienda = {};          // caché de imágenes de la vista de tienda
 let npCuentaEditPid = null;
 let npPanelIniciado = false;
 
@@ -204,7 +205,8 @@ const NP_TITULOS = {
   ventas:       ["Mis ventas", "Cada venta se acredita al 100% en tu saldo."],
   retiros:      ["Retiros", "Solicita tu dinero. Comisión fija del 20% al retirar."],
   reembolsos:   ["Reembolsos", "Solicitudes de devolución que afectan tus ventas."],
-  renovaciones: ["Renovaciones", "Confirma las extensiones de acceso que piden tus clientes."]
+  renovaciones: ["Renovaciones", "Confirma las extensiones de acceso que piden tus clientes."],
+  tickets:      ["Tickets de soporte", "Responde a tus clientes y lleva cada caso de En revisión a Resuelto."]
 };
 
 function irASeccion(seccion){
@@ -377,6 +379,9 @@ function iniciarPanel(){
     renderRenovaciones();
     renderResumen();
   }, () => { npRenovaciones = {}; renderRenovaciones(); });
+
+  /* Tickets de soporte de mis clientes */
+  escucharTicketsProv();
 
   generarNuevoIdProducto();
 }
@@ -1359,7 +1364,6 @@ async function guardarProducto(event){
       stockIlimitado:  ilimitado,
       descripcion:     descripcion || "Sin descripción disponible.",
       reglas:          reglas,
-      imagen:          npImagenProducto || ant.imagen || "",
       modoEntrega:     modoEntrega,
       aplicaReembolso: reembolso,
       esRenovable:     esRenovable === "si",
@@ -1368,12 +1372,32 @@ async function guardarProducto(event){
       fechaCreacion:   editando ? (num(ant.fechaCreacion) || Date.now()) : Date.now()
     };
 
+    /* v13: la imagen se guarda aparte en /productosImg/{id} para que el
+       catálogo cargue rápido. Si el producto todavía la tenía embebida,
+       se mueve automáticamente al guardar. */
+    const imgAnterior = String(ant.imagen || "");
+    let imgNueva = npImagenProducto || "";
+    if (!imgNueva && imgAnterior.indexOf("data:") === 0) imgNueva = imgAnterior;
+
+    if (imgNueva) data.imgV = Date.now();
+    else if (ant.imgV) data.imgV = ant.imgV;
+    else if (imgAnterior) data.imagen = imgAnterior;          // URL externa
+
     try {
       await db.ref("productos/" + id).set(data);
       console.log("✅ productos OK");
     } catch (e) {
       console.error("❌ FALLÓ EN productos:", e.message);
       throw e;
+    }
+
+    if (imgNueva) {
+      try {
+        await db.ref("productosImg/" + id).set(imgNueva);
+      } catch (e) {
+        console.error("❌ FALLÓ EN productosImg:", e.message);
+        throw new Error("El producto se guardó, pero la imagen no (" + e.message + "). Revisa que publicaste las reglas nuevas.");
+      }
     }
 
     if (!ilimitado) {
@@ -1428,8 +1452,15 @@ function editarProducto(id){
   actualizarFxPrecio();
 
   const prev = $("npImgPreview");
+  const tieneImg = !!(p.imagen || p.imgV);
   if (prev) prev.innerHTML = p.imagen ? '<img src="' + esc(p.imagen) + '" alt="">' : "🖼️";
-  setTxt("npImgNombreArchivo", p.imagen ? "Imagen actual (opcional cambiarla)" : "Ningún archivo seleccionado");
+  if (prev && !p.imagen && p.imgV) {
+    db.ref("productosImg/" + id).get().then(s => {
+      const d = String(s.val() || "");
+      if (d && npEditandoProd === id) prev.innerHTML = '<img src="' + esc(d) + '" alt="">';
+    }).catch(() => {});
+  }
+  setTxt("npImgNombreArchivo", tieneImg ? "Imagen actual (opcional cambiarla)" : "Ningún archivo seleccionado");
 
   setTxt("npTituloFormProducto", "Editar producto");
   setTxt("npBtnGuardarProducto", "Guardar cambios");
@@ -1466,6 +1497,7 @@ async function eliminarProducto(id){
   const updates = {};
   updates["productos/" + id] = null;
   updates["stock/" + id] = null;
+  updates["productosImg/" + id] = null;
   Object.keys(cuentas).forEach(cid => {
     if (estadoDe(cuentas[cid].estado, "disponible") === "disponible") {
       updates["cuentas/" + id + "/" + cid] = null;
@@ -2407,6 +2439,242 @@ async function resolverRenovacion(id, nuevoEstado){
 }
 
 /* =========================================================
+   TICKETS DE SOPORTE (v13)
+   Los abre el cliente desde «Mis compras». Aquí el proveedor
+   responde y mueve la etapa: En revisión → Pendiente → Resuelto.
+   Al responder, el ticket pasa solo a «Pendiente».
+========================================================= */
+
+const NP_TK_ESTADOS = { revision: "En revisión", pendiente: "Pendiente", resuelto: "Resuelto" };
+
+let npTickets = {};
+let npTkActual = null;
+let npTkFiltro = "todos";
+let npTkIniciado = false;
+let npTkEnviando = false;
+
+function npTkNumero(id){ return "#" + String(id || "").slice(-6).toUpperCase(); }
+function npTkEstado(t){
+  const e = String((t && t.estado) || "revision").toLowerCase();
+  return NP_TK_ESTADOS[e] ? e : "revision";
+}
+function npTkMensajes(t){
+  const m = (t && t.mensajes) || {};
+  return Object.keys(m).map(k => Object.assign({ id: k }, m[k] || {}))
+    .sort((a, b) => num(a.fecha) - num(b.fecha));
+}
+function npTkPasos(estado){
+  const orden = ["revision", "pendiente", "resuelto"];
+  const idx = orden.indexOf(estado);
+  return orden.map((e, i) => {
+    const hecho = i < idx || (idx === 2 && i === 2);
+    const cls = hecho ? " hecho" : (i === idx ? " actual" : "");
+    return '<div class="tkPaso' + cls + '"><span>' + (hecho ? "✓" : (i + 1)) + '</span><small>' + NP_TK_ESTADOS[e] + '</small></div>';
+  }).join('<div class="tkPasoLinea"></div>');
+}
+
+/* Necesita atención: nuevo (en revisión) o con mensaje sin leer */
+function npTkAtencion(t){ return !!t && (t.noLeidoProveedor === true || npTkEstado(t) === "revision"); }
+
+function escucharTicketsProv(){
+  db.ref("tickets").orderByChild("proveedorId").equalTo(npUid).on("value", (s) => {
+    const antes = npTickets;
+    npTickets = s.val() || {};
+
+    if (npTkIniciado) {
+      Object.keys(npTickets).forEach(id => {
+        const t = npTickets[id], a = antes[id];
+        if (!a) notificar("🎫 Nuevo ticket", (t.clienteNombre || "Un cliente") + " · " + (t.productoNombre || "producto"), "info");
+        else if (t.noLeidoProveedor && !a.noLeidoProveedor && npTkActual !== id) {
+          notificar("💬 Nuevo mensaje", "Ticket " + npTkNumero(id) + " · " + (t.clienteNombre || "cliente"), "info");
+        }
+      });
+    }
+    npTkIniciado = true;
+
+    renderTicketsProv();
+    const m = $("npModalTicket");
+    if (npTkActual && m && m.classList.contains("show")) { pintarTicketProv(); marcarLeidoProv(npTkActual); }
+  }, (e) => {
+    npTickets = {};
+    renderTicketsProv();
+    console.error("tickets:", e && e.message);
+  });
+}
+
+function renderTicketsProv(){
+  const ids = Object.keys(npTickets).filter(id => npTickets[id])
+    .sort((a, b) => {
+      const pa = npTkAtencion(npTickets[a]) ? 0 : 1, pb = npTkAtencion(npTickets[b]) ? 0 : 1;
+      if (pa !== pb) return pa - pb;
+      return ts(npTickets[b].actualizado) - ts(npTickets[a].actualizado);
+    });
+
+  const cuenta = { todos: ids.length, revision: 0, pendiente: 0, resuelto: 0 };
+  ids.forEach(id => { cuenta[npTkEstado(npTickets[id])]++; });
+
+  setTxt("npTkStatRevision", String(cuenta.revision));
+  setTxt("npTkStatPendiente", String(cuenta.pendiente));
+  setTxt("npTkStatResuelto", String(cuenta.resuelto));
+
+  const atencion = ids.filter(id => npTkAtencion(npTickets[id])).length;
+  const badge = $("npBadgeTickets");
+  if (badge) { badge.textContent = String(atencion); badge.classList.toggle("visible", atencion > 0); }
+
+  const filtros = $("npTkFiltros");
+  if (filtros) {
+    filtros.innerHTML = [["todos","Todos"],["revision","En revisión"],["pendiente","Pendientes"],["resuelto","Resueltos"]]
+      .map(([k, t]) => '<button type="button" class="tkFiltroBtn' + (npTkFiltro === k ? " activo" : "") +
+        '" onclick="filtrarTicketsProv(\'' + k + '\')">' + t + '<b>' + cuenta[k] + '</b></button>').join("");
+  }
+
+  const cont = $("npListaTickets");
+  if (!cont) return;
+
+  const q = norm(($("npTkBuscar") || {}).value || "");
+  const visibles = ids.filter(id => {
+    const t = npTickets[id];
+    if (npTkFiltro !== "todos" && npTkEstado(t) !== npTkFiltro) return false;
+    if (q && !norm([npTkNumero(id), t.clienteNombre, t.productoNombre, t.cuentaCorreo, t.motivoTitulo].join(" ")).includes(q)) return false;
+    return true;
+  });
+
+  if (!visibles.length) {
+    cont.innerHTML = '<div class="npEmpty">' + (ids.length ? "No hay tickets con este filtro." :
+      "Aún no tienes tickets. Cuando un cliente tenga un problema con tu producto, te llegará aquí.") + '</div>';
+    return;
+  }
+
+  cont.innerHTML = visibles.map(id => {
+    const t = npTickets[id];
+    const est = npTkEstado(t);
+    const msgs = npTkMensajes(t).filter(m => m.tipo !== "estado");
+    const ult = msgs[msgs.length - 1];
+    return '<button type="button" class="tkItem' + (t.noLeidoProveedor ? " noLeido" : "") + '" onclick="abrirTicketProv(\'' + escJS(id) + '\')">' +
+      '<div class="tkItemTop"><span class="tkItemTitulo">' + esc(t.productoNombre || "Producto") + ' · ' + esc(t.clienteNombre || "Cliente") + '</span>' +
+        '<span class="tkBadge ' + est + '">' + NP_TK_ESTADOS[est] + '</span></div>' +
+      '<div class="tkItemMeta">' + npTkNumero(id) + ' · ' + esc(t.motivoTitulo || "Consulta") + ' · ' + esc(fechaLarga(t.actualizado)) + '</div>' +
+      (ult ? '<div class="tkItemSnippet">' + esc((ult.autor === "proveedor" ? "Tú: " : (ult.autor === "admin" ? "Soporte NovaStream: " : "")) + ult.texto) + '</div>' : '') +
+      (t.noLeidoProveedor ? '<span class="tkPunto">Mensaje sin leer</span>' : '') +
+    '</button>';
+  }).join("");
+}
+
+function filtrarTicketsProv(f){ npTkFiltro = f; renderTicketsProv(); }
+
+function abrirTicketProv(id){
+  if (!npTickets[id]) return;
+  npTkActual = id;
+  const r = $("npTkRespuesta"); if (r) r.value = "";
+  pintarTicketProv();
+  abrirModal("npModalTicket");
+  marcarLeidoProv(id);
+}
+
+function cerrarTicketProv(){ cerrarModal("npModalTicket"); npTkActual = null; }
+
+function marcarLeidoProv(id){
+  const t = npTickets[id];
+  if (t && t.noLeidoProveedor) db.ref("tickets/" + id + "/noLeidoProveedor").set(false).catch(() => {});
+}
+
+function pintarTicketProv(){
+  const t = npTickets[npTkActual];
+  if (!t) { cerrarTicketProv(); return; }
+  const est = npTkEstado(t);
+
+  setTxt("npTkTitulo", (t.productoNombre || "Producto") + " · " + npTkNumero(npTkActual));
+  const sub = $("npTkSub");
+  if (sub) sub.innerHTML = '<span class="tkBadge ' + est + '">' + NP_TK_ESTADOS[est] + '</span> &nbsp;Abierto el ' + esc(fechaLarga(t.fecha));
+
+  const info = $("npTkInfo");
+  if (info) info.innerHTML =
+    '<div class="tkInfoItem"><span>Cliente</span><strong>' + esc(t.clienteNombre || "-") + '</strong></div>' +
+    '<div class="tkInfoItem"><span>Motivo</span><strong>' + esc(t.motivoTitulo || "Consulta") + '</strong></div>' +
+    '<div class="tkInfoItem full"><span>Cuenta afectada</span><strong>' + esc(t.cuentaCorreo || "-") +
+      (t.cuentaPerfil ? " · " + esc(t.cuentaPerfil) : "") + '</strong></div>';
+
+  const pasos = $("npTkPasos"); if (pasos) pasos.innerHTML = npTkPasos(est);
+
+  const hilo = $("npTkMensajes");
+  if (hilo) {
+    const msgs = npTkMensajes(t);
+    hilo.innerHTML = msgs.length ? msgs.map(m => {
+      if (m.tipo === "estado") return '<div class="tkMsg sistema"><div class="tkMsgTexto">' + esc(m.texto) + ' · ' + esc(fechaLarga(m.fecha)) + '</div></div>';
+      const mio = m.autor === "proveedor";
+      const autor = mio ? "Tú" : (m.autor === "admin" ? "Soporte NovaStream" : (m.autorNombre || t.clienteNombre || "Cliente"));
+      return '<div class="tkMsg ' + (mio ? "mio" : "otro") + (m.autor === "admin" ? " admin" : "") + '">' +
+        '<span class="tkMsgAutor">' + esc(autor) + '</span>' +
+        '<div class="tkMsgTexto">' + esc(m.texto) + '</div>' +
+        '<span class="tkMsgFecha">' + esc(fechaLarga(m.fecha)) + '</span></div>';
+    }).join("") : '<div class="tkVacio">Sin mensajes.</div>';
+    hilo.scrollTop = hilo.scrollHeight;
+  }
+
+  const bE = $("npTkEstadoBtn");
+  if (bE) bE.textContent = est === "resuelto" ? "↺ Reabrir (pendiente)" : "✓ Marcar como resuelto";
+  const r = $("npTkRespuesta");
+  if (r) r.placeholder = est === "resuelto" ? "Escribe para reabrir el ticket..." : "Escribe tu respuesta al cliente...";
+}
+
+async function responderTicketProv(){
+  if (npTkEnviando || !npTkActual) return;
+  const texto = String(($("npTkRespuesta") || {}).value || "").trim();
+  if (texto.length < 2) { avisa("Escribe tu respuesta."); return; }
+
+  npTkEnviando = true;
+  const btn = $("npTkEnviar"); if (btn) btn.disabled = true;
+
+  try {
+    const ahora = Date.now();
+    const base = "tickets/" + npTkActual + "/";
+    const mid = db.ref(base + "mensajes").push().key;
+    const up = {};
+    up[base + "mensajes/" + mid] = { autor: "proveedor", autorId: npUid, autorNombre: nombreTiendaActual(), texto: texto.slice(0, 1000), fecha: ahora };
+    up[base + "estado"] = "pendiente";
+    up[base + "actualizado"] = ahora;
+    up[base + "ultimoAutor"] = "proveedor";
+    up[base + "noLeidoCliente"] = true;
+    up[base + "noLeidoProveedor"] = false;
+    await db.ref().update(up);
+    $("npTkRespuesta").value = "";
+  } catch (e) {
+    err("No se pudo enviar la respuesta: " + e.message);
+  } finally {
+    npTkEnviando = false;
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function cambiarEstadoTicketProv(){
+  const t = npTickets[npTkActual];
+  if (!t) return;
+  const resolver = npTkEstado(t) !== "resuelto";
+  const nuevo = resolver ? "resuelto" : "pendiente";
+
+  if (resolver) {
+    const seguro = await confirmar("Marcar como resuelto", "El cliente verá el ticket como «Resuelto». Si vuelve a escribir, se reabre solo.", "✓");
+    if (!seguro) return;
+  }
+
+  const ahora = Date.now();
+  const base = "tickets/" + npTkActual + "/";
+  const mid = db.ref(base + "mensajes").push().key;
+  const up = {};
+  up[base + "estado"] = nuevo;
+  up[base + "actualizado"] = ahora;
+  up[base + "ultimoAutor"] = "proveedor";
+  up[base + "noLeidoCliente"] = true;
+  up[base + "mensajes/" + mid] = {
+    autor: "proveedor", autorId: npUid, autorNombre: nombreTiendaActual(), tipo: "estado", fecha: ahora,
+    texto: resolver ? "El proveedor marcó el ticket como resuelto" : "El proveedor reabrió el ticket"
+  };
+
+  try { await db.ref().update(up); ok(resolver ? "Ticket resuelto." : "Ticket reabierto."); }
+  catch (e) { err("No se pudo cambiar la etapa: " + e.message); }
+}
+
+/* =========================================================
    SOPORTE WHATSAPP
 ========================================================= */
 
@@ -2498,7 +2766,9 @@ function renderTienda(){
 
     return '<div class="npCard npTiendaCard" data-id="' + esc(id) + '">' +
       '<div class="npTiendaImg">' +
-        (p.imagen ? '<img src="' + esc(p.imagen) + '" alt="" style="width:100%;height:100%;object-fit:cover;">' : "🖼️") +
+        (p.imagen
+          ? '<img src="' + esc(p.imagen) + '" alt="" style="width:100%;height:100%;object-fit:cover;">'
+          : (p.imgV ? '<img data-np-img="' + esc(id) + '" alt="" style="width:100%;height:100%;object-fit:cover;opacity:0;">' : "🖼️")) +
       '</div>' +
       '<div class="npTiendaBody">' +
         '<h4>' + esc(p.nombre) + (mio ? ' <span class="npBadge info" style="font-size:9px;" data-html2canvas-ignore="true">Tuyo</span>' : "") + '</h4>' +
@@ -2517,6 +2787,16 @@ function renderTienda(){
       '</div>' +
     '</div>';
   }).join("");
+
+  /* Imágenes guardadas aparte: se piden solo las que faltan */
+  grid.querySelectorAll("img[data-np-img]").forEach(img => {
+    const pid = img.getAttribute("data-np-img");
+    const pintar = (d) => { if (d) { img.src = d; img.style.opacity = 1; } };
+    if (npImgTienda[pid]) { pintar(npImgTienda[pid]); return; }
+    db.ref("productosImg/" + pid).get()
+      .then(s => { npImgTienda[pid] = String(s.val() || ""); pintar(npImgTienda[pid]); })
+      .catch(() => {});
+  });
 }
 
 /* Captura SOLO la tarjeta del producto indicado */
@@ -2738,14 +3018,24 @@ function prepararFormularios(){
   });
 
   /* --- Cerrar modales al hacer clic fuera --- */
-  ["npModalSoporte","npModalTienda","npModalVencimientos","npModalEditarCuenta","npModalNombreTienda"].forEach(id => {
+  /* --- Tickets --- */
+  const btnTkEnv = $("npTkEnviar");
+  if (btnTkEnv) btnTkEnv.addEventListener("click", responderTicketProv);
+  const btnTkEst = $("npTkEstadoBtn");
+  if (btnTkEst) btnTkEst.addEventListener("click", cambiarEstadoTicketProv);
+  const inpTkBus = $("npTkBuscar");
+  if (inpTkBus) inpTkBus.addEventListener("input", renderTicketsProv);
+  const txtTk = $("npTkRespuesta");
+  if (txtTk) txtTk.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) responderTicketProv(); });
+
+  ["npModalSoporte","npModalTienda","npModalVencimientos","npModalEditarCuenta","npModalNombreTienda","npModalTicket"].forEach(id => {
     const m = $(id);
     if (m) m.addEventListener("mousedown", (e) => { if (e.target === m) m.classList.remove("show"); });
   });
 
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
-    ["npModalSoporte","npModalTienda","npModalVencimientos","npModalEditarCuenta","npModalNombreTienda","npConfirmOverlay"]
+    ["npModalSoporte","npModalTienda","npModalVencimientos","npModalEditarCuenta","npModalNombreTienda","npModalTicket","npConfirmOverlay"]
       .forEach(id => { const m = $(id); if (m) m.classList.remove("show"); });
     cerrarMenuMovil();
   });
@@ -2788,5 +3078,8 @@ window.renovarSinClave       = renovarSinClave;
 window.ocultarAvisoVencimientos = ocultarAvisoVencimientos;
 window.abrirModalNombreTienda   = abrirModalNombreTienda;
 window.cerrarModalNombreTienda  = cerrarModalNombreTienda;
+window.abrirTicketProv          = abrirTicketProv;
+window.cerrarTicketProv         = cerrarTicketProv;
+window.filtrarTicketsProv       = filtrarTicketsProv;
 window.capturarProductoTienda  = capturarProductoTienda;
 window.elegirCategoriaPlataforma = elegirCategoriaPlataforma;
