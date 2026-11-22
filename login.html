@@ -14,15 +14,6 @@
 
   <link rel="icon" type="image/png" href="img/logo.png">
   <link rel="stylesheet" href="novaauth.css?v=1">
-  <!-- 🎃 Edición Halloween: se apaga sola el 10 nov 2026 (11:59 pm Perú). Para quitarla antes: borra este bloque y el <script> de halloween.js al final -->
-  <script>
-  (function(){
-    if (Date.now() >= Date.UTC(2026,10,11,5,0,0)) return; /* 11 nov 00:00 Lima */
-    ["https://fonts.googleapis.com/css2?family=Creepster&display=swap","halloween.css?v=2"].forEach(function(h){
-      var l=document.createElement("link");l.rel="stylesheet";l.href=h;document.head.appendChild(l);
-    });
-  })();
-  </script>
 </head>
 
 <body class="naBody">
@@ -45,7 +36,7 @@
 
     <!-- ============ PANEL IZQUIERDO (marca) ============ -->
     <aside class="naAside">
-      <a href="catalogo.html" class="naAsideBrand">
+      <a href="catalogo" class="naAsideBrand">
         <img src="img/logo.png" alt="NovaStream" class="naAsideLogo">
         <span class="naAsideBrandText">NOVA<em>STREAM</em></span>
       </a>
@@ -99,7 +90,7 @@
       <div class="naCard" id="naCard">
 
         <!-- Marca visible solo en móvil -->
-        <a href="catalogo.html" class="naCardBrand">
+        <a href="catalogo" class="naCardBrand">
           <img src="img/logo.png" alt="NovaStream">
           <span>NOVA<em>STREAM</em></span>
         </a>
@@ -177,10 +168,10 @@
 
         <div class="naDivider"><span>¿Aún no tienes cuenta?</span></div>
 
-        <a href="registro.html" class="naBtn naBtnGhost">Crear cuenta gratis</a>
+        <a href="registro" class="naBtn naBtnGhost">Crear cuenta gratis</a>
 
         <p class="naCardFoot">
-          <a href="catalogo.html" class="naLinkInline">← Volver al catálogo</a>
+          <a href="catalogo" class="naLinkInline">← Volver al catálogo</a>
         </p>
 
       </div>
@@ -262,6 +253,5 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
   <script src="novaauth.js?v=2"></script>
-  <script src="halloween.js?v=2" defer></script>
 </body>
 </html>
