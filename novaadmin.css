@@ -972,3 +972,7 @@ body.nvaSideOpen .nvaOverlay{ display:block; }
 .nvaTicketBody{ padding:16px 20px 20px; overflow-y:auto; }
 .nvaTkEstadoRow{ margin-top:4px; }
 .nvaTicketModal .tkMsg.proveedor .tkMsgTexto{ background:rgba(33,230,193,.10); border-color:rgba(33,230,193,.28); }
+
+/* v7 — campo de posición al crear categoría */
+.nvaCatFieldOrden{ flex:0 0 150px; min-width:120px; }
+@media (max-width:640px){ .nvaCatFieldOrden{ flex:1 1 auto; } }
