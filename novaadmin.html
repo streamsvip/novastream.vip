@@ -5,12 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="urls-limpias.js"></script>
   <title>NovaStream.vip | Panel Administrador</title>
-  <link rel="stylesheet" href="novaadmin.css?v=3">
+  <link rel="preconnect" href="https://novastream-aeb9d-default-rtdb.firebaseio.com" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="novaadmin.css?v=6">
+  <link rel="stylesheet" href="tickets.css?v=1">
   <link rel="icon" type="image/png" href="img/logo.png">
 </head>
 <body class="nvaBody">
 
   <div id="nvaToastStack" class="nvaToastStack" aria-live="polite"></div>
+
+  <!-- ============ PANTALLA DE CARGA ============ -->
+  <div class="nvaBooting" id="nvaBooting">
+    <div class="nvaBootingBox">
+      <div class="nvaBootingRing"></div>
+      <strong id="nvaBootingTitulo">Verificando sesión...</strong>
+      <div class="nvaBootingBar"><span id="nvaBootingBarFill"></span></div>
+      <ul class="nvaBootingPasos" id="nvaBootingPasos"></ul>
+      <small class="nvaBootingNota" id="nvaBootingNota"></small>
+      <button type="button" class="nvaBtnMini soft" id="nvaBootingSaltar" style="display:none;" onclick="nvaOcultarBooting()">Entrar sin esperar</button>
+    </div>
+  </div>
 
   <!-- ============ LOGIN ============ -->
   <div id="loginSection" class="nvaLoginScreen">
@@ -84,6 +99,15 @@
             <span class="nvaNavIcon"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></span>
             Reembolsos
             <span class="nvaLinkBadge" id="badgeReembolsos">0</span>
+          </a>
+        </div>
+
+        <div class="nvaGroup">
+          <div class="nvaGroupTitle">Soporte</div>
+          <a class="nvaLink" data-target="secTickets" onclick="irASeccion('secTickets'); return false;" href="#secTickets">
+            <span class="nvaNavIcon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+            Tickets de soporte
+            <span class="nvaLinkBadge" id="badgeTickets">0</span>
           </a>
         </div>
 
@@ -179,6 +203,18 @@
           </div>
 
           <div class="nvaDashGroup">
+            <div class="nvaInfoBanner nvaOptimizarAviso hidden" id="nvaOptimizarAviso">
+              <span class="nvaInfoIcon">⚡</span>
+              <div>
+                <strong>Tu base de datos se puede acelerar</strong>
+                <span id="nvaOptimizarTexto">Hay imágenes guardadas dentro de los registros.</span>
+                <div class="nvaOptimizarRow">
+                  <button type="button" class="nvaBtnMini ok nvaBtnOptimizar" onclick="optimizarBaseDatos()">⚡ Optimizar base de datos</button>
+                  <small>Se hace una sola vez, mejor con WiFi.</small>
+                </div>
+                <div class="nvaMsg nvaOptimizarMsg"></div>
+              </div>
+            </div>
             <div class="nvaDashGroupTitle">Necesita tu atención</div>
             <div class="nvaGrid">
               <div class="nvaMiniCard accentOrange">
@@ -201,6 +237,14 @@
                   <span class="nvaMiniIcon"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/></svg></span>
                 </div>
                 <p id="totalReembolsos">0</p>
+              </div>
+              <div class="nvaMiniCard accentOrange" style="cursor:pointer;" onclick="irASeccion('secTickets')">
+                <div class="nvaMiniCardTop">
+                  <h3>Tickets en revisión</h3>
+                  <span class="nvaMiniIcon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+                </div>
+                <p id="totalTicketsRevision">0</p>
+                <span class="nvaMiniCardSub">Clientes esperando respuesta</span>
               </div>
               <div class="nvaMiniCard accentOrange">
                 <div class="nvaMiniCardTop">
@@ -469,6 +513,69 @@
           </div>
         </div>
 
+        <!-- ============ TICKETS DE SOPORTE ============ -->
+        <div class="nvaCard" id="secTickets">
+          <div class="nvaCardHead">
+            <span class="nvaCardEyebrow">Soporte</span>
+            <h3 class="nvaCardTitle">Tickets de soporte</h3>
+            <span class="nvaCardHint">Conversaciones entre clientes y proveedores · puedes intervenir como «Soporte NovaStream»</span>
+          </div>
+          <div class="nvaCardBody">
+            <div class="nvaInfoBanner">
+              <span class="nvaInfoIcon">🎫</span>
+              <div>
+                <strong>Cómo funciona</strong>
+                <span>El cliente abre el ticket desde <b>Mis compras</b> y le llega al proveedor del producto.
+                Etapas: <b>En revisión</b> (sin respuesta) → <b>Pendiente</b> (el proveedor respondió) → <b>Resuelto</b>.
+                Desde aquí puedes leer todo, responder y cambiar la etapa si hace falta.</span>
+              </div>
+            </div>
+
+            <div class="nvaStatsRow">
+              <div class="nvaStat accentOrange">
+                <span class="nvaStatLabel">En revisión</span>
+                <span class="nvaStatValue" id="ticketsRevisionCount">0</span>
+                <span class="nvaStatSub">Sin respuesta del proveedor</span>
+              </div>
+              <div class="nvaStat accentViolet">
+                <span class="nvaStatLabel">Pendientes</span>
+                <span class="nvaStatValue" id="ticketsPendienteCount">0</span>
+                <span class="nvaStatSub">En conversación</span>
+              </div>
+              <div class="nvaStat accentGreen">
+                <span class="nvaStatLabel">Resueltos</span>
+                <span class="nvaStatValue" id="ticketsResueltoCount">0</span>
+                <span class="nvaStatSub">Casos cerrados</span>
+              </div>
+            </div>
+
+            <div class="nvaSectionTools">
+              <select id="filtroTicketsEstado" class="nvaSelectMini">
+                <option value="todos">Todas las etapas</option>
+                <option value="revision">En revisión</option>
+                <option value="pendiente">Pendiente</option>
+                <option value="resuelto">Resuelto</option>
+              </select>
+              <button class="nvaBtnMini danger" type="button" onclick="vaciarNodoConfirmado('tickets', 'Se eliminarán todos los tickets y sus conversaciones.')">Vaciar tickets</button>
+            </div>
+
+            <div class="nvaSearch">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input type="text" id="buscarTickets" placeholder="Buscar por #ticket, cliente, proveedor o producto...">
+            </div>
+
+            <div class="nvaTableWrap">
+              <table class="nvaTable hidden" id="tablaTickets">
+                <thead>
+                  <tr><th>Actualizado</th><th>Ticket</th><th>Cliente</th><th>Proveedor</th><th>Producto / motivo</th><th>Etapa</th><th>Último mensaje</th><th>Acciones</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <div id="ticketsVacio" class="nvaEmpty">Todavía no hay tickets de soporte.</div>
+            </div>
+          </div>
+        </div>
+
         <!-- ============ CATEGORÍAS ============ -->
         <div class="nvaCard" id="secCategorias">
           <div class="nvaCardHead">
@@ -548,6 +655,7 @@
             </div>
 
             <div class="nvaSectionTools">
+              <button class="nvaBtnMini soft nvaBtnOptimizar" type="button" onclick="optimizarBaseDatos()">⚡ Optimizar base de datos</button>
               <button class="nvaBtnMini soft" type="button" onclick="recalcularTodoElStock()">Recalcular stock desde cuentas reales</button>
             </div>
 
@@ -566,6 +674,7 @@
               <div id="stockVacio" class="nvaEmpty">Todavía no hay productos publicados por proveedores.</div>
             </div>
             <div id="stockMsg" class="nvaMsg"></div>
+            <div class="nvaMsg nvaOptimizarMsg"></div>
           </div>
         </div>
 
@@ -807,6 +916,38 @@
     </div>
   </div>
 
+  <!-- ============ MODAL DE TICKET ============ -->
+  <div class="nvaComprobanteModal nvaTicketModal" id="nvaTicketModal">
+    <div class="nvaComprobanteBox nvaTicketBox">
+      <div class="nvaComprobanteHead">
+        <div>
+          <h3 id="nvaTkTitulo">Ticket</h3>
+          <p id="nvaTkSub"></p>
+        </div>
+        <button type="button" class="nvaModalCerrarBtn" onclick="cerrarTicketAdmin()">✕</button>
+      </div>
+      <div class="nvaTicketBody">
+        <div class="tkInfo" id="nvaTkInfo"></div>
+        <div class="tkPasos" id="nvaTkPasos"></div>
+        <div class="tkHilo" id="nvaTkMensajes"></div>
+        <div class="tkResponder">
+          <textarea id="nvaTkRespuesta" rows="3" maxlength="1000" placeholder="Responder como Soporte NovaStream (lo ven el cliente y el proveedor)..."></textarea>
+          <div class="tkAcciones">
+            <button type="button" class="tkBtn primario" onclick="responderTicketAdmin()">Responder</button>
+          </div>
+          <div class="tkAcciones nvaTkEstadoRow">
+            <select id="nvaTkEstadoSel" class="nvaSelectMini">
+              <option value="revision">En revisión</option>
+              <option value="pendiente">Pendiente</option>
+              <option value="resuelto">Resuelto</option>
+            </select>
+            <button type="button" class="tkBtn" onclick="cambiarEstadoTicketAdmin()">Cambiar etapa</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ============ MODAL DE CONFIRMACIÓN / PROMPT (nvaConfirmar / nvaPrompt) ============ -->
   <div class="nvaConfirmOverlay" id="nvaConfirmOverlay">
     <div class="nvaConfirmBox">
@@ -831,6 +972,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-  <script src="novaadmin.js?v=5"></script>
+  <script src="novaadmin.js?v=6"></script>
 </body>
 </html>
