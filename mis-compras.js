@@ -341,18 +341,53 @@ function cuentaVivaDe(pid, cid){
    RENOVACIONES Y REEMBOLSOS POR CUENTA
 ========================================================= */
 
+/* =========================================================
+   VENCIMIENTO POR CALENDARIO (v14)
+   1 mes = mismo día del mes siguiente (27/11 → 27/12), no 30 días.
+   - Duraciones múltiplo de 365 → años (12 meses c/u)
+   - Duraciones múltiplo de 30  → meses de calendario
+   - Otras (7, 15, personalizadas) → días exactos
+   - 3650 o más = permanente (se suman días tal cual)
+   Si el mes siguiente no tiene ese día (31 → feb), vence el
+   último día de ese mes.
+========================================================= */
+function sumarDuracion(inicioMs, dias){
+  const ini = Number(inicioMs || 0);
+  const d = Math.round(Number(dias || 0));
+  if (!ini || d <= 0) return ini;
+  if (d >= 3650) return ini + d * 24 * 60 * 60 * 1000;
+
+  const f = new Date(ini);
+  let meses = 0;
+  if (d % 365 === 0) meses = (d / 365) * 12;
+  else if (d % 30 === 0) meses = d / 30;
+
+  if (meses > 0) {
+    const dia = f.getDate();
+    f.setDate(1);
+    f.setMonth(f.getMonth() + meses);
+    const ultimo = new Date(f.getFullYear(), f.getMonth() + 1, 0).getDate();
+    f.setDate(Math.min(dia, ultimo));
+  } else {
+    f.setDate(f.getDate() + d);
+  }
+  return f.getTime();
+}
+
 function infoRenovaciones(cuentaId){
-  const info = { dias: 0, aceptadas: 0, pendientes: 0, canceladas: 0, ultimaFecha: 0 };
+  const info = { dias: 0, lista: [], aceptadas: 0, pendientes: 0, canceladas: 0, ultimaFecha: 0 };
   Object.values(mcRenovaciones).forEach(r => {
     if (!r || r.cuentaId !== cuentaId) return;
     const est = String(r.estado || "").toLowerCase();
     if (est === "aceptada"){
       info.aceptadas++;
       info.dias += num(r.duracionDias);
+      info.lista.push({ f: num(r.fecha), d: num(r.duracionDias) });
       info.ultimaFecha = Math.max(info.ultimaFecha, num(r.fechaResolucion) || num(r.fecha));
     } else if (est === "pendiente"){
       info.pendientes++;
       info.dias += num(r.duracionDias);   // ya está pagada
+      info.lista.push({ f: num(r.fecha), d: num(r.duracionDias) });
     } else if (est === "cancelada"){
       info.canceladas++;
     }
@@ -445,7 +480,10 @@ function reconstruirFilas(){
           nombreCliente: a.nombreCliente || "",
 
           fechaCompra,
-          fechaExpira: dias > 0 ? fechaCompra + dias * MC_MS_DIA : fechaCompra,
+          fechaExpira: dias > 0
+            ? ren.lista.slice().sort((x, y) => x.f - y.f)
+                .reduce((acc, r) => sumarDuracion(acc, r.d), sumarDuracion(fechaCompra, num(it.duracionDias)))
+            : fechaCompra,
 
           reembolso:     reemb ? reemb.estado : null,
           reembolsoInfo: reemb,
