@@ -996,3 +996,206 @@ table.npTable{ width:100%; min-width:900px; border-collapse:separate; border-spa
    ========================================================= */
 body{ --tk-acc:#ffc978; --tk-acc2:#2fd4c6; }
 #section-tickets .tkFiltros{ margin-bottom:14px; }
+
+/* =========================================================
+   v14 — Reemplazar credenciales desde el ticket
+   ========================================================= */
+.tkRm{ margin:0 0 12px; border:1px solid rgba(47,212,198,.28); border-radius:12px; background:linear-gradient(135deg, rgba(47,212,198,.08), rgba(139,124,255,.05)); }
+.tkRm summary{ list-style:none; cursor:pointer; padding:11px 13px; display:flex; flex-direction:column; gap:2px; }
+.tkRm summary::-webkit-details-marker{ display:none; }
+.tkRm summary span{ font-size:13px; font-weight:800; color:#a6f5ea; }
+.tkRm summary span::after{ content:"▾"; float:right; transition:transform .15s var(--ease); }
+.tkRm[open] summary span::after{ transform:rotate(180deg); }
+.tkRm summary small{ font-size:11px; color:var(--text-dim); }
+.tkRmBody{ padding:0 13px 13px; display:flex; flex-direction:column; gap:10px; }
+.tkRmActual{ padding:9px 11px; border-radius:10px; background:rgba(0,0,0,.25); border:1px solid var(--line); }
+.tkRmActual span{ display:block; font-size:9.5px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:var(--text-faint); margin-bottom:3px; }
+.tkRmActual strong{ font-family:var(--font-mono); font-size:12px; word-break:break-all; }
+.tkRmModos{ display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.tkRmModo{ padding:10px; border-radius:10px; border:1px solid var(--line-strong); background:rgba(255,255,255,.03); color:var(--text-dim); font-size:12px; font-weight:700; cursor:pointer; }
+.tkRmModo.on{ background:linear-gradient(135deg, var(--cyan-2), #1fa89c); color:#03211d; border-color:transparent; }
+.tkRmModo:disabled{ opacity:.45; cursor:not-allowed; }
+.tkRmGrid{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.tkRmGrid .tkCampo{ margin-bottom:0; }
+.tkRmGrid .tkCampo.full{ grid-column:1/-1; }
+.tkRm .tkCampo{ margin-bottom:0; }
+.tkRm .tkCampo input{ height:40px; padding:0 11px; border-radius:10px; border:1px solid var(--line-strong); background:rgba(0,0,0,.25); color:#fff; font-size:13px; outline:none; width:100%; }
+.tkRm .tkCampo input:focus{ border-color:var(--cyan); }
+.tkRmAyuda{ font-size:11px; color:var(--text-dim); }
+.tkRmCheck{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-dim); cursor:pointer; }
+.tkRmCheck input{ width:16px; height:16px; accent-color:var(--cyan); }
+.tkRmBtn{ width:100%; }
+.tkRmAviso{ margin:0 0 12px; padding:10px 12px; border-radius:10px; font-size:12px; color:var(--text-dim); background:rgba(255,255,255,.03); border:1px dashed var(--line-strong); }
+@media (max-width:560px){
+  .tkRmModos{ grid-template-columns:1fr; }
+  .tkRmGrid{ grid-template-columns:1fr 1fr; }
+}
+
+/* =========================================================
+   v14 — Pantalla de carga
+   ========================================================= */
+body.npCargandoPanel{ overflow:hidden; }
+.npLoader{
+  position:fixed; inset:0; z-index:100000; display:grid; place-items:center;
+  background:
+    radial-gradient(700px 380px at 20% 0%, rgba(243,165,60,.12), transparent 60%),
+    radial-gradient(600px 380px at 100% 100%, rgba(47,212,198,.10), transparent 60%),
+    var(--ink-0);
+  transition:opacity .4s var(--ease), visibility .4s var(--ease);
+}
+.npLoader.oculto{ opacity:0; visibility:hidden; pointer-events:none; }
+.npLoaderBox{ position:relative; width:min(320px, 86vw); display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center; }
+.npLoaderLogo{ width:58px; height:58px; border-radius:16px; object-fit:cover; position:relative; z-index:1; margin:11px 0 14px; }
+.npLoaderRing{
+  position:absolute; top:0; left:50%; width:80px; height:80px; margin-left:-40px; border-radius:50%;
+  border:3px solid rgba(255,255,255,.07); border-top-color:var(--amber-2); border-right-color:var(--cyan);
+  animation:npGiro 0.9s linear infinite;
+}
+.npLoaderBox strong{ font-family:var(--font-display); font-size:17px; font-weight:600; }
+.npLoaderBox span{ font-size:12.5px; color:var(--text-dim); min-height:18px; }
+.npLoaderBar{ width:100%; height:5px; border-radius:99px; background:rgba(255,255,255,.06); overflow:hidden; margin-top:8px; }
+.npLoaderBarFill{ width:15%; height:100%; border-radius:99px; background:linear-gradient(90deg, var(--amber-2), var(--cyan)); transition:width .35s var(--ease); }
+@keyframes npGiro{ to{ transform:rotate(360deg); } }
+
+/* =========================================================
+   v14 — Precio en varias monedas
+   ========================================================= */
+.npPrecioWrap{ display:flex; gap:8px; }
+.npPrecioWrap select{ flex:0 0 112px; width:112px; }
+.npPrecioWrap input{ flex:1; min-width:0; }
+.npFxMonedas{ display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:6px; margin-top:8px; }
+.npFxMoneda{ padding:7px 8px; border-radius:10px; background:rgba(255,255,255,.03); border:1px solid var(--line); min-width:0; }
+.npFxMoneda span{ display:block; font-size:9.5px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; color:var(--text-faint); }
+.npFxMoneda strong{ display:block; font-family:var(--font-mono); font-size:12px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.npFxMoneda.on{ border-color:rgba(243,165,60,.45); background:rgba(243,165,60,.08); }
+.npFxMoneda.on strong{ color:var(--amber-2); }
+@media (max-width:640px){
+  .npFxMonedas{ grid-template-columns:repeat(3, minmax(0,1fr)); }
+}
+
+/* =========================================================
+   v14 — Buscador + chips de categorías (Mis productos y Cuentas)
+   ========================================================= */
+.npFiltroBar, .npPick{ display:flex; flex-direction:column; gap:10px; margin-bottom:14px; }
+.npBuscador{
+  width:100%; height:44px; padding:0 14px; border-radius:12px; font-size:13.5px;
+  border:1px solid var(--line-strong); background:rgba(0,0,0,.25); color:#fff; outline:none;
+  transition:border-color .15s var(--ease), box-shadow .15s var(--ease);
+}
+.npBuscador:focus{ border-color:var(--cyan); box-shadow:0 0 0 3px rgba(47,212,198,.14); }
+.npChips{ display:flex; gap:6px; flex-wrap:wrap; }
+.npChip{
+  display:inline-flex; align-items:center; gap:7px; padding:8px 12px; border-radius:999px; cursor:pointer;
+  border:1px solid var(--line-strong); background:rgba(255,255,255,.03); color:var(--text-dim);
+  font-size:12px; font-weight:700; white-space:nowrap; transition:background .12s var(--ease), color .12s var(--ease), border-color .12s var(--ease);
+}
+.npChip b{ font-family:var(--font-mono); font-size:10.5px; padding:1px 7px; border-radius:99px; background:rgba(255,255,255,.08); color:var(--text); }
+.npChip:hover{ color:#fff; border-color:rgba(255,255,255,.28); }
+.npChip.on{ background:var(--ribbon); color:#1b1204; border-color:transparent; }
+.npChip.on b{ background:rgba(0,0,0,.18); color:#1b1204; }
+.npChip.mini{ padding:6px 10px; font-size:11.5px; }
+.npChip.mini.activo.on{ background:linear-gradient(135deg, var(--cyan-2), #1fa89c); color:#03211d; }
+.npChip.mini.agotado.on{ background:linear-gradient(135deg, #ff8a97, var(--danger)); color:#2a0509; }
+.npChip.mini.pausado.on{ background:linear-gradient(135deg, #c9c0ff, var(--violet)); color:#140c3a; }
+.npFiltroConteo{ font-size:11.5px; color:var(--text-faint); }
+
+@media (max-width:820px){
+  /* En celular los chips van en una fila que se desliza con el dedo */
+  .npChips{ flex-wrap:nowrap; overflow-x:auto; padding-bottom:4px; margin:0 -2px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+  .npChips::-webkit-scrollbar{ display:none; }
+}
+
+/* Selector de producto (Cuentas) */
+.npPickSel{
+  display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:14px;
+  border:1px dashed var(--line-strong); background:rgba(255,255,255,.02); font-size:12.5px; color:var(--text-dim);
+}
+.npPickSel.on{ border-style:solid; border-color:rgba(47,212,198,.4); background:linear-gradient(135deg, rgba(47,212,198,.10), rgba(243,165,60,.05)); color:var(--text); }
+.npPickSel > div{ flex:1; min-width:0; }
+.npPickSel small{ display:block; font-size:10px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:var(--cyan-2); }
+.npPickSel strong{ display:block; font-size:14px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.npPickSel em{ display:block; font-style:normal; font-size:11.5px; color:var(--text-dim); }
+.npPickSelIco{ width:32px; height:32px; border-radius:10px; flex-shrink:0; display:grid; place-items:center; font-weight:800; color:#03211d; background:linear-gradient(135deg, var(--cyan-2), #1fa89c); }
+.npPickLista{
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:8px;
+  max-height:330px; overflow-y:auto; padding:2px; overscroll-behavior:contain;
+}
+.npPickItem{
+  display:flex; align-items:center; gap:10px; padding:11px 12px; border-radius:12px; cursor:pointer; text-align:left;
+  border:1px solid var(--line); background:rgba(255,255,255,.025); color:var(--text);
+  transition:border-color .12s var(--ease), background .12s var(--ease), transform .12s var(--ease);
+}
+.npPickItem:hover{ border-color:var(--line-strong); background:rgba(255,255,255,.05); }
+.npPickItem:active{ transform:scale(.99); }
+.npPickItem.on{ border-color:rgba(47,212,198,.55); background:rgba(47,212,198,.10); box-shadow:0 0 0 1px rgba(47,212,198,.25) inset; }
+.npPickItem.pausado{ opacity:.65; }
+.npPickItemTxt{ flex:1; min-width:0; }
+.npPickItemTxt strong{ display:block; font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.npPickItemTxt span{ display:block; font-size:11px; color:var(--text-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.npPickStock{ flex-shrink:0; text-align:center; font-family:var(--font-mono); font-size:15px; font-weight:700; color:var(--cyan-2); line-height:1.05; }
+.npPickStock small{ display:block; font-family:var(--font-body); font-size:9px; font-weight:700; color:var(--text-faint); }
+.npPickStock.cero{ color:#ff8a97; }
+@media (max-width:640px){
+  .npPickLista{ grid-template-columns:1fr; max-height:300px; }
+}
+
+/* =========================================================
+   v14 — Tablas como tarjetas en celular (sin deslizar)
+   ========================================================= */
+.npTdSub{ display:none; }
+
+@media (max-width:820px){
+  .npTableCards{ overflow:visible; border:none; background:transparent; }
+  .npTableCards .npTable{ min-width:0 !important; width:100%; border-collapse:separate; }
+  .npTableCards .npTable thead{ display:none; }
+  .npTableCards .npTable tbody{ display:flex; flex-direction:column; gap:10px; }
+  .npTableCards .npTable tbody tr{
+    display:grid; grid-template-columns:1fr 1fr; gap:0;
+    border:1px solid var(--line); border-radius:14px; overflow:hidden;
+    background:linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.015));
+  }
+  .npTableCards .npTable tbody tr:hover td{ background:transparent; }
+  .npTableCards .npTable td{
+    position:static !important; left:auto !important; display:flex; flex-direction:column; gap:2px;
+    padding:9px 12px !important; border-bottom:1px solid var(--line); background:transparent !important;
+    font-size:12.5px !important; white-space:normal; word-break:break-word; text-align:left;
+    box-shadow:none !important;
+  }
+  .npTableCards .npTable td::before{
+    content:attr(data-label); font-family:var(--font-body); font-size:9.5px; font-weight:800;
+    letter-spacing:.5px; text-transform:uppercase; color:var(--text-faint);
+  }
+  /* Primera celda = título de la tarjeta, ancho completo */
+  .npTableCards .npTable td:first-child{ grid-column:1/-1; background:rgba(255,255,255,.03) !important; font-size:14px !important; }
+  .npTableCards .npTable td:first-child::before{ display:none; }
+  .npTableCards .npTdSub{ display:block; font-size:11px; color:var(--text-faint); font-weight:600; }
+  /* Acciones al pie, ancho completo y botones grandes */
+  .npTableCards .npTable td:last-child{ grid-column:1/-1; border-bottom:none; }
+  .npTableCards .npTable td:last-child::before{ display:none; }
+  .npTableCards .npActionRow{ display:grid; grid-template-columns:repeat(auto-fit, minmax(80px,1fr)); gap:6px; width:100%; }
+  .npTableCards .npActionRow .npBtnMini{ padding:10px 8px !important; font-size:12px !important; }
+  /* En Mis productos sobra la columna Plataforma e ID (va bajo el título) */
+  .npTableCards .npTable td.npTdPlat, .npTableCards .npTable td.npTdId{ display:none; }
+  /* Mensaje vacío */
+  .npTableCards .npTable td.npTdEmpty{ grid-column:1/-1; }
+  .npTableCards .npTable td.npTdEmpty::before{ display:none; }
+  .npTableCards .npTable tr:has(td.npTdEmpty){ display:block; border-style:dashed; }
+}
+
+/* =========================================================
+   v14 — Imágenes de producto: todas del mismo tamaño
+   ========================================================= */
+.npTiendaImg{ height:auto !important; aspect-ratio:1 / 1; overflow:hidden; }
+.npTiendaImg img{ width:100%; height:100%; object-fit:cover; }
+
+/* v14 — En escritorio, Mis productos y Cuentas entran sin deslizar */
+@media (min-width:821px){
+  .npTableCards table.npTable{ min-width:0; }
+  .npTableCards .npTable td.txt{ white-space:normal; }
+  .npTableCards .npTable td:first-child{ min-width:180px; }
+  .npTableCards .npTable td{ word-break:break-word; }
+  #npTablaProductos .npTdSub{ display:block; font-size:11px; color:var(--text-faint); font-weight:600; margin-top:3px; }
+  .npTableCards .npThId, .npTableCards .npTdId,
+  .npTableCards .npThPlat, .npTableCards .npTdPlat{ display:none; }
+  .npTableCards .npActionRow{ flex-wrap:wrap; }
+}
