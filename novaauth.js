@@ -54,9 +54,9 @@ const firebaseConfig = {
 
 /* ⚠️ RUTAS REALES DEL PROYECTO */
 const NA_RUTAS_ROL = {
-  cliente:   "catalogo.html",
-  proveedor: "novapro.html",
-  admin:     "novaadmin.html"
+  cliente:   "catalogo",
+  proveedor: "novapro",
+  admin:     "novaadmin"
 };
 
 const NA_PERMITIR_LOGIN_USUARIO = true;   // false = solo correo
@@ -74,7 +74,7 @@ let naRegistroEnCurso = false;   // frena al guardián mientras se crea la cuent
 let naRedirigiendo = false;      // evita redirecciones dobles
 let naUsuarioTimer = null;
 
-const NA_PAGINA      = (window.location.pathname.split("/").pop() || "login.html").toLowerCase();
+const NA_PAGINA      = (window.location.pathname.split("/").pop() || "login").toLowerCase().replace(/\.html$/, "");
 const NA_ES_REGISTRO = NA_PAGINA.indexOf("registro") !== -1;
 
 /* =========================
