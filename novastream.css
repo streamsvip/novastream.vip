@@ -1378,3 +1378,15 @@ body.nsInvitado .nsModalGuestCta.nsSoloInvitado{ display:block !important; }
 @keyframes nsImgBrillo{ from{ background-position:120% 0; } to{ background-position:-120% 0; } }
 
 @media (prefers-reduced-motion:reduce){ .nsImgCargando{ animation:none; } }
+
+/* =========================================================
+   v14 — Imágenes de producto uniformes
+   Todas las tarjetas usan el mismo formato cuadrado, sin
+   importar la medida original de la imagen.
+   ========================================================= */
+.nsCardImgWrap{ aspect-ratio:1 / 1; overflow:hidden; background:#0e0f14; }
+.nsCardImg{ width:100%; height:100%; aspect-ratio:1 / 1; object-fit:cover; object-position:center; }
+.nsModalImg{ aspect-ratio:1 / 1; height:auto; object-fit:cover; }
+@media (max-width:600px){
+  .nsModalImg{ width:min(100%, 280px); height:auto; margin:0 auto; }
+}
