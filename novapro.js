@@ -25,6 +25,16 @@ const NP_MIN_RETIRO      = 5;                     // USD
 const NP_RETENCION_MS    = 24 * 60 * 60 * 1000;   // 24 h
 const NP_DIAS_AVISO      = 5;                     // aviso de vencimiento
 
+/* Monedas del precio (v14). Tasa = unidades por 1 USD.
+   Para actualizar un tipo de cambio, cambia solo el número. */
+const NP_MONEDAS = [
+  { code: "USD", pais: "EE.UU.",   simbolo: "$",   tasa: 1,              dec: 2 },
+  { code: "PEN", pais: "Perú",     simbolo: "S/",  tasa: NP_TIPO_CAMBIO, dec: 2 },
+  { code: "MXN", pais: "México",   simbolo: "MX$", tasa: 18.60,          dec: 2 },
+  { code: "BOB", pais: "Bolivia",  simbolo: "Bs",  tasa: 6.96,           dec: 2 },
+  { code: "PYG", pais: "Paraguay", simbolo: "₲",   tasa: 6450,           dec: 0 }
+];
+
 const NP_URL_LOGIN    = "login";
 const NP_URL_CATALOGO = "catalogo";
 const NP_URL_ADMIN    = "novaadmin";
@@ -74,6 +84,41 @@ let npImagenProducto = "";
 let npImgTienda = {};          // caché de imágenes de la vista de tienda
 let npCuentaEditPid = null;
 let npPanelIniciado = false;
+
+/* Pantalla de carga (v14): el panel se muestra cuando ya llegaron
+   perfil, productos, stock de cada producto y ventas. */
+const npCarga = { perfil: false, productos: false, cuentas: false, ventas: false };
+let npCargaLista = false;
+
+function npMarcarCarga(k){ npCarga[k] = true; npRevisarCarga(); }
+
+function npRevisarCarga(){
+  if (npCargaLista) return;
+  if (npCarga.productos) npCarga.cuentas = Object.keys(npProductos).every(pid => npCuentas[pid] !== undefined);
+  const claves = Object.keys(npCarga);
+  const hechos = claves.filter(k => npCarga[k]).length;
+  const barra = document.getElementById("npLoaderBarFill");
+  if (barra) barra.style.width = Math.round(15 + (hechos / claves.length) * 85) + "%";
+  if (hechos === claves.length) ocultarLoader();
+}
+
+function ocultarLoader(){
+  if (npCargaLista) return;
+  npCargaLista = true;
+  const l = document.getElementById("npLoader");
+  const barra = document.getElementById("npLoaderBarFill");
+  if (barra) barra.style.width = "100%";
+  document.body.classList.remove("npCargandoPanel");
+  if (l) { l.classList.add("oculto"); setTimeout(() => l.remove(), 450); }
+}
+
+/* Por si la conexión es lenta: nunca deja la pantalla bloqueada */
+setTimeout(() => {
+  if (npCargaLista) return;
+  const t = document.getElementById("npLoaderTexto");
+  if (t) t.textContent = "La conexión está lenta, ya casi…";
+}, 6000);
+setTimeout(ocultarLoader, 15000);
 
 
 /* =========================================================
@@ -311,7 +356,8 @@ function iniciarPanel(){
     if (!d) return;
     if (String(d.estado||"activo").toLowerCase() === "bloqueado") { cerrarSesionProveedor(); return; }
     aplicarPerfil(d);
-  }, (e) => console.error("perfil:", e.message));
+    npMarcarCarga("perfil");
+  }, (e) => { console.error("perfil:", e.message); npMarcarCarga("perfil"); });
 
   /* Ficha pública propia */
   db.ref("proveedoresPublicos/" + npUid).on("value", (s) => {
@@ -336,8 +382,10 @@ function iniciarPanel(){
     renderTablaProductos();
     renderSelectProductoCuentas();
     renderResumen();
+    npMarcarCarga("productos");
   }, (e) => {
     npProductos = {};
+    npMarcarCarga("productos");
     renderTablaProductos();
     err("No se pudieron leer tus productos: " + e.message);
   });
@@ -349,7 +397,8 @@ function iniciarPanel(){
     renderTablaVentas();
     renderResumen();
     renderRetiroCalculo();
-  }, (e) => { npVentas = {}; renderTablaVentas(); console.error("ventas:", e.message); });
+    npMarcarCarga("ventas");
+  }, (e) => { npVentas = {}; renderTablaVentas(); console.error("ventas:", e.message); npMarcarCarga("ventas"); });
 
   /* Retiros propios */
   db.ref("retirosProveedores").orderByChild("proveedorId").equalTo(npUid).on("value", (s) => {
@@ -396,11 +445,13 @@ function sincronizarListenersCuentas(){
     npCuentasRefs[pid] = ref;
     ref.on("value", (s) => {
       npCuentas[pid] = s.val() || {};
+      if (npTkActual && npTkReempId !== npTkActual) pintarReemplazoTicket();
       renderTablaProductos();
       renderCuentasProducto();
       renderResumen();
       refrescarVencimientos();
-    }, () => { npCuentas[pid] = {}; });
+      npRevisarCarga();
+    }, () => { npCuentas[pid] = {}; npRevisarCarga(); });
   });
 
   Object.keys(npCuentasRefs).forEach((pid) => {
@@ -414,6 +465,39 @@ function sincronizarListenersCuentas(){
 /* =========================================================
    HELPERS DE NEGOCIO
 ========================================================= */
+
+/* =========================================================
+   VENCIMIENTO POR CALENDARIO (v14)
+   1 mes = mismo día del mes siguiente (27/11 → 27/12), no 30 días.
+   - Duraciones múltiplo de 365 → años (12 meses c/u)
+   - Duraciones múltiplo de 30  → meses de calendario
+   - Otras (7, 15, personalizadas) → días exactos
+   - 3650 o más = permanente (se suman días tal cual)
+   Si el mes siguiente no tiene ese día (31 → feb), vence el
+   último día de ese mes.
+========================================================= */
+function sumarDuracion(inicioMs, dias){
+  const ini = Number(inicioMs || 0);
+  const d = Math.round(Number(dias || 0));
+  if (!ini || d <= 0) return ini;
+  if (d >= 3650) return ini + d * 24 * 60 * 60 * 1000;
+
+  const f = new Date(ini);
+  let meses = 0;
+  if (d % 365 === 0) meses = (d / 365) * 12;
+  else if (d % 30 === 0) meses = d / 30;
+
+  if (meses > 0) {
+    const dia = f.getDate();
+    f.setDate(1);
+    f.setMonth(f.getMonth() + meses);
+    const ultimo = new Date(f.getFullYear(), f.getMonth() + 1, 0).getDate();
+    f.setDate(Math.min(dia, ultimo));
+  } else {
+    f.setDate(f.getDate() + d);
+  }
+  return f.getTime();
+}
 
 function esIlimitado(p){ return !!p && p.stockIlimitado === true; }
 
@@ -617,7 +701,7 @@ function cuentasPorVencer(){
       if (estadoDe(c.estado, "disponible") !== "usada") return;
       if (!c.fechaVenta) return;
 
-      const vence = ts(c.fechaVenta) + dur * NP_MS_DIA;
+      const vence = sumarDuracion(ts(c.fechaVenta), dur);
       const dias = Math.ceil((vence - ahora) / NP_MS_DIA);
       if (dias > NP_DIAS_AVISO) return;
 
@@ -1177,8 +1261,14 @@ function conectarInputPlataforma(){
   inp.dataset.listo = "1";
 }
 
+/* Imagen de producto (v14): acepta CUALQUIER medida y la deja en un
+   lienzo cuadrado fijo (800×800) para que todos los productos se vean
+   del mismo tamaño en catálogo, tienda y compras.
+   - Si ya es casi cuadrada, se usa completa.
+   - Si es horizontal/vertical, se muestra COMPLETA (sin recortar) y el
+     espacio sobrante se rellena con la misma imagen desenfocada. */
 function comprimirImagen(file, lado){
-  lado = lado || 500;
+  lado = lado || 800;
   return new Promise((resolve, reject) => {
     const fr = new FileReader();
     fr.onerror = () => reject(new Error("No se pudo leer el archivo."));
@@ -1186,14 +1276,41 @@ function comprimirImagen(file, lado){
       const img = new Image();
       img.onerror = () => reject(new Error("El archivo no es una imagen válida."));
       img.onload = () => {
+        const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+        if (!iw || !ih) { reject(new Error("El archivo no es una imagen válida.")); return; }
+
         const cv = document.createElement("canvas");
         cv.width = lado; cv.height = lado;
         const ctx = cv.getContext("2d");
-        ctx.fillStyle = "#0e0f14"; ctx.fillRect(0,0,lado,lado);
-        const k = Math.max(lado/img.width, lado/img.height);
-        const w = img.width*k, h = img.height*k;
-        ctx.drawImage(img, (lado-w)/2, (lado-h)/2, w, h);
-        resolve(cv.toDataURL("image/jpeg", 0.82));
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.fillStyle = "#0e0f14"; ctx.fillRect(0, 0, lado, lado);
+
+        const ratio = iw / ih;
+        if (ratio > 0.92 && ratio < 1.08) {
+          /* Casi cuadrada: cubre todo el lienzo */
+          const k = Math.max(lado / iw, lado / ih);
+          ctx.drawImage(img, (lado - iw * k) / 2, (lado - ih * k) / 2, iw * k, ih * k);
+        } else {
+          /* Fondo: la misma imagen, muy reducida y vuelta a ampliar = desenfoque
+             (funciona en todos los navegadores, incluido Safari) */
+          const mini = document.createElement("canvas");
+          mini.width = 24; mini.height = 24;
+          const mctx = mini.getContext("2d");
+          const km = Math.max(24 / iw, 24 / ih);
+          mctx.drawImage(img, (24 - iw * km) / 2, (24 - ih * km) / 2, iw * km, ih * km);
+          ctx.drawImage(mini, -lado * 0.05, -lado * 0.05, lado * 1.1, lado * 1.1);
+          ctx.fillStyle = "rgba(8,9,12,.45)"; ctx.fillRect(0, 0, lado, lado);
+
+          /* Imagen completa centrada, con un pequeño margen */
+          const util = lado * 0.94;
+          const k = Math.min(util / iw, util / ih);
+          const w = iw * k, h = ih * k;
+          ctx.shadowColor = "rgba(0,0,0,.45)"; ctx.shadowBlur = lado * 0.03;
+          ctx.drawImage(img, (lado - w) / 2, (lado - h) / 2, w, h);
+          ctx.shadowBlur = 0;
+        }
+        resolve(cv.toDataURL("image/jpeg", 0.86));
       };
       img.src = e.target.result;
     };
@@ -1203,11 +1320,12 @@ function comprimirImagen(file, lado){
 
 async function manejarImagenProducto(file){
   if (!file) return;
-  if (!/^image\//.test(file.type)) { avisa("El archivo debe ser una imagen JPG, PNG o WEBP."); return; }
-  if (file.size > 6*1024*1024)     { avisa("La imagen no debe superar los 6 MB."); return; }
+  if (file.type && !/^image\//.test(file.type)) { avisa("El archivo debe ser una imagen (JPG, PNG o WEBP)."); return; }
+  if (file.size > 25*1024*1024) { avisa("La imagen es demasiado pesada (máximo 25 MB)."); return; }
 
   try {
-    npImagenProducto = await comprimirImagen(file, 500);
+    setTxt("npImgNombreArchivo", "Procesando imagen…");
+    npImagenProducto = await comprimirImagen(file, 800);
     const prev = $("npImgPreview");
     if (prev) prev.innerHTML = '<img src="' + npImagenProducto + '" alt="">';
     setTxt("npImgNombreArchivo", file.name);
@@ -1224,9 +1342,57 @@ function quitarImagenProducto(){
   const q = $("npBtnQuitarImagen"); if (q) q.style.display = "none";
 }
 
+function monedaPorCodigo(code){ return NP_MONEDAS.find(m => m.code === code) || NP_MONEDAS[0]; }
+function monedaElegida(){ return monedaPorCodigo(($("prodMoneda") || {}).value || "USD"); }
+
+function fmtMoneda(usdValor, m){
+  const v = num(usdValor) * m.tasa;
+  return m.simbolo + " " + v.toLocaleString("es-PE", { minimumFractionDigits: m.dec, maximumFractionDigits: m.dec });
+}
+
+/* Precio escrito en la moneda elegida → USD (lo que se guarda) */
+function precioEnUsd(){
+  const monto = num(($("prodPrecio") || {}).value);
+  return red(monto / monedaElegida().tasa);
+}
+
+function prepararSelectMoneda(){
+  const sel = $("prodMoneda");
+  if (!sel || sel.options.length) return;
+  sel.innerHTML = NP_MONEDAS.map(m => '<option value="' + m.code + '">' + m.code + ' · ' + m.simbolo + '</option>').join("");
+  sel.dataset.prev = "USD";
+  sel.addEventListener("change", () => {
+    /* Mantiene el mismo valor en dólares al cambiar de moneda */
+    const inp = $("prodPrecio");
+    const ant = monedaPorCodigo(sel.dataset.prev);
+    const nueva = monedaElegida();
+    if (inp && inp.value !== "") {
+      const usdV = num(inp.value) / ant.tasa;
+      inp.value = (usdV * nueva.tasa).toFixed(nueva.dec);
+    }
+    if (inp) inp.step = nueva.dec ? "0.01" : "1";
+    sel.dataset.prev = nueva.code;
+    actualizarFxPrecio();
+  });
+}
+
+function fijarMonedaUsd(){
+  const sel = $("prodMoneda");
+  if (sel) { sel.value = "USD"; sel.dataset.prev = "USD"; }
+  const inp = $("prodPrecio"); if (inp) inp.step = "0.01";
+}
+
 function actualizarFxPrecio(){
-  const v = num($("prodPrecio") ? $("prodPrecio").value : 0);
-  setTxt("npFxTextoPrecio", pen(v));
+  const usdV = precioEnUsd();
+  const elegida = monedaElegida();
+  const cont = $("npFxMonedas");
+  if (cont) cont.innerHTML = NP_MONEDAS.map(m =>
+    '<div class="npFxMoneda' + (m.code === elegida.code ? " on" : "") + '">' +
+      '<span>' + m.pais + '</span><strong>' + fmtMoneda(usdV, m) + '</strong>' +
+    '</div>').join("");
+  setTxt("npFxGuardado", usdV > 0
+    ? (elegida.code === "USD" ? "Se guarda como " + usd(usdV) + " USD." : "Se guarda como " + usd(usdV) + " USD (1 USD = " + elegida.simbolo + " " + elegida.tasa + ").")
+    : "Escribe el precio en la moneda que prefieras. Se guarda en dólares.");
 }
 
 /* Duración: select fijo o fecha personalizada */
@@ -1316,6 +1482,7 @@ function limpiarFormProducto(){
   setToggle("npGrupoEsRenovable", "renovable", "prodEsRenovable", "si");
 
   quitarImagenProducto();
+  fijarMonedaUsd();
   actualizarDuracion();
   actualizarFxPrecio();
 
@@ -1331,7 +1498,7 @@ async function guardarProducto(event){
 
   const nombre      = String(($("prodNombre")||{}).value || "").trim();
   const plataforma  = String(($("prodPlataforma")||{}).value || "").trim();
-  const precio      = red(($("prodPrecio")||{}).value);
+  const precio      = precioEnUsd();
   const modoEntrega = String(($("prodModoEntrega")||{}).value || "automatico");
   const reembolso   = String(($("prodAplicaReembolso")||{}).value || "si");
   const esRenovable = String(($("prodEsRenovable")||{}).value || "si");
@@ -1431,6 +1598,7 @@ function editarProducto(id){
   $("prodNombre").value      = p.nombre || "";
   $("prodPlataforma").value  = p.plataforma || "";
   renderDatalistPlataformas();
+  fijarMonedaUsd();
   $("prodPrecio").value      = num(p.precioUsd).toFixed(2);
   $("prodDescripcion").value = p.descripcion || "";
   $("prodReglas").value      = p.reglas || "";
@@ -1508,15 +1676,81 @@ async function eliminarProducto(id){
   catch (e) { err("No se pudo eliminar: " + e.message); }
 }
 
+/* Mis productos (v14): buscador + categorías + estado.
+   En celular la tabla se ve como tarjetas (sin deslizar). */
+let npProdFiltro = { q: "", cat: "todas", estado: "todos" };
+
+function estadoProducto(id){
+  const p = npProductos[id] || {};
+  if (p.activo === false) return "pausado";
+  return esIlimitado(p) || stockReal(id) > 0 ? "activo" : "agotado";
+}
+
+/* Chips de categoría con conteo (se arma a partir de una lista de ids) */
+function chipsCategorias(ids, actual, fnNombre){
+  const cuenta = {};
+  ids.forEach(id => {
+    const c = String((npProductos[id] || {}).plataforma || "Sin categoría").trim() || "Sin categoría";
+    cuenta[c] = (cuenta[c] || 0) + 1;
+  });
+  const cats = Object.keys(cuenta).sort((a, b) => a.localeCompare(b, "es"));
+  return '<button type="button" class="npChip' + (actual === "todas" ? " on" : "") + '" onclick="' + fnNombre + '(\'todas\')">Todas<b>' + ids.length + '</b></button>' +
+    cats.map(c => '<button type="button" class="npChip' + (actual === c ? " on" : "") + '" onclick="' + fnNombre + '(\'' + escJS(c) + '\')">' +
+      esc(c) + '<b>' + cuenta[c] + '</b></button>').join("");
+}
+
+function filtrarProdCategoria(c){ npProdFiltro.cat = c; renderTablaProductos(); }
+function filtrarProdEstado(e){ npProdFiltro.estado = e; renderTablaProductos(); }
+
+/* Copia el texto de cada <th> al data-label de sus celdas (vista tarjeta) */
+function etiquetarTabla(tbody){
+  if (!tbody) return;
+  const tabla = tbody.closest("table");
+  const ths = tabla ? Array.from(tabla.querySelectorAll("thead th")).map(th => th.textContent.trim()) : [];
+  tbody.querySelectorAll("tr").forEach(tr => {
+    Array.from(tr.children).forEach((td, i) => { if (ths[i] && !td.hasAttribute("data-label")) td.setAttribute("data-label", ths[i]); });
+  });
+}
+
 function renderTablaProductos(){
   const tbody = $("npTablaProductos");
   if (!tbody) return;
 
-  const ids = Object.keys(npProductos)
+  const todos = Object.keys(npProductos)
     .sort((a,b) => norm(npProductos[a].nombre).localeCompare(norm(npProductos[b].nombre)));
 
-  if (!ids.length) {
+  if (npProdFiltro.cat !== "todas" &&
+      !todos.some(id => (String(npProductos[id].plataforma || "Sin categoría").trim() || "Sin categoría") === npProdFiltro.cat)) {
+    npProdFiltro.cat = "todas";
+  }
+
+  /* Categorías (respetan la búsqueda) */
+  const q = norm(npProdFiltro.q);
+  const porTexto = todos.filter(id => {
+    const p = npProductos[id];
+    return !q || norm([p.nombre, p.plataforma, id].join(" ")).includes(q);
+  });
+  const cats = $("npProdCats");
+  if (cats) cats.innerHTML = todos.length ? chipsCategorias(porTexto, npProdFiltro.cat, "filtrarProdCategoria") : "";
+
+  const porCat = porTexto.filter(id => npProdFiltro.cat === "todas" ||
+    (String(npProductos[id].plataforma || "Sin categoría").trim() || "Sin categoría") === npProdFiltro.cat);
+
+  const cuentaEst = { todos: porCat.length, activo: 0, agotado: 0, pausado: 0 };
+  porCat.forEach(id => { cuentaEst[estadoProducto(id)]++; });
+  const est = $("npProdEstados");
+  if (est) est.innerHTML = todos.length ? [["todos","Todos"],["activo","Activos"],["agotado","Agotados"],["pausado","Pausados"]]
+    .map(([k, t]) => '<button type="button" class="npChip mini ' + k + (npProdFiltro.estado === k ? " on" : "") + '" onclick="filtrarProdEstado(\'' + k + '\')">' + t + '<b>' + cuentaEst[k] + '</b></button>').join("") : "";
+
+  const ids = porCat.filter(id => npProdFiltro.estado === "todos" || estadoProducto(id) === npProdFiltro.estado);
+  setTxt("npProdConteo", todos.length ? "Mostrando " + ids.length + " de " + todos.length + " producto" + (todos.length === 1 ? "" : "s") + "." : "");
+
+  if (!todos.length) {
     tbody.innerHTML = '<tr><td colspan="10" class="npTdEmpty"><div class="npEmpty">Aún no tienes productos registrados.</div></td></tr>';
+    return;
+  }
+  if (!ids.length) {
+    tbody.innerHTML = '<tr><td colspan="10" class="npTdEmpty"><div class="npEmpty">No hay productos con estos filtros.</div></td></tr>';
     return;
   }
 
@@ -1529,22 +1763,23 @@ function renderTablaProductos(){
     const renovable = p.esRenovable === false ? "No" : "Sí";
 
     return '<tr>' +
-      '<td class="txt"><strong>' + esc(p.nombre || id) + '</strong></td>' +
-      '<td style="font-size:10.5px;">' + esc(id.slice(0,12)) + '…</td>' +
-      '<td class="txt">' + esc(p.plataforma || "-") + '</td>' +
+      '<td class="txt npTdTitulo"><strong>' + esc(p.nombre || id) + '</strong><span class="npTdSub">' + esc(p.plataforma || "Sin categoría") + '</span></td>' +
+      '<td class="npTdId" style="font-size:10.5px;">' + esc(id.slice(0,12)) + '…</td>' +
+      '<td class="txt npTdPlat">' + esc(p.plataforma || "-") + '</td>' +
       '<td class="txt">' + renovable + '</td>' +
       '<td class="txt">' + (p.modoEntrega === "manual" ? "Manual" : "Automático") + '</td>' +
       '<td class="txt">' + (p.aplicaReembolso === "no" ? "No" : "Sí") + '</td>' +
       '<td>' + usd(p.precioUsd) + '<br><span style="font-size:10px;opacity:.6;">' + pen(p.precioUsd) + '</span></td>' +
       '<td><strong>' + s + '</strong></td>' +
       '<td>' + badge(estado) + '</td>' +
-      '<td><div class="npActionRow">' +
+      '<td class="npTdAcciones"><div class="npActionRow">' +
         '<button class="npBtnMini edit" onclick="editarProducto(\'' + escJS(id) + '\')">Editar</button>' +
         '<button class="npBtnMini toggle" onclick="toggleActivoProducto(\'' + escJS(id) + '\')">' + (activo ? "Pausar" : "Activar") + '</button>' +
         '<button class="npBtnMini del" onclick="eliminarProducto(\'' + escJS(id) + '\')">Borrar</button>' +
       '</div></td>' +
     '</tr>';
   }).join("");
+  etiquetarTabla(tbody);
 }
 
 /* =========================================================
@@ -1567,6 +1802,80 @@ function renderSelectProductoCuentas(){
 
   if (actual && ids.includes(actual)) sel.value = actual;
   renderCuentasProducto();
+}
+
+/* Selector de producto para cargar stock (v14).
+   Todo queda abierto en pantalla: la búsqueda y las categorías
+   filtran la lista al instante, sin desplegables que se cierran. */
+let npPick = { q: "", cat: "todas" };
+
+function productosConStock(){
+  return Object.keys(npProductos)
+    .filter(id => !esIlimitado(npProductos[id]))
+    .sort((a,b) => norm(npProductos[a].nombre).localeCompare(norm(npProductos[b].nombre)));
+}
+
+function filtrarPickCategoria(c){ npPick.cat = c; renderPickerCuentas(); }
+
+function disponiblesDe(pid){
+  const c = npCuentas[pid] || {};
+  return Object.keys(c).filter(cid => estadoDe(c[cid].estado, "disponible") === "disponible").length;
+}
+
+function renderPickerCuentas(){
+  const lista = $("npPickLista");
+  if (!lista) return;
+  const sel = $("npCuentaProducto");
+  const actual = sel ? sel.value : "";
+  const todos = productosConStock();
+
+  const cab = $("npPickSel");
+  if (cab) {
+    const p = npProductos[actual];
+    cab.classList.toggle("on", !!p);
+    cab.innerHTML = p
+      ? '<span class="npPickSelIco">✓</span><div><small>Cargando stock en</small><strong>' + esc(p.nombre) + '</strong><em>' +
+          esc(p.plataforma || "Sin categoría") + ' · ' + disponiblesDe(actual) + ' disponibles</em></div>' +
+        '<button type="button" class="npBtnMini toggle" onclick="elegirProductoCuentas(\'\')">Cambiar</button>'
+      : '<span>Ningún producto seleccionado. Elige uno de la lista.</span>';
+  }
+
+  if (npPick.cat !== "todas" &&
+      !todos.some(id => (String(npProductos[id].plataforma || "Sin categoría").trim() || "Sin categoría") === npPick.cat)) npPick.cat = "todas";
+
+  const q = norm(npPick.q);
+  const porTexto = todos.filter(id => !q || norm([npProductos[id].nombre, npProductos[id].plataforma, id].join(" ")).includes(q));
+  const cats = $("npPickCats");
+  if (cats) cats.innerHTML = todos.length ? chipsCategorias(porTexto, npPick.cat, "filtrarPickCategoria") : "";
+
+  const ids = porTexto.filter(id => npPick.cat === "todas" ||
+    (String(npProductos[id].plataforma || "Sin categoría").trim() || "Sin categoría") === npPick.cat);
+
+  if (!todos.length) { lista.innerHTML = '<div class="npEmpty">Primero crea un producto en la pestaña «Productos».</div>'; return; }
+  if (!ids.length)   { lista.innerHTML = '<div class="npEmpty">No hay productos que coincidan.</div>'; return; }
+
+  lista.innerHTML = ids.map(id => {
+    const p = npProductos[id];
+    const disp = disponiblesDe(id);
+    return '<button type="button" class="npPickItem' + (id === actual ? " on" : "") + (p.activo === false ? " pausado" : "") +
+      '" onclick="elegirProductoCuentas(\'' + escJS(id) + '\')">' +
+      '<div class="npPickItemTxt"><strong>' + esc(p.nombre || id) + '</strong><span>' + esc(p.plataforma || "Sin categoría") +
+        (p.activo === false ? ' · Pausado' : '') + '</span></div>' +
+      '<span class="npPickStock' + (disp ? "" : " cero") + '">' + disp + '<small>disp.</small></span>' +
+    '</button>';
+  }).join("");
+}
+
+function elegirProductoCuentas(id){
+  const sel = $("npCuentaProducto");
+  if (!sel) return;
+  sel.value = id || "";
+  const w = $("npCorreoResultadoWrap"); if (w) w.style.display = "none";
+  renderCuentasProducto();
+  if (id && window.innerWidth < 820) {
+    const f = $("formCargaMasiva");
+    if (f) setTimeout(() => f.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+  }
 }
 
 /* Parser flexible: acepta "Correo: x Contraseña: y Perfil: z PIN: n"
@@ -1645,6 +1954,7 @@ async function cargarCuentasMasivo(event){
 /* En "Cuentas usadas" se muestran las marcas "Reemplazada xN" y
    "Renovada xN", y el botón dice "Reemplazar". */
 function renderCuentasProducto(){
+  renderPickerCuentas();
   const pid = String(($("npCuentaProducto")||{}).value || "").trim();
   const tbDisp = $("npTablaCuentasDisponibles");
   const tbUsad = $("npTablaCuentasUsadas");
@@ -1703,7 +2013,7 @@ function renderCuentasProducto(){
 
       tbUsad.innerHTML = usad.map(cid => {
         const c = cuentas[cid];
-        const vence = c.fechaVenta && dur > 0 ? ts(c.fechaVenta) + dur*24*60*60*1000 : 0;
+        const vence = c.fechaVenta && dur > 0 ? sumarDuracion(ts(c.fechaVenta), dur) : 0;
         const expirada = vence && vence < Date.now();
 
         const marcas = [];
@@ -1730,6 +2040,9 @@ function renderCuentasProducto(){
       }).join("");
     }
   }
+
+  etiquetarTabla(tbDisp);
+  etiquetarTabla(tbUsad);
 
   /* ---- Select de correos para cambio de clave ---- */
   if (selCorreo) {
@@ -1809,7 +2122,7 @@ async function guardarCuentaEditada(event){
                        perfil !== (actual.perfil || "") ||
                        pin    !== (actual.pin    || "");
 
-  const data = { correo, clave, perfil, pin, observacion };
+  let data = { correo, clave, perfil, pin, observacion };
 
   if (entregada && cambioDatos) {
     const seguro = await confirmar(
@@ -1820,22 +2133,7 @@ async function guardarCuentaEditada(event){
     );
     if (!seguro) return;
 
-    const ahora = Date.now();
-    const histKey = db.ref("cuentas/" + pid + "/" + cid + "/historialReemplazos").push().key;
-
-    data.reemplazada    = true;
-    data.tipoCambio     = cambioCorreo ? "cuenta" : "credenciales";
-    data.fechaReemplazo = ahora;
-    data.reemplazos     = num(actual.reemplazos) + 1;
-    data["historialReemplazos/" + histKey] = {
-      tipo:           data.tipoCambio,
-      correoAnterior: actual.correo || "",
-      perfilAnterior: actual.perfil || "",
-      correoNuevo:    correo,
-      perfilNuevo:    perfil,
-      nota:           observacion,
-      fecha:          ahora
-    };
+    data = datosReemplazo(pid, cid, actual, { correo, clave, perfil, pin }, observacion);
   }
 
   try {
@@ -1847,6 +2145,36 @@ async function guardarCuentaEditada(event){
   } catch (e) {
     err("No se pudo guardar: " + e.message);
   }
+}
+
+/* Arma los campos de un reemplazo sobre una cuenta ENTREGADA.
+   Mis compras lee estas marcas en vivo y muestra
+   «Cuenta reemplazada» / «Datos actualizados». */
+function datosReemplazo(pid, cid, actual, nuevos, nota){
+  const ahora = Date.now();
+  const cambioCorreo = String(nuevos.correo || "") !== String(actual.correo || "");
+  const histKey = db.ref("cuentas/" + pid + "/" + cid + "/historialReemplazos").push().key;
+  const data = {
+    correo:         nuevos.correo || "",
+    clave:          nuevos.clave  || "",
+    perfil:         nuevos.perfil || "",
+    pin:            nuevos.pin    || "",
+    observacion:    nota || actual.observacion || "",
+    reemplazada:    true,
+    tipoCambio:     cambioCorreo ? "cuenta" : "credenciales",
+    fechaReemplazo: ahora,
+    reemplazos:     num(actual.reemplazos) + 1
+  };
+  data["historialReemplazos/" + histKey] = {
+    tipo:           data.tipoCambio,
+    correoAnterior: actual.correo || "",
+    perfilAnterior: actual.perfil || "",
+    correoNuevo:    data.correo,
+    perfilNuevo:    data.perfil,
+    nota:           nota || "",
+    fecha:          ahora
+  };
+  return data;
 }
 
 async function eliminarCuenta(pid, cid){
@@ -2571,7 +2899,168 @@ function abrirTicketProv(id){
   marcarLeidoProv(id);
 }
 
-function cerrarTicketProv(){ cerrarModal("npModalTicket"); npTkActual = null; }
+function cerrarTicketProv(){ cerrarModal("npModalTicket"); npTkActual = null; npTkReempId = null; }
+
+/* =========================================================
+   REEMPLAZAR CREDENCIALES DESDE EL TICKET (v14)
+   El proveedor cambia la cuenta del cliente sin salir del
+   ticket: editando los datos o tomando una cuenta libre del
+   stock del mismo producto (esa cuenta sale del stock).
+========================================================= */
+
+let npTkReempId = null;          // ticket para el que se pintó el bloque
+let npTkReempModo = "editar";    // "editar" | "stock"
+let npTkReempEnviando = false;
+
+function cuentaDelTicket(t){
+  if (!t || !t.productoId || !t.cuentaId) return null;
+  const c = (npCuentas[t.productoId] || {})[t.cuentaId];
+  return c ? { pid: t.productoId, cid: t.cuentaId, c } : null;
+}
+
+function cuentasLibres(pid){
+  const cuentas = npCuentas[pid] || {};
+  return Object.keys(cuentas)
+    .filter(cid => estadoDe(cuentas[cid].estado, "disponible") === "disponible")
+    .map(cid => Object.assign({ cid }, cuentas[cid]))
+    .sort((a, b) => ts(a.fechaCreacion) - ts(b.fechaCreacion));
+}
+
+function pintarReemplazoTicket(){
+  const box = $("npTkReemplazo");
+  if (!box) return;
+  npTkReempId = npTkActual;
+  const t = npTickets[npTkActual];
+  const ref = cuentaDelTicket(t);
+
+  if (!ref) {
+    box.innerHTML = t && t.cuentaId
+      ? '<div class="tkRmAviso">Esta cuenta ya no está en tu stock (pudo ser reembolsada o borrada), así que no se puede reemplazar desde aquí.</div>'
+      : "";
+    return;
+  }
+
+  const c = ref.c;
+  const libres = cuentasLibres(ref.pid);
+  if (npTkReempModo === "stock" && !libres.length) npTkReempModo = "editar";
+
+  box.innerHTML =
+    '<details class="tkRm">' +
+      '<summary><span>🔄 Reemplazar credenciales</span><small>Cambia la cuenta del cliente aquí mismo</small></summary>' +
+      '<div class="tkRmBody">' +
+        '<div class="tkRmActual"><span>Ahora tiene</span><strong>' + esc(c.correo || "-") +
+          (c.clave ? ' · ' + esc(c.clave) : '') + (c.perfil ? ' · Perfil ' + esc(c.perfil) : '') + (c.pin ? ' · PIN ' + esc(c.pin) : '') +
+        '</strong></div>' +
+        '<div class="tkRmModos">' +
+          '<button type="button" class="tkRmModo' + (npTkReempModo === "editar" ? " on" : "") + '" onclick="modoReemplazoTicket(\'editar\')">✏️ Escribir datos nuevos</button>' +
+          '<button type="button" class="tkRmModo' + (npTkReempModo === "stock" ? " on" : "") + '"' + (libres.length ? "" : " disabled") +
+            ' onclick="modoReemplazoTicket(\'stock\')">📦 Usar cuenta del stock (' + libres.length + ')</button>' +
+        '</div>' +
+        (npTkReempModo === "stock"
+          ? '<div class="tkCampo"><label>Cuenta libre de este producto</label><select id="npTkRmStock">' +
+              libres.map(x => '<option value="' + esc(x.cid) + '">' + esc(x.correo || "-") +
+                (x.perfil ? ' · Perfil ' + esc(x.perfil) : '') + (x.pin ? ' · PIN ' + esc(x.pin) : '') + '</option>').join("") +
+            '</select><small class="tkRmAyuda">Esa cuenta sale del stock y queda asignada a este cliente.</small></div>'
+          : '<div class="tkRmGrid">' +
+              '<div class="tkCampo full"><label>Correo / usuario</label><input type="text" id="npTkRmCorreo" value="' + esc(c.correo || "") + '" /></div>' +
+              '<div class="tkCampo"><label>Contraseña</label><input type="text" id="npTkRmClave" value="' + esc(c.clave || "") + '" /></div>' +
+              '<div class="tkCampo"><label>Perfil</label><input type="text" id="npTkRmPerfil" value="' + esc(c.perfil || "") + '" /></div>' +
+              '<div class="tkCampo"><label>PIN</label><input type="text" id="npTkRmPin" value="' + esc(c.pin || "") + '" /></div>' +
+            '</div>') +
+        '<div class="tkCampo"><label>Nota (opcional)</label><input type="text" id="npTkRmNota" maxlength="160" placeholder="Ej. La cuenta anterior se cayó" /></div>' +
+        '<label class="tkRmCheck"><input type="checkbox" id="npTkRmAvisar" checked /> Avisar al cliente en este ticket</label>' +
+        '<button type="button" class="tkBtn primario tkRmBtn" id="npTkRmAplicar" onclick="aplicarReemplazoTicket()">Aplicar reemplazo</button>' +
+      '</div>' +
+    '</details>';
+}
+
+function modoReemplazoTicket(modo){
+  npTkReempModo = modo;
+  pintarReemplazoTicket();
+  const d = document.querySelector("#npTkReemplazo details");
+  if (d) d.open = true;
+}
+
+async function aplicarReemplazoTicket(){
+  if (npTkReempEnviando) return;
+  const tid = npTkActual;
+  const t = npTickets[tid];
+  const ref = cuentaDelTicket(t);
+  if (!ref) { avisa("No se encontró la cuenta de este ticket."); return; }
+
+  const val = (id) => String(($(id) || {}).value || "").trim();
+  const nota = val("npTkRmNota");
+  const avisar = !!($("npTkRmAvisar") || {}).checked;
+  const updates = {};
+  let nuevos;
+
+  if (npTkReempModo === "stock") {
+    const scid = val("npTkRmStock");
+    const libre = (npCuentas[ref.pid] || {})[scid];
+    if (!libre || estadoDe(libre.estado, "disponible") !== "disponible") { avisa("Esa cuenta ya no está disponible. Elige otra."); pintarReemplazoTicket(); return; }
+    nuevos = { correo: libre.correo || "", clave: libre.clave || "", perfil: libre.perfil || "", pin: libre.pin || "" };
+    const nuevoStock = Math.max(0, stockReal(ref.pid) - 1);
+    updates["cuentas/" + ref.pid + "/" + scid] = null;
+    updates["productos/" + ref.pid + "/stock"] = nuevoStock;
+    updates["stock/" + ref.pid] = nuevoStock;
+  } else {
+    nuevos = { correo: val("npTkRmCorreo"), clave: val("npTkRmClave"), perfil: val("npTkRmPerfil"), pin: val("npTkRmPin") };
+    if (!nuevos.correo) { avisa("El correo no puede quedar vacío."); return; }
+    const a = ref.c;
+    if (nuevos.correo === (a.correo || "") && nuevos.clave === (a.clave || "") &&
+        nuevos.perfil === (a.perfil || "") && nuevos.pin === (a.pin || "")) {
+      avisa("No cambiaste ningún dato."); return;
+    }
+  }
+
+  const seguro = await confirmar("Reemplazar credenciales",
+    (t.clienteNombre || "El cliente") + " verá los datos nuevos al instante en «Mis compras».", "🔄");
+  if (!seguro) return;
+
+  const data = datosReemplazo(ref.pid, ref.cid, ref.c, nuevos, nota);
+  Object.keys(data).forEach(k => { updates["cuentas/" + ref.pid + "/" + ref.cid + "/" + k] = data[k]; });
+
+  npTkReempEnviando = true;
+  const btn = $("npTkRmAplicar"); if (btn) { btn.disabled = true; btn.textContent = "Aplicando..."; }
+
+  try {
+    await db.ref().update(updates);
+  } catch (e) {
+    err("No se pudo reemplazar: " + e.message);
+    npTkReempEnviando = false;
+    if (btn) { btn.disabled = false; btn.textContent = "Aplicar reemplazo"; }
+    return;
+  }
+
+  /* Datos visibles en el ticket + aviso al cliente */
+  try {
+    const ahora = Date.now();
+    const base = "tickets/" + tid + "/";
+    const up = {};
+    up[base + "cuentaCorreo"] = nuevos.correo;
+    up[base + "cuentaPerfil"] = nuevos.perfil;
+    up[base + "actualizado"]  = ahora;
+    if (avisar) {
+      const mid = db.ref(base + "mensajes").push().key;
+      up[base + "mensajes/" + mid] = {
+        autor: "proveedor", autorId: npUid, autorNombre: nombreTiendaActual(), fecha: ahora,
+        texto: "🔄 Te reemplacé las credenciales de este acceso. Ya puedes ver los datos nuevos en «Mis compras»." + (nota ? " Nota: " + nota : "")
+      };
+      up[base + "estado"] = npTkEstado(t) === "resuelto" ? "resuelto" : "pendiente";
+      up[base + "ultimoAutor"] = "proveedor";
+      up[base + "noLeidoCliente"] = true;
+      up[base + "noLeidoProveedor"] = false;
+    }
+    await db.ref().update(up);
+  } catch (e) {
+    console.error("ticket tras reemplazo:", e && e.message);
+  }
+
+  npTkReempEnviando = false;
+  ok("Credenciales reemplazadas. El cliente ya ve los datos nuevos.");
+  npTkReempModo = "editar";
+  if (npTkActual === tid) npTkReempId = null;   // se repinta cuando llegan las cuentas nuevas
+}
 
 function marcarLeidoProv(id){
   const t = npTickets[id];
@@ -2593,6 +3082,8 @@ function pintarTicketProv(){
     '<div class="tkInfoItem"><span>Motivo</span><strong>' + esc(t.motivoTitulo || "Consulta") + '</strong></div>' +
     '<div class="tkInfoItem full"><span>Cuenta afectada</span><strong>' + esc(t.cuentaCorreo || "-") +
       (t.cuentaPerfil ? " · " + esc(t.cuentaPerfil) : "") + '</strong></div>';
+
+  if (npTkReempId !== npTkActual) pintarReemplazoTicket();
 
   const pasos = $("npTkPasos"); if (pasos) pasos.innerHTML = npTkPasos(est);
 
@@ -2906,8 +3397,10 @@ function prepararFormularios(){
   const btnCancel = $("npBtnCancelarEdicionProducto");
   if (btnCancel) btnCancel.addEventListener("click", limpiarFormProducto);
 
+  prepararSelectMoneda();
   const precio = $("prodPrecio");
   if (precio) precio.addEventListener("input", actualizarFxPrecio);
+  actualizarFxPrecio();
 
   const dur = $("prodDuracion");
   if (dur) dur.addEventListener("change", actualizarDuracion);
@@ -2940,6 +3433,12 @@ function prepararFormularios(){
     renderCuentasProducto();
     const w = $("npCorreoResultadoWrap"); if (w) w.style.display = "none";
   });
+
+  const pickQ = $("npPickBuscar");
+  if (pickQ) pickQ.addEventListener("input", () => { npPick.q = pickQ.value; renderPickerCuentas(); });
+
+  const prodQ = $("npProdBuscar");
+  if (prodQ) prodQ.addEventListener("input", () => { npProdFiltro.q = prodQ.value; renderTablaProductos(); });
 
   const fMasiva = $("formCargaMasiva");
   if (fMasiva) fMasiva.addEventListener("submit", cargarCuentasMasivo);
